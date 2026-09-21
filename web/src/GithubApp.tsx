@@ -57,6 +57,7 @@ export default function GithubApp(){
   const [files,setFiles]=useState<string[]>([]);
   const [loadingData,setLoadingData]=useState(true);
   const [sending,setSending]=useState(false);
+  const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
   const timer=useRef<number|undefined>(undefined);
@@ -302,7 +303,7 @@ export default function GithubApp(){
     const node=chatScrollRef.current;
     if(!node)return;
     requestAnimationFrame(()=>node.scrollTo({top:node.scrollHeight,behavior:'smooth'}));
-  },[activeId,active?.messages.length]);
+  },[activeId,active?.messages.length,pendingUserMessage?.id,sending]);
 
   async function createConversation(title='محادثة جديدة'){
     if(!supabase||!userId)return null;
@@ -325,6 +326,13 @@ export default function GithubApp(){
     if(!fromVoice)setInput('');
     setErrorText('');
     setSending(true);
+    const optimisticMessage:Message={
+      id:'pending-'+Date.now(),
+      role:'user',
+      content:text,
+      createdAt:Date.now()
+    };
+    setPendingUserMessage(optimisticMessage);
     animate(stateForUserText(text),0);
 
     try {
@@ -354,6 +362,7 @@ export default function GithubApp(){
         createdAt:new Date(assistantRow.created_at).getTime()
       };
 
+      setPendingUserMessage(null);
       setActiveId(conversationId);
       setConversations(prev=>{
         const existing=prev.find(c=>c.id===conversationId);
@@ -370,7 +379,8 @@ export default function GithubApp(){
       if(!speaking) animate(answerState,Math.min(5000,Math.max(1500,assistantMessage.content.length*18)));
     } catch (error) {
       console.error('DAI chat failed', error);
-      setInput(text);
+      setPendingUserMessage(null);
+      if(!fromVoice)setInput(text);
       setErrorText(await explainChatError(error));
       animate('idle',0);
     } finally {
@@ -526,7 +536,13 @@ export default function GithubApp(){
               <p dir='auto'>{m.content}</p>
             </article>
           )}
-        {sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بتجهز ردها</span></div>}
+        {pendingUserMessage&&
+          <article className='classic-chat-message user pending' key={pendingUserMessage.id}>
+            <strong>أنت</strong>
+            <p dir='auto'>{pendingUserMessage.content}</p>
+          </article>
+        }
+        {sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error'>{errorText}</div>}
