@@ -178,7 +178,6 @@ export default function GithubApp(){
   const typingTimer=useRef<number|undefined>(undefined);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
-  const speechStreamNextTimeRef=useRef(0);
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
@@ -431,19 +430,13 @@ export default function GithubApp(){
       try{source.stop();}catch{}
     }
     speechStreamSourcesRef.current.clear();
-    speechStreamNextTimeRef.current=0;
   }
 
-  function base64L16ToFloat32(base64:string){
+  function base64ToArrayBuffer(base64:string){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    const frames=Math.floor(bytes.byteLength/2);
-    const output=new Float32Array(frames);
-    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-    // Gemini streaming TTS returns raw signed 16-bit PCM at 24 kHz, little-endian.
-    for(let i=0;i<frames;i++)output[i]=view.getInt16(i*2,true)/32768;
-    return output;
+    return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
   async function streamSpeech(
@@ -452,17 +445,9 @@ export default function GithubApp(){
     onStart?:()=>void,
     onEnd?:()=>void
   ){
-    if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
+    if(!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
-
-    let {data:{session}}=await supabase.auth.getSession();
-    if(!session){
-      const refreshed=await supabase.auth.refreshSession();
-      session=refreshed.data.session;
-    }
-    const token=session?.access_token||'';
-    if(!token)return false;
 
     const ctx=ensureSpeechAudioContext();
     if(!ctx)return false;
@@ -471,113 +456,27 @@ export default function GithubApp(){
     }
     if(ctx.state!=='running')return false;
 
-    const response=await fetch(
-      supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-stream',
-      {
-        method:'POST',
-        headers:{
-          Authorization:'Bearer '+token,
-          apikey:supabasePublishableKey,
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({text:spoken})
-      }
-    );
-    if(!response.ok||!response.body)throw new Error('tts-stream-failed');
+    const {data,error}=await supabase.functions.invoke('tts',{body:{text:spoken}});
+    if(error||!data?.audioBase64)throw error||new Error('tts-audio-missing');
+    if(runId!==speechRunRef.current)return false;
 
-    const reader=response.body.getReader();
-    const decoder=new TextDecoder();
-    let buffer='';
-    let started=false;
-    let gotAudio=false;
-    let providerDone=false;
+    const audioBytes=base64ToArrayBuffer(String(data.audioBase64));
+    const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
+    if(runId!==speechRunRef.current)return false;
 
-    const scheduleChunk=(base64:string,sampleRate=24000)=>{
-      if(runId!==speechRunRef.current)return;
-      const samples=base64L16ToFloat32(base64);
-      if(!samples.length)return;
+    stopSpeechAudio();
 
-      const audioBuffer=ctx.createBuffer(1,samples.length,sampleRate);
-      audioBuffer.copyToChannel(samples,0);
-      const source=ctx.createBufferSource();
-      source.buffer=audioBuffer;
-      source.connect(ctx.destination);
-
-      const startAt=Math.max(
-        ctx.currentTime+.012,
-        speechStreamNextTimeRef.current||0
-      );
-      source.start(startAt);
-      speechStreamNextTimeRef.current=startAt+audioBuffer.duration;
-      speechStreamSourcesRef.current.add(source);
-      source.onended=()=>{
-        speechStreamSourcesRef.current.delete(source);
-      };
-
-      if(!started){
-        started=true;
-        gotAudio=true;
-        const delay=Math.max(0,(startAt-ctx.currentTime)*1000);
-        window.setTimeout(()=>{
-          if(runId!==speechRunRef.current)return;
-          onStart?.();
-        },delay);
-      }else{
-        gotAudio=true;
-      }
+    const source=ctx.createBufferSource();
+    source.buffer=decoded;
+    source.connect(ctx.destination);
+    speechStreamSourcesRef.current.add(source);
+    source.onended=()=>{
+      speechStreamSourcesRef.current.delete(source);
+      if(runId===speechRunRef.current)onEnd?.();
     };
 
-    while(true){
-      const {value,done}=await reader.read();
-      if(done)break;
-      if(runId!==speechRunRef.current){
-        try{reader.cancel();}catch{}
-        return false;
-      }
-
-      buffer+=decoder.decode(value,{stream:true});
-      const frames=buffer.split(/\r?\n\r?\n/);
-      buffer=frames.pop()||'';
-
-      for(const frame of frames){
-        let eventName='message';
-        const dataLines:string[]=[];
-        for(const line of frame.split(/\r?\n/)){
-          if(line.startsWith('event:'))eventName=line.slice(6).trim();
-          else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
-        }
-        if(!dataLines.length)continue;
-        let payload:any;
-        try{payload=JSON.parse(dataLines.join('\n'));}catch{continue;}
-
-        if(eventName==='audio'&&payload?.data){
-          scheduleChunk(
-            String(payload.data),
-            Number(payload.sampleRate||24000)
-          );
-        }else if(eventName==='done'){
-          providerDone=true;
-        }else if(eventName==='error'){
-          throw new Error(String(payload?.code||'tts-stream-error'));
-        }
-      }
-    }
-
-    if(!gotAudio)return false;
-
-    const waitForDrain=async()=>{
-      while(runId===speechRunRef.current){
-        const waitMs=Math.max(
-          0,
-          (speechStreamNextTimeRef.current-ctx.currentTime)*1000
-        );
-        if(providerDone&&waitMs<=25&&speechStreamSourcesRef.current.size===0)break;
-        await new Promise(resolve=>window.setTimeout(resolve,Math.min(90,Math.max(20,waitMs))));
-      }
-    };
-
-    await waitForDrain();
-    if(runId===speechRunRef.current)onEnd?.();
+    source.start(0);
+    onStart?.();
     return true;
   }
 
