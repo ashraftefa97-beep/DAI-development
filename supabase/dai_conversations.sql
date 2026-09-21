@@ -157,3 +157,26 @@ $$;
 
 revoke execute on function public.dai_rate_limit_hit(integer, integer) from public, anon;
 grant execute on function public.dai_rate_limit_hit(integer, integer) to authenticated;
+
+
+-- DAI account plans. Missing row = Standard.
+create table if not exists public.dai_entitlements (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  plan text not null default 'standard' check (plan in ('standard','professional')),
+  source text not null default 'manual' check (source in ('owner','manual','subscription','promo')),
+  expires_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.dai_entitlements enable row level security;
+
+drop policy if exists "Users can read own DAI entitlement" on public.dai_entitlements;
+create policy "Users can read own DAI entitlement"
+on public.dai_entitlements
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+revoke all privileges on table public.dai_entitlements from anon;
+revoke insert, update, delete, truncate, references, trigger on table public.dai_entitlements from authenticated;
+grant select on table public.dai_entitlements to authenticated;
