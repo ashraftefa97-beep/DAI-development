@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('daiDesktop', {
   setSession: (accessToken) => ipcRenderer.invoke('dai:set-session', String(accessToken || '')),
   clearSession: () => ipcRenderer.invoke('dai:clear-session'),
   runningApps: () => ipcRenderer.invoke('dai:running-apps'),
+  captureScreenSnapshot: () => ipcRenderer.invoke('dai:screen-snapshot'),
   companionState: () => ipcRenderer.invoke('dai:companion-state'),
   showCompanion: () => ipcRenderer.invoke('dai:companion-show'),
   hideCompanion: () => ipcRenderer.invoke('dai:companion-hide'),
