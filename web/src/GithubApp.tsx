@@ -1246,14 +1246,12 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
-    let finalAssistantText='';
     let streamedAssistantText='';
     const shouldSpeak=voiceEnabled && (
       speechMode==='always' ||
       (speechMode==='auto' && wantsSpokenReply(text))
     );
     let earlyText='';
-    let earlyStarted=false;
     let earlyFinished=false;
     let earlyFailed=false;
     let finalVoiceReady=false;
@@ -1302,7 +1300,6 @@ export default function GithubApp(){
         .then(async data=>{
           if(controller.signal.aborted||earlyRun!==speechRunRef.current)return;
           await unlockSpeechAudio();
-          earlyStarted=true;
           await playSpeechBuffer(
             data.audioBase64,
             ()=>{
@@ -1406,7 +1403,6 @@ export default function GithubApp(){
           content:String(row.content||''),
           createdAt:new Date(row.created_at).getTime()
         };
-        finalAssistantText=assistantMessage.content;
 
         setConversations(prev=>prev.map(item=>{
           if(item.id!==conversationId)return item;
@@ -1675,7 +1671,6 @@ export default function GithubApp(){
         ));
       };
 
-      const answerState=stateForAssistantText(assistantMessage.content);
       if(voiceEnabled){
         animate('focus',0);
         const speaking=await speakReply(assistantMessage.content,revealAssistant);
