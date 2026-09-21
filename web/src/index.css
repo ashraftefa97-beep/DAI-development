@@ -782,3 +782,79 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
     font-size: 15px;
   }
 }
+
+
+/* Final composer sizing — match ChatGPT desktop proportions */
+.classic-input-bar {
+  width: min(960px, calc(100% - 32px));
+  min-height: 64px;
+  height: 64px;
+  padding: 6px 8px;
+  gap: 6px;
+  border-radius: 32px;
+  background: #242424;
+  border: 1px solid rgba(255,255,255,.055);
+  box-shadow: none;
+}
+.classic-input-bar:focus-within {
+  border-color: rgba(255,255,255,.09);
+  box-shadow: none;
+}
+.classic-input-bar textarea {
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 11px 8px 9px;
+  font-size: 16px;
+  line-height: 24px;
+  overflow-y: hidden;
+}
+.classic-plus-button,
+.classic-mic-button,
+.classic-send {
+  width: 40px;
+  height: 40px;
+}
+.classic-plus-button,
+.classic-mic-button {
+  color: #f1f1f1;
+}
+.classic-plus-button svg,
+.classic-mic-button svg,
+.classic-send svg {
+  width: 21px;
+  height: 21px;
+}
+.classic-send {
+  background: #f4b1c6;
+  box-shadow: none;
+}
+.classic-input-actions { gap: 3px; }
+
+@media(max-width:1100px) {
+  .classic-input-bar {
+    width: min(820px, calc(100% - 24px));
+  }
+}
+@media(max-width:640px) {
+  .classic-input-bar {
+    width: calc(100% - 12px);
+    min-height: 58px;
+    height: 58px;
+    padding: 5px 7px;
+    border-radius: 29px;
+  }
+  .classic-input-bar textarea {
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
+    padding: 8px 5px;
+    font-size: 15px;
+  }
+  .classic-plus-button,
+  .classic-mic-button,
+  .classic-send {
+    width: 38px;
+    height: 38px;
+  }
+}
