@@ -3,6 +3,7 @@ import { LogIn, LogOut, UserPlus } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
 
 type Mode = 'login' | 'register';
+type UserGender = 'male' | 'female' | '';
 
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -11,7 +12,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [needsName, setNeedsName] = useState(false);
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<UserGender>('');
   const [profileName, setProfileName] = useState('');
+  const [profileGender, setProfileGender] = useState<UserGender>('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,13 +29,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     ).trim();
   }
 
+  function getUserGender(user:any): UserGender {
+    const value = String(user?.user_metadata?.gender || '');
+    return value === 'male' || value === 'female' ? value : '';
+  }
+
   function applySessionUser(user:any){
     const emailValue=String(user?.email||'');
     const nameValue=getUserName(user);
+    const genderValue=getUserGender(user);
     setSessionEmail(emailValue);
     setSessionName(nameValue);
     setProfileName(nameValue);
-    setNeedsName(Boolean(user&&emailValue&&!nameValue));
+    setProfileGender(genderValue);
+    setNeedsName(Boolean(user&&emailValue&&(!nameValue||!genderValue)));
   }
 
   useEffect(() => {
@@ -65,6 +75,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       setNotice('اكتب اسمك الأول عشان ضي تناديك بيه.');
       return;
     }
+    if (mode === 'register' && !gender) {
+      setNotice('اختار ذكر أو أنثى عشان ضي تعرف تخاطبك بصيغة مناسبة.');
+      return;
+    }
     setBusy(true);
     setNotice('');
     try {
@@ -76,6 +90,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             emailRedirectTo: window.location.origin + window.location.pathname,
             data: {
               display_name: name.trim(),
+              gender,
             },
           },
         });
@@ -106,12 +121,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }
 
   async function saveProfileName() {
-    if (!supabase || profileName.trim().length < 2 || busy) return;
+    if (!supabase || profileName.trim().length < 2 || !profileGender || busy) return;
     setBusy(true);
     setNotice('');
     try {
       const { data, error } = await supabase.auth.updateUser({
-        data: { display_name: profileName.trim() },
+        data: { display_name: profileName.trim(), gender: profileGender },
       });
       if (error) throw error;
       applySessionUser(data.user);
@@ -184,10 +199,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           </div>
 
           {mode === 'register' && (
-            <label className='auth-field'>
-              <span>اسمك</span>
-              <input type='text' value={name} onChange={e => setName(e.target.value)} autoComplete='name' placeholder='مثال: أحمد' maxLength={40} />
-            </label>
+            <>
+              <label className='auth-field'>
+                <span>اسمك</span>
+                <input type='text' value={name} onChange={e => setName(e.target.value)} autoComplete='name' placeholder='مثال: أحمد' maxLength={40} />
+              </label>
+              <label className='auth-field'>
+                <span>النوع</span>
+                <select value={gender} onChange={e => setGender(e.target.value as UserGender)} aria-label='النوع'>
+                  <option value=''>اختار</option>
+                  <option value='male'>ذكر</option>
+                  <option value='female'>أنثى</option>
+                </select>
+              </label>
+            </>
           )}
 
           <label className='auth-field'>
@@ -209,7 +234,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
           {notice && <div className='auth-notice'>{notice}</div>}
 
-          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 6 || (mode === 'register' && name.trim().length < 2)} onClick={submit}>
+          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 6 || (mode === 'register' && (name.trim().length < 2 || !gender))} onClick={submit}>
             {mode === 'login' ? <LogIn className='h-5 w-5' /> : <UserPlus className='h-5 w-5' />}
             {busy ? 'جاري التنفيذ…' : mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
           </button>
@@ -229,8 +254,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       <main className='auth-shell' dir='rtl'>
         <section className='auth-card'>
           <img className='auth-logo' src='./dai-logo.svg' alt='DAI AI' />
-          <h1>اسمك عند ضي</h1>
-          <p>اكتب الاسم اللي تحب ضي تناديك بيه. الاسم بيتحفظ على حسابك أنت بس.</p>
+          <h1>بياناتك عند ضي</h1>
+          <p>اكتب الاسم اللي تحب ضي تناديك بيه واختار نوعك عشان تستخدم معاك الصيغة المناسبة.</p>
 
           <label className='auth-field'>
             <span>الاسم</span>
@@ -245,9 +270,18 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             />
           </label>
 
+          <label className='auth-field'>
+            <span>النوع</span>
+            <select value={profileGender} onChange={e => setProfileGender(e.target.value as UserGender)} aria-label='النوع'>
+              <option value=''>اختار</option>
+              <option value='male'>ذكر</option>
+              <option value='female'>أنثى</option>
+            </select>
+          </label>
+
           {notice && <div className='auth-notice'>{notice}</div>}
 
-          <button className='auth-primary' disabled={busy || profileName.trim().length < 2} onClick={saveProfileName}>
+          <button className='auth-primary' disabled={busy || profileName.trim().length < 2 || !profileGender} onClick={saveProfileName}>
             <UserPlus className='h-5 w-5' />
             {busy ? 'جاري الحفظ…' : 'احفظ الاسم وكمل'}
           </button>
