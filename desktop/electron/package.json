@@ -1,6 +1,6 @@
 {
   "name": "dai-ai-desktop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "DAI AI desktop companion for Windows",
   "main": "main.cjs",
@@ -8,11 +8,15 @@
   "license": "UNLICENSED",
   "scripts": {
     "dev": "electron .",
-    "dist": "electron-builder --win nsis --x64"
+    "dist": "electron-builder --win nsis --x64",
+    "prepare-installer-assets": "node scripts/prepare-installer-assets.mjs",
+    "predist": "npm run prepare-installer-assets"
   },
   "devDependencies": {
     "electron": "^38.1.2",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "bmp-js": "^0.1.0",
+    "sharp": "^0.34.4"
   },
   "build": {
     "appId": "ai.dai.desktop",
@@ -25,7 +29,8 @@
       "README.md"
     ],
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "win": {
       "target": [
@@ -35,14 +40,29 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "build/icon.svg"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "shortcutName": "DAI AI"
+      "shortcutName": "DAI AI",
+      "perMachine": false,
+      "allowElevation": true,
+      "menuCategory": "DAI AI",
+      "runAfterFinish": true,
+      "displayLanguageSelector": true,
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "ar_SA",
+        "en_US"
+      ],
+      "installerHeader": "build/installerHeader.bmp",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/uninstallerSidebar.bmp",
+      "include": "build/installer.nsh"
     }
   }
 }
