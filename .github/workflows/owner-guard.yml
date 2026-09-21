@@ -1,0 +1,23 @@
+name: DAI Owner Guard
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  owner-only:
+    name: Owner-only change guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Allow only the DAI repository owner
+        shell: bash
+        run: |
+          if [ "$GITHUB_ACTOR" != "ashraftefa97-beep" ]; then
+            echo "::error::Only the DAI repository owner may propose changes to main."
+            exit 1
+          fi
+          echo "Owner verified."
