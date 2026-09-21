@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import { History, Mic, Paperclip, Send, Settings, Trash2, X } from 'lucide-react';
 import { supabase } from './supabaseClient';
@@ -56,15 +56,34 @@ export default function GithubApp(){
   const [listening,setListening]=useState(false);
   const [files,setFiles]=useState<string[]>([]);
   const [loadingData,setLoadingData]=useState(true);
+  const [sending,setSending]=useState(false);
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
+  const chatScrollRef=useRef<HTMLElement|null>(null);
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
     setDaiState(state);
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
+  }
+
+  function stateForUserText(text:string):DaiState{
+    if(/شكرا|شكرًا|تسلم|حلو|جميل|ممتاز|فرح|مبسوط/i.test(text))return 'happy';
+    if(/بحب|حب|قلب|وحشت/i.test(text))return 'heart';
+    if(/نعسان|نوم|نامي|تصبحي|تصبح/i.test(text))return 'sleep';
+    if(/فكرة|اقتراح|صمم|اعمل|نخطط|خطة|ابداع/i.test(text))return 'idea';
+    if(/بحث|دور|ابحث|مين|امتى|متى|فين|أين|اين|كام|كم|آخر|احدث|أحدث|search|latest/i.test(text))return 'search';
+    return 'listen';
+  }
+
+  function stateForAssistantText(text:string):DaiState{
+    if(/لقيت|وجدت|النتيجة|النتايج|اتأكدت|تأكدت/i.test(text))return 'found';
+    if(/مبروك|ممتاز|جميل|حلو|تمام|نجح|اشتغل/i.test(text))return 'happy';
+    if(/بحب|قلب|سعيدة|فرحانة/i.test(text))return 'heart';
+    if(/فكرة|اقتراح|ممكن نعمل|أنسب حل|الخطة/i.test(text))return 'idea';
+    return 'talk';
   }
 
   function pickArabicFemaleVoice(){
@@ -138,8 +157,11 @@ export default function GithubApp(){
 
   async function speakReply(text:string){
     if(!voiceEnabled||!supabase)return false;
-    const spoken=cleanForSpeech(text).slice(0,3500);
+    const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
+
+    const responseState=stateForAssistantText(text);
+    animate(responseState,responseState==='talk'?0:1800);
 
     try{
       if('speechSynthesis' in window)window.speechSynthesis.cancel();
@@ -167,7 +189,9 @@ export default function GithubApp(){
       audio.onended=()=>{
         URL.revokeObjectURL(url);
         if(audioRef.current===audio)audioRef.current=null;
-        setDaiState('idle');
+        const finishState=responseState==='talk'?'idle':responseState;
+        if(finishState==='idle')setDaiState('idle');
+        else animate(finishState,1100);
       };
       audio.onerror=()=>{
         URL.revokeObjectURL(url);
@@ -185,7 +209,14 @@ export default function GithubApp(){
 
   useEffect(()=>{
     try { localStorage.setItem('dai-voice-enabled',voiceEnabled?'1':'0'); } catch {}
-    if(!voiceEnabled&&'speechSynthesis' in window) window.speechSynthesis.cancel();
+    if(!voiceEnabled){
+      if('speechSynthesis' in window)window.speechSynthesis.cancel();
+      if(audioRef.current){
+        audioRef.current.pause();
+        audioRef.current.src='';
+        audioRef.current=null;
+      }
+    }
   },[voiceEnabled]);
 
   useEffect(()=>{ animate('wave',2600); return()=>{
@@ -260,7 +291,12 @@ export default function GithubApp(){
   },[activeId]);
 
   const active=conversations.find(c=>c.id===activeId)||null;
-  const latestAssistant=useMemo(()=>[...(active?.messages||[])].reverse().find(m=>m.role==='assistant'),[active]);
+
+  useEffect(()=>{
+    const node=chatScrollRef.current;
+    if(!node)return;
+    requestAnimationFrame(()=>node.scrollTo({top:node.scrollHeight,behavior:'smooth'}));
+  },[activeId,active?.messages.length]);
 
   async function createConversation(title='محادثة جديدة'){
     if(!supabase||!userId)return null;
@@ -276,12 +312,13 @@ export default function GithubApp(){
     return c.id;
   }
 
-  async function sendMessage(messageOverride?:string){
-    const text=(messageOverride??input).trim();
-    if(!text||!supabase||loadingData)return;
+  async function sendMessage(messageOverride?:unknown){
+    const text=(typeof messageOverride==='string'?messageOverride:input).trim();
+    if(!text||!supabase||loadingData||sending)return;
     setInput('');
     setErrorText('');
-    animate(/بحث|دور|search|أحدث|احدث|آخر/i.test(text)?'search':'idea',0);
+    setSending(true);
+    animate(stateForUserText(text),0);
 
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
@@ -319,13 +356,18 @@ export default function GithubApp(){
         return [updated,...prev.filter(c=>c.id!==conversationId)];
       });
 
+      const answerState=stateForAssistantText(assistantMessage.content);
+      animate(answerState,answerState==='talk'?0:1600);
+
       const speaking=await speakReply(assistantMessage.content);
-      if(!speaking) animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
+      if(!speaking) animate(answerState,Math.min(5000,Math.max(1500,assistantMessage.content.length*18)));
     } catch (error) {
       console.error('DAI chat failed', error);
       setInput(text);
       setErrorText(await explainChatError(error));
       animate('idle',0);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -415,7 +457,7 @@ export default function GithubApp(){
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
       <div className='classic-header-actions'>
-        <span className='classic-status'><i/><span>{loadingData?'بجهّز حسابك…':'حسابك متصل'}</span></span>
+        <span className='classic-status'><i className={sending?'busy':''}/><span>{loadingData?'بجهّز حسابك…':sending?'ضي بتفكر…':'حسابك متصل'}</span></span>
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
       </div>
@@ -437,17 +479,19 @@ export default function GithubApp(){
         <button onClick={()=>animate('stretch',3800)}>تمدد</button>
       </div>
 
-      <section className='classic-response-card'>
-        <span className='classic-response-label'>ضي · حسابك الخاص</span>
-        <p>{latestAssistant?.content||'أنا ضي… محادثاتك هتتحفظ في حسابك وتظهر لك على أي جهاز بعد تسجيل الدخول.'}</p>
+      <section className='classic-chat-panel' ref={chatScrollRef} aria-label='المحادثة'>
+        {(active?.messages||[]).length===0
+          ? <div className='classic-chat-empty'>أنا ضي… قولي اللي في بالك.</div>
+          : (active?.messages||[]).map(m=>
+            <article className={'classic-chat-message '+m.role} key={m.id}>
+              <strong>{m.role==='user'?'أنت':'ضي'}</strong>
+              <p dir='auto'>{m.content}</p>
+            </article>
+          )}
+        {sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بتجهز ردها</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error'>{errorText}</div>}
-
-      <details className='conversation-transcript'>
-        <summary>نص المحادثة ({active?.messages.length||0})</summary>
-        {(active?.messages||[]).map(m=><article key={m.id}><strong>{m.role==='user'?'أنت':'ضي'}</strong><p dir='auto'>{m.content}</p></article>)}
-      </details>
 
       {!!files.length&&<div className='github-files'>{files.map(f=><span key={f}>{f}</span>)}</div>}
 
@@ -456,9 +500,8 @@ export default function GithubApp(){
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
         <button className='classic-input-icon' aria-pressed={listening} onClick={toggleMic} aria-label='الميكروفون'><Mic className='h-5 w-5'/></button>
         <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'بسمعك… اتكلم براحتك':'اكتب لضي…'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
-        <button className='classic-send' disabled={loadingData} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
+        <button className='classic-send' disabled={loadingData||sending} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
       </div>
-      <p className='classic-hint'>المحادثات محفوظة في حسابك على Supabase، والردود بتيجي من الـAI backend.</p>
     </section>
 
     {historyOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setHistoryOpen(false)}}>
