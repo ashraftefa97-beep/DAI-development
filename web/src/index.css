@@ -2188,3 +2188,25 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(prefers-reduced-motion:reduce) {
   .dai-voice-note-status .dai-voice-note-dot { animation:none!important; }
 }
+
+
+/* Assistant voice playback */
+.dai-message-actions {
+  margin-top:9px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-wrap:wrap;
+}
+.dai-speak-message {
+  border-color:rgba(246,169,193,.18)!important;
+  color:#e9c6d3!important;
+}
+.dai-speak-message:hover:not(:disabled) {
+  border-color:rgba(246,169,193,.35)!important;
+  color:#ffe3ed!important;
+}
+.dai-speak-message:disabled {
+  opacity:.5;
+  cursor:default;
+}
