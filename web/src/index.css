@@ -914,3 +914,69 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
     height: 34px;
   }
 }
+
+
+/* Live voice mode */
+.classic-chat-panel.voice-live {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.classic-live-voice {
+  width: min(520px, 92%);
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  text-align: center;
+  color: #f4eef4;
+}
+.classic-live-voice strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+.classic-live-voice span {
+  color: #8f91a6;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.classic-live-orb {
+  width: 78px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border-radius: 999px;
+  background: rgba(246,169,193,.08);
+  border: 1px solid rgba(246,169,193,.12);
+}
+.classic-live-orb i {
+  width: 5px;
+  height: 16px;
+  border-radius: 999px;
+  background: #f6a9c1;
+  transform-origin: center;
+  animation: liveVoiceBar 1s ease-in-out infinite;
+}
+.classic-live-orb i:nth-child(2){animation-delay:.1s}
+.classic-live-orb i:nth-child(3){animation-delay:.2s}
+.classic-live-orb i:nth-child(4){animation-delay:.3s}
+.classic-live-orb.connecting i { opacity:.45; animation-duration:1.35s; }
+.classic-live-orb.listening i { animation-duration:.92s; }
+.classic-live-orb.speaking i { animation-duration:.58s; }
+.classic-mic-button[aria-pressed=true] {
+  background: rgba(246,169,193,.16);
+  color: #fff4f8;
+  box-shadow: 0 0 0 1px rgba(246,169,193,.20), 0 0 22px rgba(246,169,193,.08);
+}
+.classic-input-bar textarea:disabled {
+  opacity: .7;
+  cursor: default;
+}
+@keyframes liveVoiceBar {
+  0%,100% { transform: scaleY(.42); opacity:.45; }
+  50% { transform: scaleY(1); opacity:1; }
+}
