@@ -40,6 +40,23 @@ function safeExternalUrl(value) {
   }
 }
 
+const trustedExternalHosts = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'google.com',
+  'www.google.com',
+  'mail.google.com',
+  'web.whatsapp.com',
+]);
+
+function externalHostTrusted(value) {
+  try {
+    return trustedExternalHosts.has(new URL(value).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function senderAllowed(event) {
   try {
     const url = event.senderFrame?.url || event.sender?.getURL?.() || '';
@@ -269,6 +286,23 @@ app.whenReady().then(() => {
     if (type === 'openExternal') {
       const url = safeExternalUrl(action.url);
       if (!url) return { ok: false, message: 'الرابط غير صحيح أو غير مسموح.' };
+
+      if (!externalHostTrusted(url)) {
+        if (!mainWindow) return { ok: false, message: 'تعذر تأكيد فتح الرابط.' };
+        const parsed = new URL(url);
+        const answer = await dialog.showMessageBox(mainWindow, {
+          type: 'question',
+          title: 'تأكيد فتح الرابط',
+          message: 'ضي عايزة تفتح موقع خارجي',
+          detail: parsed.hostname + '\n\nافتح الموقع ده؟',
+          buttons: ['إلغاء', 'فتح الموقع'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true,
+        });
+        if (answer.response !== 1) return { ok: false, message: 'المستخدم ألغى فتح الرابط.' };
+      }
+
       await shell.openExternal(url);
       return { ok: true, message: 'فتحت الرابط.' };
     }
