@@ -665,7 +665,7 @@ export default function GithubApp(){
       const answerState=stateForAssistantText(assistantMessage.content);
       animate(answerState,answerState==='talk'?0:1600);
 
-      if(voiceEnabled){
+      if(fromVoice&&voiceEnabled){
         const speaking=await speakReply(assistantMessage.content,revealAssistant);
         if(!speaking)revealAssistant();
       }else{
@@ -977,6 +977,8 @@ export default function GithubApp(){
       const token=String(data.token);
       const model=String(data.model||'gemini-3.8-live');
       const currentName=String(data.userName||userName||'صاحب الحساب').trim();
+      const currentFirstName=currentName.split(/\s+/).filter(Boolean)[0]||'صاحب الحساب';
+      const currentGender=String(data.userGender||'unspecified');
       const socket=new WebSocket(
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token='+encodeURIComponent(token)
       );
@@ -1042,9 +1044,20 @@ export default function GithubApp(){
           ]
         }] : undefined;
 
+        const genderRule=currentGender==='male'
+          ? 'المستخدم ذكر؛ خاطبيه بصيغة المذكر عند الحاجة. '
+          : currentGender==='female'
+            ? 'المستخدمة أنثى؛ خاطبيها بصيغة المؤنث عند الحاجة. '
+            : 'جنس المستخدم غير محدد؛ تجنبي افتراض الجنس قدر الإمكان. ';
+
         const systemText=
-          'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الحالي هو «'+currentName+'». '+
-          'اتكلمي بالعربية المصرية بشكل طبيعي ومختصر. لا تذكري أسماء مستخدمين آخرين. '+
+          'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
+          'اتكلمي بالعربية المصرية بشكل طبيعي ومرن ومختصر، كحوار عادي مش رد خدمة عملاء. '+
+          'ما تبدأيش كل رد بتحية أو باسم المستخدم. استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. '+
+          'لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية طبيعية قصيرة ومتنوعة بدل جملة محفوظة. '+
+          'تجنبي عبارات آلية متكررة زي «أقدر أساعدك بإيه النهارده؟» إلا لو السياق فعلًا محتاج سؤال متابعة. '+
+          genderRule+
+          'لا تذكري أسماء مستخدمين آخرين. '+
           'لا تستخدمي لقب «أشروفي» إلا إذا نطق المستخدم كلمة «أشروفي» أو سأل عنها صراحة في نفس الحوار. '+
           (desktopMode
             ? 'أنتِ داخل برنامج ضي على Windows وعندك أدوات محلية لفتح البرامج والتحكم في الوسائط والتنقل. استخدمي الأداة المناسبة فورًا لما المستخدم يطلب تحكمًا في الكمبيوتر، ولا تقولي إن التنفيذ نجح إلا بعد نتيجة الأداة. '
@@ -1255,7 +1268,7 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل ردود ضي بصوتها تلقائيًا، مع صوت الجهاز كاحتياطي لو الخدمة تعذرت.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت الردود الصوتية</strong><small>ضي تتكلم بصوتها فقط لما أنت تكلمها بالصوت. الرسائل المكتوبة تفضل كتابة فقط.</small></span></label>
         {desktopMode&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
         {desktopMode&&<div className='classic-privacy'>نسخة الكمبيوتر مفعّل فيها فتح البرامج والتحكم في تشغيل الوسائط والصوت واختصارات التنقل المسموح بها.</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
