@@ -42,19 +42,9 @@ Deno.serve(async (req) => {
     return json({ error: 'Message is required and must be under 8000 characters' }, 400);
   }
 
-  if (!conversationId) {
-    const { data: created, error } = await supabase
-      .from('dai_conversations')
-      .insert({
-        user_id: user.id,
-        title: message.slice(0, 48) || 'محادثة جديدة',
-      })
-      .select('id,title,updated_at')
-      .single();
+  const needsConversation = !conversationId;
 
-    if (error || !created) return json({ error: 'Could not create conversation' }, 400);
-    conversationId = created.id;
-  } else {
+  if (!needsConversation) {
     const { data: owned } = await supabase
       .from('dai_conversations')
       .select('id')
@@ -64,27 +54,14 @@ Deno.serve(async (req) => {
     if (!owned) return json({ error: 'Conversation not found' }, 404);
   }
 
-  const { data: userMessage, error: userMessageError } = await supabase
-    .from('dai_messages')
-    .insert({
-      conversation_id: conversationId,
-      user_id: user.id,
-      role: 'user',
-      content: message,
-    })
-    .select('id,role,content,created_at')
-    .single();
-
-  if (userMessageError || !userMessage) {
-    return json({ error: 'Could not save user message' }, 400);
-  }
-
-  const { data: historyRows } = await supabase
-    .from('dai_messages')
-    .select('role,content,created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(24);
+  const { data: historyRows } = needsConversation
+    ? { data: [] as Array<{ role: string; content: string; created_at: string }> }
+    : await supabase
+        .from('dai_messages')
+        .select('role,content,created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(24);
 
   const aiApiKey = (Deno.env.get('AI_API_KEY') || '').trim();
   const aiModel = (Deno.env.get('AI_MODEL') || 'gpt-4.1-mini').trim();
@@ -115,31 +92,52 @@ Deno.serve(async (req) => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
 
+  const providerBody = JSON.stringify({
+    model: aiModel,
+    messages: [
+      {
+        role: 'system',
+        content: 'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.',
+      },
+      ...(historyRows || []).map((item: any) => ({
+        role: item.role,
+        content: item.content,
+      })),
+      {
+        role: 'user',
+        content: message,
+      },
+    ],
+    temperature: 0.6,
+    stream: false,
+  });
+
   let aiResponse: Response;
   try {
-    aiResponse = await fetch(aiUrl, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'Authorization': `Bearer ${aiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: aiModel,
-        messages: [
-          {
-            role: 'system',
-            content: 'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.',
-          },
-          ...(historyRows || []).map((item: any) => ({
-            role: item.role,
-            content: item.content,
-          })),
-        ],
-        temperature: 0.6,
-        stream: false,
-      }),
-    });
+    let lastResponse: Response | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      lastResponse = await fetch(aiUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${aiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: providerBody,
+      });
+
+      if (lastResponse.status !== 429 || attempt === 2) break;
+
+      const retryAfterHeader = Number(lastResponse.headers.get('retry-after') || 0);
+      const waitMs = retryAfterHeader > 0
+        ? Math.min(retryAfterHeader * 1000, 5000)
+        : 1200 * (attempt + 1);
+
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    aiResponse = lastResponse!;
   } catch (error) {
     console.error('AI provider network error', error);
     const code = error instanceof DOMException && error.name === 'AbortError'
@@ -177,19 +175,46 @@ Deno.serve(async (req) => {
     return json({ error: 'AI returned an empty response', code: 'AI_EMPTY' }, 502);
   }
 
-  const { data: assistantMessage, error: assistantError } = await supabase
-    .from('dai_messages')
-    .insert({
-      conversation_id: conversationId,
-      user_id: user.id,
-      role: 'assistant',
-      content: answer,
-    })
-    .select('id,role,content,created_at')
-    .single();
+  if (needsConversation) {
+    const { data: created, error } = await supabase
+      .from('dai_conversations')
+      .insert({
+        user_id: user.id,
+        title: message.slice(0, 48) || 'محادثة جديدة',
+      })
+      .select('id')
+      .single();
 
-  if (assistantError || !assistantMessage) {
-    return json({ error: 'Could not save assistant response' }, 500);
+    if (error || !created) return json({ error: 'Could not create conversation' }, 500);
+    conversationId = created.id;
+  }
+
+  const { data: savedMessages, error: saveError } = await supabase
+    .from('dai_messages')
+    .insert([
+      {
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'user',
+        content: message,
+      },
+      {
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: 'assistant',
+        content: answer,
+      },
+    ])
+    .select('id,role,content,created_at');
+
+  if (saveError || !savedMessages || savedMessages.length < 2) {
+    return json({ error: 'Could not save conversation messages' }, 500);
+  }
+
+  const userMessage = savedMessages.find((item: any) => item.role === 'user');
+  const assistantMessage = savedMessages.find((item: any) => item.role === 'assistant');
+  if (!userMessage || !assistantMessage) {
+    return json({ error: 'Could not read saved conversation messages' }, 500);
   }
 
   await supabase
