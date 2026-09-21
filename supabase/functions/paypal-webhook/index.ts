@@ -41,12 +41,33 @@ function uuidLike(value: unknown) {
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
-  const webhookId = (Deno.env.get('PAYPAL_WEBHOOK_ID') || '').trim();
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  if (!webhookId || !serviceRoleKey || !supabaseUrl) {
+  if (!serviceRoleKey || !supabaseUrl) {
     return json({ error: 'Webhook not configured' }, 503);
   }
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const { data: paymentConfig, error: paymentConfigError } = await admin
+    .from('dai_payment_config')
+    .select('mode,monthly_plan_id,annual_plan_id,webhook_id')
+    .eq('provider', 'paypal')
+    .maybeSingle();
+
+  if (paymentConfigError || !paymentConfig?.webhook_id) {
+    return json({ error: 'Webhook not configured' }, 503);
+  }
+
+  const configuredMode = String(paymentConfig.mode || 'sandbox').toLowerCase();
+  const runtimeMode = (Deno.env.get('PAYPAL_MODE') || 'sandbox').toLowerCase();
+  if (configuredMode !== runtimeMode) {
+    return json({ error: 'PayPal environment mismatch' }, 503);
+  }
+
+  const webhookId = String(paymentConfig.webhook_id);
 
   const rawBody = await req.text();
   let event: any;
@@ -104,8 +125,8 @@ Deno.serve(async (req) => {
 
   const userId = uuidLike(details?.custom_id);
   const planId = String(details?.plan_id || '');
-  const monthlyPlanId = (Deno.env.get('PAYPAL_MONTHLY_PLAN_ID') || '').trim();
-  const annualPlanId = (Deno.env.get('PAYPAL_YEARLY_PLAN_ID') || '').trim();
+  const monthlyPlanId = String(paymentConfig.monthly_plan_id || '');
+  const annualPlanId = String(paymentConfig.annual_plan_id || '');
   const billingPeriod = planId === annualPlanId
     ? 'annual'
     : planId === monthlyPlanId
@@ -116,10 +137,6 @@ Deno.serve(async (req) => {
     console.warn('DAI ignored PayPal subscription with unknown account/plan');
     return json({ received: true, ignored: true });
   }
-
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   const status = String(details?.status || event?.resource?.status || 'UNKNOWN').toUpperCase();
   await admin
