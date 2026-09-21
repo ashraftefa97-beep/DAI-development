@@ -570,6 +570,50 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 }
 .auth-session-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .auth-session-pill button { width: 30px; height: 30px; border-radius: 9px; border: 1px solid #35394e; background:#151928; color:#e6b1c3; display:grid; place-items:center; cursor:pointer; }
+.auth-session-pill .auth-account-open {
+  width:auto; max-width:260px; padding:0 8px; display:flex; gap:6px; align-items:center; color:#d7d2df;
+}
+.auth-session-pill .auth-account-open span { max-width:210px; }
+.auth-account-overlay {
+  position:fixed; inset:0; z-index:140; display:grid; place-items:center; padding:18px;
+  background:rgba(6,8,15,.72); backdrop-filter:blur(10px);
+}
+.auth-account-panel {
+  width:min(560px,100%); max-height:min(86vh,760px); overflow:auto;
+  border:1px solid #303449; border-radius:22px; padding:18px;
+  background:linear-gradient(180deg,#171b2b,#111522); color:#f5edf5;
+  box-shadow:0 28px 80px rgba(0,0,0,.45);
+}
+.auth-account-head { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:10px; }
+.auth-account-head span { color:#8e90a6; font-size:11px; }
+.auth-account-head h2 { margin:2px 0 0; font-size:20px; }
+.auth-account-head button {
+  width:36px; height:36px; border-radius:11px; border:1px solid #34384d;
+  background:#131727; color:#e8dce7; display:grid; place-items:center; cursor:pointer;
+}
+.auth-account-section { padding:15px 0; border-top:1px solid rgba(255,255,255,.06); }
+.auth-account-section:first-of-type { border-top:0; }
+.auth-account-section h3 { margin:0 0 10px; display:flex; align-items:center; gap:7px; font-size:14px; }
+.auth-account-section p { margin:0 0 10px; color:#a8a9b9; font-size:12px; line-height:1.75; }
+.auth-account-action,.auth-account-secondary,.auth-account-danger {
+  min-height:40px; margin-top:10px; padding:0 14px; border-radius:12px; cursor:pointer; font-weight:700;
+}
+.auth-account-action { border:0; background:linear-gradient(135deg,#f6a9c1,#d77fa3); color:#281b2b; }
+.auth-account-secondary { border:1px solid #383c51; background:#171b2b; color:#e7dce7; margin-inline-end:8px; }
+.auth-account-danger { border:1px solid rgba(255,110,125,.34); background:rgba(255,72,94,.09); color:#ffb6c0; }
+.auth-account-action:disabled,.auth-account-secondary:disabled,.auth-account-danger:disabled { opacity:.48; cursor:default; }
+.auth-account-section.danger { border-top-color:rgba(255,110,125,.16); }
+.auth-privacy-section { background:rgba(139,147,242,.04); border-radius:14px; padding-inline:12px; }
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible {
+  outline:2px solid #f6a9c1; outline-offset:2px;
+}
+@media(max-width:640px) {
+  .auth-session-pill { left:10px; bottom:10px; max-width:calc(100vw - 20px); }
+  .auth-session-pill .auth-account-open { max-width:210px; }
+  .auth-account-overlay { padding:10px; align-items:end; }
+  .auth-account-panel { width:100%; max-height:88vh; border-radius:20px 20px 14px 14px; }
+  .auth-account-secondary { width:100%; margin-inline-end:0; }
+}
 
 
 /* Unified scrollable conversation panel */
