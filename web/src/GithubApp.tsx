@@ -96,7 +96,7 @@ export default function GithubApp(){
   function cleanForSpeech(text:string){
     return text
       .replace(/```[\s\S]*?```/g,' ')
-      .replace(/[([^]]+)]([^)]+)/g,'$1')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g,'$1')
       .replace(/https?:\/\/\S+/g,' ')
       .replace(/[*_#>|~]/g,' ')
       .replace(/\s+/g,' ')
