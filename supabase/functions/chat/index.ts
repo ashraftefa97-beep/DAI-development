@@ -162,6 +162,14 @@ Deno.serve(async (req) => {
       return json({ error: 'AI endpoint or model was not found', code: 'AI_NOT_FOUND' }, 502);
     }
     if (aiResponse.status === 429) {
+      const loweredDetail = detail.toLowerCase();
+      if (
+        loweredDetail.includes('insufficient_quota') ||
+        loweredDetail.includes('credit_balance_exhausted') ||
+        loweredDetail.includes('no credits remaining')
+      ) {
+        return json({ error: 'AI provider has no credits remaining', code: 'AI_CREDITS' }, 502);
+      }
       return json({ error: 'AI provider rate limit reached', code: 'AI_RATE_LIMIT' }, 502);
     }
     return json({
