@@ -66,6 +66,15 @@ Deno.serve(async (req) => {
   const user = authData.user;
   if (authError || !user) return json({ error: 'Unauthorized' }, 401);
 
+  const { data: rateAllowed, error: rateError } = await supabase.rpc('dai_rate_limit_hit', {
+    p_limit: 14,
+    p_window_seconds: 60,
+  });
+  if (rateError) return json({ error: 'خدمة ضي مشغولة حاليًا. جرّب بعد لحظة.', code: 'RATE_CHECK' }, 503);
+  if (rateAllowed !== true) {
+    return json({ error: 'طلبات كتير في وقت قصير. استنى شوية وجرب تاني.', code: 'RATE_LIMIT' }, 429);
+  }
+
   const body = await req.json().catch(() => ({}));
   const message = String(body?.message || '').trim();
   const desktopActionResult = String(body?.desktopActionResult || '').trim().slice(0, 600);
