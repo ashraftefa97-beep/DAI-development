@@ -63,127 +63,161 @@ Deno.serve(async (req) => {
         .order('created_at', { ascending: true })
         .limit(24);
 
-  const aiApiKey = (Deno.env.get('AI_API_KEY') || '').trim();
-  const aiModel = (Deno.env.get('AI_MODEL') || 'gpt-4.1-mini').trim();
-  const rawBaseUrl = (Deno.env.get('AI_BASE_URL') || 'https://api.openai.com/v1').trim();
+  const geminiApiKey = (
+    Deno.env.get('GEMINI_API_KEY') ||
+    Deno.env.get('AI_API_KEY') ||
+    ''
+  ).trim();
 
-  if (!aiApiKey) {
-    return json({ error: 'AI backend is not configured yet', code: 'AI_CONFIG' }, 503);
+  const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
+  const modelCandidates = [
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-3.6-flash',
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  if (!geminiApiKey) {
+    return json({ error: 'Gemini API key is not configured', code: 'GEMINI_CONFIG' }, 503);
   }
 
-  let aiUrl = '';
-  try {
-    const parsed = new URL(rawBaseUrl);
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Unsupported protocol');
+  const systemPrompt =
+    'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.';
 
-    let clean = rawBaseUrl;
-    while (clean.endsWith('/')) clean = clean.slice(0, -1);
-
-    const lower = clean.toLowerCase();
-    if (lower.endsWith('/chat/completions')) {
-      aiUrl = clean;
-    } else if (lower.endsWith('/v1')) {
-      aiUrl = `${clean}/chat/completions`;
-    } else {
-      aiUrl = `${clean}/v1/chat/completions`;
-    }
-  } catch {
-    console.error('Invalid AI_BASE_URL');
-    return json({ error: 'AI_BASE_URL is invalid', code: 'AI_BASE_URL' }, 503);
-  }
+  const contents = [
+    ...(historyRows || [])
+      .filter((item: any) => item.role === 'user' || item.role === 'assistant')
+      .map((item: any) => ({
+        role: item.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: String(item.content || '') }],
+      })),
+    {
+      role: 'user',
+      parts: [{ text: message }],
+    },
+  ];
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
 
-  const providerBody = JSON.stringify({
-    model: aiModel,
-    messages: [
-      {
-        role: 'system',
-        content: 'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.',
-      },
-      ...(historyRows || []).map((item: any) => ({
-        role: item.role,
-        content: item.content,
-      })),
-      {
-        role: 'user',
-        content: message,
-      },
-    ],
-    temperature: 0.6,
-    stream: false,
-  });
+  let answer = '';
+  let usedModel = '';
+  let lastStatus = 0;
+  let lastDetail = '';
 
-  let aiResponse: Response;
   try {
-    let lastResponse: Response | null = null;
+    for (const model of modelCandidates) {
+      const aiUrl =
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
-    for (let attempt = 0; attempt < 3; attempt++) {
-      lastResponse = await fetch(aiUrl, {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'Authorization': `Bearer ${aiApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: providerBody,
-      });
+      let response: Response | null = null;
 
-      if (lastResponse.status !== 429 || attempt === 2) break;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        response = await fetch(aiUrl, {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': geminiApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }],
+            },
+            contents,
+            generationConfig: {
+              temperature: 0.6,
+            },
+          }),
+        });
 
-      const retryAfterHeader = Number(lastResponse.headers.get('retry-after') || 0);
-      const waitMs = retryAfterHeader > 0
-        ? Math.min(retryAfterHeader * 1000, 5000)
-        : 1200 * (attempt + 1);
+        if (response.status !== 429 || attempt === 1) break;
 
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
+        const retryAfterHeader = Number(response.headers.get('retry-after') || 0);
+        const waitMs = retryAfterHeader > 0
+          ? Math.min(retryAfterHeader * 1000, 4000)
+          : 1200;
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+      }
+
+      if (!response) continue;
+
+      lastStatus = response.status;
+      const responseText = await response.text().catch(() => '');
+      lastDetail = responseText.slice(0, 1200);
+
+      if (response.ok) {
+        const payload = JSON.parse(responseText || '{}');
+        answer = String(
+          payload?.candidates?.[0]?.content?.parts
+            ?.map((part: any) => part?.text || '')
+            ?.join('') || ''
+        ).trim();
+
+        if (answer) {
+          usedModel = model;
+          break;
+        }
+
+        lastStatus = 502;
+        lastDetail = 'Gemini returned an empty response';
+      }
+
+      // Try another free Gemini model when the requested model is unavailable
+      // or its free quota is temporarily exhausted.
+      if (response.status === 404 || response.status === 429 || response.status === 503) {
+        continue;
+      }
+
+      break;
     }
-
-    aiResponse = lastResponse!;
   } catch (error) {
-    console.error('AI provider network error', error);
+    console.error('Gemini network error', error);
     const code = error instanceof DOMException && error.name === 'AbortError'
-      ? 'AI_TIMEOUT'
-      : 'AI_NETWORK';
-    return json({ error: 'Could not reach AI provider', code }, 502);
+      ? 'GEMINI_TIMEOUT'
+      : 'GEMINI_NETWORK';
+    return json({ error: 'Could not reach Gemini', code }, 502);
   } finally {
     clearTimeout(timeout);
   }
 
-  if (!aiResponse.ok) {
-    const detail = await aiResponse.text().catch(() => '');
-    console.error('AI provider error', aiResponse.status, detail.slice(0, 800));
-
-    if (aiResponse.status === 401 || aiResponse.status === 403) {
-      return json({ error: 'AI provider rejected the API key', code: 'AI_AUTH' }, 502);
-    }
-    if (aiResponse.status === 404) {
-      return json({ error: 'AI endpoint or model was not found', code: 'AI_NOT_FOUND' }, 502);
-    }
-    if (aiResponse.status === 429) {
-      const loweredDetail = detail.toLowerCase();
-      if (
-        loweredDetail.includes('insufficient_quota') ||
-        loweredDetail.includes('credit_balance_exhausted') ||
-        loweredDetail.includes('no credits remaining')
-      ) {
-        return json({ error: 'AI provider has no credits remaining', code: 'AI_CREDITS' }, 502);
-      }
-      return json({ error: 'AI provider rate limit reached', code: 'AI_RATE_LIMIT' }, 502);
-    }
-    return json({
-      error: 'AI provider request failed',
-      code: 'AI_PROVIDER',
-      providerStatus: aiResponse.status,
-    }, 502);
-  }
-
-  const aiJson = await aiResponse.json().catch(() => null);
-  const answer = String(aiJson?.choices?.[0]?.message?.content || '').trim();
   if (!answer) {
-    console.error('AI provider returned no assistant content');
-    return json({ error: 'AI returned an empty response', code: 'AI_EMPTY' }, 502);
+    console.error('Gemini provider error', lastStatus, lastDetail);
+
+    const lowered = lastDetail.toLowerCase();
+
+    if (lastStatus === 400) {
+      return json({ error: 'Gemini rejected the request', code: 'GEMINI_BAD_REQUEST' }, 502);
+    }
+
+    if (lastStatus === 401 || lastStatus === 403) {
+      return json({ error: 'Gemini rejected the API key or project access', code: 'GEMINI_AUTH' }, 502);
+    }
+
+    if (lastStatus === 429) {
+      const quotaCode =
+        lowered.includes('resource_exhausted') ||
+        lowered.includes('quota') ||
+        lowered.includes('rate');
+      return json({
+        error: quotaCode ? 'Gemini free quota is exhausted' : 'Gemini is busy',
+        code: quotaCode ? 'GEMINI_QUOTA' : 'GEMINI_RATE_LIMIT',
+      }, 502);
+    }
+
+    if (lastStatus === 404) {
+      return json({ error: 'No configured Gemini model is available', code: 'GEMINI_MODEL' }, 502);
+    }
+
+    if (lastStatus === 503) {
+      return json({ error: 'Gemini is temporarily overloaded', code: 'GEMINI_OVERLOADED' }, 502);
+    }
+
+    return json({
+      error: 'Gemini request failed',
+      code: 'GEMINI_PROVIDER',
+      providerStatus: lastStatus,
+    }, 502);
   }
 
   if (needsConversation) {
@@ -237,5 +271,7 @@ Deno.serve(async (req) => {
     conversationId,
     userMessage,
     assistantMessage,
+    provider: 'gemini',
+    model: usedModel,
   });
 });
