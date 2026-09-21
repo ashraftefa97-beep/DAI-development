@@ -1,0 +1,48 @@
+{
+  "name": "dai-ai-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DAI AI desktop companion for Windows",
+  "main": "main.cjs",
+  "author": "DAI AI",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "electron .",
+    "dist": "electron-builder --win nsis --x64"
+  },
+  "devDependencies": {
+    "electron": "^38.1.2",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "ai.dai.desktop",
+    "productName": "DAI AI",
+    "artifactName": "DAI-AI-Setup-${version}.${ext}",
+    "asar": true,
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "README.md"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DAI AI"
+    }
+  }
+}
