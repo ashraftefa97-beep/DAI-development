@@ -420,8 +420,8 @@ export default function GithubApp(){
     const frames=Math.floor(bytes.byteLength/2);
     const output=new Float32Array(frames);
     const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-    // audio/l16 is signed 16-bit network byte order (big-endian).
-    for(let i=0;i<frames;i++)output[i]=view.getInt16(i*2,false)/32768;
+    // Gemini streaming TTS returns raw signed 16-bit PCM at 24 kHz, little-endian.
+    for(let i=0;i<frames;i++)output[i]=view.getInt16(i*2,true)/32768;
     return output;
   }
 
