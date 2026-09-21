@@ -3,12 +3,46 @@ import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
 import { AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Eye, Gamepad2, History, LayoutPanelTop, LockKeyhole, Mic, Orbit, Plus, RefreshCw, RotateCcw, Send, Settings, Sparkles, Square, Trash2, Volume2, WandSparkles, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
+import { product } from './product.mjs';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
+type ProAnimationSpec = {
+  id:string;
+  gesture:DaiState;
+  state:string;
+  duration:number;
+  policy:'loop'|'play_once';
+  category:string;
+  labelAr:string;
+};
 
-const DAI_WEB_VERSION='0.8.0';
+const PRO_ANIMATIONS:ProAnimationSpec[]=(product.animationCatalog||[]).map((item:any)=>({
+  id:String(item.id),
+  gesture:String(item.gesture).replace('idle_soft','idle') as DaiState,
+  state:String(item.state||'idle'),
+  duration:Number(item.duration||0),
+  policy:item.policy==='loop'?'loop':'play_once',
+  category:String(item.category||'other'),
+  labelAr:String(item.labelAr||item.id)
+}));
+
+const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
+  idle:'هدوء',
+  social:'اجتماعية',
+  conversation:'محادثة',
+  thinking:'تفكير',
+  emotion:'مشاعر',
+  special:'خاصة',
+  working:'شغل',
+  reaction:'ردود فعل',
+  movement:'حركة',
+  greeting:'تحيات',
+  other:'أخرى'
+};
+
+const DAI_WEB_VERSION='0.8.1';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -210,6 +244,20 @@ export default function GithubApp(){
     clearTimeout(timer.current);
     setDaiState(state);
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
+  }
+
+  function playProAnimation(spec:ProAnimationSpec){
+    if(!professional){
+      setProNotice('مكتبة الحركات الكاملة متاحة في Professional فقط.');
+      return;
+    }
+    if(sending||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing||Boolean(speakingMessageId)){
+      setProNotice('استنى ضي تخلص الصوت أو الرد الحالي الأول.');
+      return;
+    }
+    const duration=Math.max(900,Math.round((spec.duration>0?spec.duration:3.2)*1000));
+    animate(spec.gesture,duration);
+    setProNotice('بتشغّل: '+spec.labelAr);
   }
 
   function handleInputChange(value:string){
@@ -697,7 +745,7 @@ export default function GithubApp(){
 
   useEffect(()=>{
     if(plan!=='professional'||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
-    const actions:DaiState[]=['curious','stretch','wave','happy','idea','focus'];
+    const actions:DaiState[]=['peek','look_around','cozy_sway','welcome_back','nod_yes','scout','window_peek','relax','stretch','wave','happy','idea','focus'];
     const delay=9000+Math.floor(Math.random()*7000);
     const id=window.setTimeout(()=>{
       const next=actions[Math.floor(Math.random()*actions.length)]||'curious';
@@ -2952,7 +3000,7 @@ export default function GithubApp(){
       </section>
     </div>}
 
-    {controlOpen&&<div className='classic-overlay dai-control-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setControlOpen(false)}}>
+    {controlOpen&&professional&&<div className='classic-overlay dai-control-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setControlOpen(false)}}>
       <section className='dai-control-panel' aria-label='DAI Control Center'>
         <div className='classic-drawer-head'>
           <div><span>Professional</span><h3>DAI Control Center</h3></div>
@@ -2987,6 +3035,34 @@ export default function GithubApp(){
             </div>
           </article>
         </div>
+
+        <article className='dai-control-card dai-animation-library-card'>
+          <div className='dai-control-card-head'>
+            <Sparkles/>
+            <div><strong>مكتبة حركات ضي الكاملة</strong><small>{PRO_ANIMATIONS.length} حركة أصلية · Professional</small></div>
+          </div>
+          <p className='dai-animation-library-copy'>كل الحركات الأصلية متاحة هنا للتجربة اليدوية. الحركات المرتبطة بالصوت أو المحادثة تتوقف تلقائيًا بعد المعاينة عشان ما تتعارضش مع الرد الحقيقي.</p>
+          <div className='dai-animation-groups'>
+            {Object.entries(PRO_ANIMATION_CATEGORY_LABELS).map(([category,label])=>{
+              const items=PRO_ANIMATIONS.filter(item=>item.category===category);
+              if(!items.length)return null;
+              return <details className='dai-animation-group' key={category} open={category==='emotion'||category==='reaction'}>
+                <summary><span>{label}</span><b>{items.length}</b></summary>
+                <div className='dai-animation-grid'>
+                  {items.map(item=><button
+                    key={item.id}
+                    disabled={sending||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing||Boolean(speakingMessageId)}
+                    onClick={()=>playProAnimation(item)}
+                    title={item.id}
+                  >
+                    <span>{item.labelAr}</span>
+                    <small>{item.duration>0?item.duration.toFixed(1)+'ث':'Loop'}</small>
+                  </button>)}
+                </div>
+              </details>;
+            })}
+          </div>
+        </article>
 
         <div className='dai-control-grid dai-control-secondary-grid'>
           <article className='dai-control-card'>
@@ -3085,7 +3161,7 @@ export default function GithubApp(){
               <li><Check/> Smart Routines متعددة الخطوات</li>
               <li><Check/> ترتيب النوافذ يمين/يسار/وسط/تكبير</li>
               <li><Check/> وعي اختياري بالبرامج المفتوحة</li>
-              <li><Check/> حركات وردود فعل Professional إضافية</li>
+              <li><Check/> مكتبة ضي الكاملة: 44 حركة Professional</li>
               <li><Check/> Pro Memory اختيارية تحت تحكم المستخدم</li>
               <li><Check/> Screen Awareness يدوي بدون مراقبة خلفية</li>
             </ul>
