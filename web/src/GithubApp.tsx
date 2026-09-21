@@ -493,8 +493,15 @@ export default function GithubApp(){
         const result=await window.daiDesktop.setSession(token);
         if(cancelled)return;
         if(result?.ok){
-          setPlan(result.plan==='professional'?'professional':'standard');
+          const verifiedPlan:DaiPlan=result.plan==='professional'?'professional':'standard';
+          setPlan(verifiedPlan);
           setPlanOwner(Boolean(result.owner));
+          if(verifiedPlan==='professional'){
+            const startup=await window.daiDesktop.getStartup().catch(()=>false);
+            if(!cancelled)setDesktopStartup(Boolean(startup));
+          }else if(!cancelled){
+            setDesktopStartup(false);
+          }
         }
       }catch{}
     }
