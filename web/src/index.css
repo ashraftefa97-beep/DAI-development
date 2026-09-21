@@ -492,3 +492,59 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 
 .dai-wordmark { display:inline-flex; align-items:center; justify-content:center; color:#FFD4E1; font-size:72px; font-weight:700; }
 .classic-brand .dai-wordmark { font-size:28px; width:44px;height:44px; }
+
+/* GitHub/Supabase auth */
+.auth-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(185,154,222,.12), transparent 29%),
+    radial-gradient(circle at 50% 75%, rgba(246,169,193,.08), transparent 32%),
+    #101321;
+  color: #f5edf4;
+}
+.auth-card {
+  width: min(430px, 100%);
+  padding: 30px;
+  border-radius: 26px;
+  background: rgba(23,27,43,.9);
+  border: 1px solid rgba(246,169,193,.16);
+  box-shadow: 0 28px 80px rgba(0,0,0,.34);
+  text-align: center;
+}
+.auth-logo { width: 112px; height: 112px; object-fit: contain; filter: drop-shadow(0 14px 30px rgba(246,169,193,.15)); }
+.auth-loading { animation: logoPulse 1.8s ease-in-out infinite; }
+.auth-card h1 { margin: 12px 0 4px; color: #fff4f8; font-size: 30px; }
+.auth-card > p { margin: 0 0 22px; color: #9d9fb9; }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; background: #111522; border-radius: 14px; margin-bottom: 18px; }
+.auth-tabs button { border: 0; border-radius: 11px; padding: 10px; background: transparent; color: #9295ab; cursor: pointer; }
+.auth-tabs button.active { background: #2d2435; color: #ffd4e1; }
+.auth-field { display: grid; gap: 7px; text-align: right; margin-top: 13px; }
+.auth-field span { color: #bfb8cc; font-size: 12px; }
+.auth-field input {
+  width: 100%; border: 1px solid #34384d; border-radius: 13px; background: #121625; color: #fff7fa;
+  padding: 12px 13px; outline: 0;
+}
+.auth-field input:focus { border-color: #d77fa3; }
+.auth-primary, .auth-google {
+  width: 100%; min-height: 46px; margin-top: 16px; border-radius: 14px; cursor: pointer;
+  display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800;
+}
+.auth-primary { border: 0; background: linear-gradient(135deg,#f6a9c1,#d77fa3); color: #281b2b; }
+.auth-google { border: 1px solid #363a4f; background: #181c2c; color: #eee6ef; }
+.auth-primary:disabled, .auth-google:disabled { opacity: .5; cursor: default; }
+.auth-divider { display: flex; align-items: center; gap: 10px; color: #6f7185; margin: 16px 0 0; font-size: 11px; }
+.auth-divider::before,.auth-divider::after { content:''; height:1px; background:#2a2e42; flex:1; }
+.auth-notice,.auth-setup-note {
+  margin-top: 14px; padding: 11px 12px; border-radius: 12px; font-size: 12px; line-height: 1.7;
+  background: rgba(246,169,193,.08); border: 1px solid rgba(246,169,193,.16); color: #e8c4d1;
+}
+.auth-session-pill {
+  position: fixed; z-index: 80; left: 14px; bottom: 14px; max-width: min(340px,calc(100vw - 28px));
+  display: flex; align-items: center; gap: 8px; padding: 7px 9px 7px 12px; border-radius: 14px;
+  background: rgba(23,27,43,.9); border: 1px solid #303449; color: #aaa7ba; font-size: 10px; backdrop-filter: blur(12px);
+}
+.auth-session-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth-session-pill button { width: 30px; height: 30px; border-radius: 9px; border: 1px solid #35394e; background:#151928; color:#e6b1c3; display:grid; place-items:center; cursor:pointer; }
