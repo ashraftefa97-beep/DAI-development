@@ -6,6 +6,28 @@ import { supabase } from './supabaseClient';
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 
+type DesktopAction =
+  | {type:'openApp';target:string}
+  | {type:'focusApp';target:string}
+  | {type:'closeApp';target:string}
+  | {type:'media';key:'playPause'|'next'|'previous'|'stop'|'mute'|'volumeUp'|'volumeDown'}
+  | {type:'shortcut';key:'space'|'enter'|'escape'|'left'|'right'|'up'|'down'|'pageUp'|'pageDown'|'home'|'end'|'fullscreen'|'find'|'address'}
+  | {type:'openExternal';url:string};
+
+declare global {
+  interface Window {
+    daiDesktop?: {
+      isDesktop: boolean;
+      platform?: string;
+      capabilities: () => Promise<any>;
+      execute: (action:DesktopAction) => Promise<{ok:boolean;message?:string}>;
+      pickAndOpenFile: () => Promise<{ok:boolean;message?:string;canceled?:boolean}>;
+      getStartup: () => Promise<boolean>;
+      setStartup: (enabled:boolean) => Promise<boolean>;
+    };
+  }
+}
+
 function DaiLogo({className=''}:{className?:string}) {
   return <img src='./dai-logo.svg' className={className} alt='لوجو ضي' width={192} height={192}/>;
 }
@@ -63,6 +85,8 @@ export default function GithubApp(){
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
   const [userName,setUserName]=useState('');
+  const [desktopMode,setDesktopMode]=useState(false);
+  const [desktopStartup,setDesktopStartup]=useState(false);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -86,6 +110,22 @@ export default function GithubApp(){
   const liveOutputTranscriptRef=useRef('');
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
+
+  useEffect(()=>{
+    let alive=true;
+    async function detectDesktop(){
+      if(!window.daiDesktop)return;
+      try{
+        const caps=await window.daiDesktop.capabilities();
+        if(!alive||!caps?.ok)return;
+        setDesktopMode(true);
+        const startup=await window.daiDesktop.getStartup().catch(()=>false);
+        if(alive)setDesktopStartup(Boolean(startup));
+      }catch{}
+    }
+    detectDesktop();
+    return()=>{alive=false;};
+  },[]);
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
@@ -367,6 +407,115 @@ export default function GithubApp(){
     return c.id;
   }
 
+  function cleanDesktopTarget(value:string){
+    return value
+      .replace(/[؟?!.,،]+$/g,'')
+      .replace(/\b(?:لو سمحت|من فضلك|دلوقتي|كده|كدا)\b/gi,'')
+      .trim()
+      .slice(0,120);
+  }
+
+  async function runDesktopCommand(text:string){
+    const bridge=window.daiDesktop;
+    if(!bridge?.isDesktop)return '';
+
+    const normalized=text.trim();
+    const lower=normalized.toLowerCase();
+
+    try{
+      if(/(?:افتح|اختار).*(?:ملف|فيديو|اغنية|أغنية|صوت|مقطع).*(?:الجهاز|الكمبيوتر)|(?:ملف|فيديو|صوت).*من الجهاز/i.test(normalized)){
+        const result=await bridge.pickAndOpenFile();
+        if(result?.canceled)return 'المستخدم ألغى اختيار الملف.';
+        return result?.ok ? (result.message||'ضي فتحت الملف المحلي.') : ('ضي حاولت تفتح الملف لكن: '+(result?.message||'حصل خطأ.'));
+      }
+
+      if(/(?:ارفع|علي|زوّد|زود).*(?:الصوت|الصوت شوية|volume)|volume up/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'volumeUp'});
+        return result.ok?'ضي رفعت صوت الجهاز.':('ضي مقدرتش ترفع الصوت: '+(result.message||'خطأ.'));
+      }
+      if(/(?:وطي|قلل|خفّض|خفض).*(?:الصوت|volume)|volume down/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'volumeDown'});
+        return result.ok?'ضي وطت صوت الجهاز.':('ضي مقدرتش توطي الصوت: '+(result.message||'خطأ.'));
+      }
+      if(/(?:اكتم|mute|اقفل الصوت|اقفلي الصوت)/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'mute'});
+        return result.ok?'ضي بدلت حالة كتم الصوت.':('ضي مقدرتش تتحكم في الكتم: '+(result.message||'خطأ.'));
+      }
+      if(/(?:التالي|الاغنية الجاية|الأغنية الجاية|next track|next song)/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'next'});
+        return result.ok?'ضي نقلت للمقطع التالي.':('ضي مقدرتش تنقل للمقطع التالي: '+(result.message||'خطأ.'));
+      }
+      if(/(?:السابق|اللي قبله|previous track|previous song)/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'previous'});
+        return result.ok?'ضي رجعت للمقطع السابق.':('ضي مقدرتش ترجع للمقطع السابق: '+(result.message||'خطأ.'));
+      }
+      if(/(?:وقف|وقفي|كمل|كملي|شغل|شغلي|pause|resume|play).*(?:الفيديو|المقطع|الصوت|الموسيقى|الاغنية|الأغنية)|(?:pause|resume|play)$/i.test(normalized)){
+        const result=await bridge.execute({type:'media',key:'playPause'});
+        return result.ok?'ضي بدلت تشغيل/إيقاف الميديا.':('ضي مقدرتش تتحكم في التشغيل: '+(result.message||'خطأ.'));
+      }
+      if(/(?:قدم|قدمي|عدي|عدّي).*(?:الفيديو|المقطع)|seek forward/i.test(normalized)){
+        const result=await bridge.execute({type:'shortcut',key:'right'});
+        return result.ok?'ضي قدمت المقطع.':('ضي مقدرتش تقدم المقطع: '+(result.message||'خطأ.'));
+      }
+      if(/(?:رجع|رجعي).*(?:الفيديو|المقطع)|seek back/i.test(normalized)){
+        const result=await bridge.execute({type:'shortcut',key:'left'});
+        return result.ok?'ضي رجعت المقطع.':('ضي مقدرتش ترجع المقطع: '+(result.message||'خطأ.'));
+      }
+      if(/(?:ملء الشاشة|فل سكرين|fullscreen)/i.test(normalized)){
+        const result=await bridge.execute({type:'shortcut',key:'fullscreen'});
+        return result.ok?'ضي بدلت وضع ملء الشاشة.':('ضي مقدرتش تغير وضع الشاشة: '+(result.message||'خطأ.'));
+      }
+
+      const webAliases:Array<[RegExp,string]>=[
+        [/^(?:افتح|افتحي)\s+(?:موقع\s+)?يوتيوب$/i,'https://www.youtube.com/'],
+        [/^(?:افتح|افتحي)\s+(?:موقع\s+)?جوجل$/i,'https://www.google.com/'],
+        [/^(?:افتح|افتحي)\s+(?:موقع\s+)?جيميل$/i,'https://mail.google.com/'],
+        [/^(?:افتح|افتحي)\s+(?:واتساب ويب|whatsapp web)$/i,'https://web.whatsapp.com/'],
+      ];
+      for(const [pattern,url] of webAliases){
+        if(pattern.test(normalized)){
+          const result=await bridge.execute({type:'openExternal',url});
+          return result.ok?'ضي فتحت الموقع.':('ضي مقدرتش تفتح الموقع: '+(result.message||'خطأ.'));
+        }
+      }
+
+      const closeMatch=normalized.match(/^(?:اقفل|اقفلي|اغلق|اغلقي|close)\s+(?:برنامج\s+)?(.+)$/i);
+      if(closeMatch){
+        const target=cleanDesktopTarget(closeMatch[1]);
+        if(!target)return '';
+        if(!window.confirm('تقفل '+target+'؟'))return 'المستخدم ألغى إغلاق البرنامج.';
+        const result=await bridge.execute({type:'closeApp',target});
+        return result.ok?(result.message||('ضي قفلت '+target+'.')):('ضي مقدرتش تقفل '+target+': '+(result.message||'خطأ.'));
+      }
+
+      const focusMatch=normalized.match(/^(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*(?:برنامج\s+)?(.+)$/i);
+      if(focusMatch){
+        const target=cleanDesktopTarget(focusMatch[1]);
+        if(!target)return '';
+        const result=await bridge.execute({type:'focusApp',target});
+        return result.ok?(result.message||('ضي راحت لبرنامج '+target+'.')):('ضي مقدرتش تركز على '+target+': '+(result.message||'خطأ.'));
+      }
+
+      const openMatch=normalized.match(/^(?:افتح|افتحي|شغل|شغلي|open|launch)\s+(?:برنامج\s+)?(.+)$/i);
+      if(openMatch){
+        const target=cleanDesktopTarget(openMatch[1]);
+        if(!target)return '';
+        const result=await bridge.execute({type:'openApp',target});
+        return result.ok?(result.message||('ضي فتحت '+target+'.')):('ضي ملقتش '+target+' أو مقدرتش تفتحه: '+(result.message||'خطأ.'));
+      }
+
+      if(/^https?:\/\//i.test(lower)){
+        const result=await bridge.execute({type:'openExternal',url:normalized});
+        return result.ok?'ضي فتحت الرابط.':('ضي مقدرتش تفتح الرابط: '+(result.message||'خطأ.'));
+      }
+    }catch(error){
+      console.error('DAI desktop action failed',error);
+      return 'ضي حاولت تنفذ أمر على الكمبيوتر لكن حصل خطأ محلي.';
+    }
+
+    return '';
+  }
+
   async function sendMessage(messageOverride?:unknown){
     const fromVoice=typeof messageOverride==='string';
     const text=(fromVoice?messageOverride:input).trim();
@@ -384,11 +533,17 @@ export default function GithubApp(){
     setPendingUserMessage(optimisticMessage);
     animate(stateForUserText(text),0);
 
+    let desktopActionResult='';
+    if(desktopMode){
+      desktopActionResult=await runDesktopCommand(text);
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
         body: {
           conversationId: activeId || null,
           message: text,
+          desktopActionResult: desktopActionResult || null,
         },
       });
 
@@ -899,6 +1054,8 @@ export default function GithubApp(){
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
         <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل ردود ضي بصوتها تلقائيًا، مع صوت الجهاز كاحتياطي لو الخدمة تعذرت.</small></span></label>
+        {desktopMode&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
+        {desktopMode&&<div className='classic-privacy'>نسخة الكمبيوتر مفعّل فيها فتح البرامج والتحكم في تشغيل الوسائط والصوت واختصارات التنقل المسموح بها.</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
       </section>
     </div>}
