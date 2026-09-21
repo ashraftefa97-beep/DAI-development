@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
-import { History, Mic, Plus, Send, Settings, Trash2, X } from 'lucide-react';
-import { supabase } from './supabaseClient';
+import { History, Mic, Plus, RotateCcw, Send, Settings, Square, Trash2, X } from 'lucide-react';
+import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
@@ -81,6 +81,7 @@ export default function GithubApp(){
   const [files,setFiles]=useState<string[]>([]);
   const [loadingData,setLoadingData]=useState(true);
   const [sending,setSending]=useState(false);
+  const [streamingText,setStreamingText]=useState(false);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
@@ -91,6 +92,8 @@ export default function GithubApp(){
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const speechRunRef=useRef(0);
+  const textRequestAbortRef=useRef<AbortController|null>(null);
+  const streamMessageIdRef=useRef('');
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
   const voiceTranscriptRef=useRef('');
@@ -370,6 +373,8 @@ export default function GithubApp(){
     clearTimeout(typingTimer.current);
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
+    textRequestAbortRef.current?.abort();
+    textRequestAbortRef.current=null;
     try{ recognitionRef.current?.stop(); }catch{}
     recognitionRef.current=null;
     try{ liveSocketRef.current?.close(); }catch{}
@@ -586,6 +591,252 @@ export default function GithubApp(){
     return '';
   }
 
+  function stopTextReply(){
+    textRequestAbortRef.current?.abort();
+    textRequestAbortRef.current=null;
+    const tempId=streamMessageIdRef.current;
+    if(tempId){
+      setConversations(prev=>prev.map(conversation=>({
+        ...conversation,
+        messages:conversation.messages.filter(message=>message.id!==tempId)
+      })));
+    }
+    streamMessageIdRef.current='';
+    setPendingUserMessage(null);
+    setStreamingText(false);
+    setSending(false);
+    animate('idle',0);
+  }
+
+  async function streamTypedReply(
+    text:string,
+    desktopActionResult='',
+    regenerateAssistantId=''
+  ){
+    if(!supabase||!supabaseUrl||!supabasePublishableKey)throw new Error('stream-config');
+
+    textRequestAbortRef.current?.abort();
+    const controller=new AbortController();
+    textRequestAbortRef.current=controller;
+    const tempAssistantId='stream-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    streamMessageIdRef.current=tempAssistantId;
+
+    const {data:{session}}=await supabase.auth.getSession();
+    const token=session?.access_token||'';
+    if(!token)throw new Error('session');
+
+    const response=await fetch(supabaseUrl.replace(/\/$/,'')+'/functions/v1/chat-stream',{
+      method:'POST',
+      signal:controller.signal,
+      headers:{
+        Authorization:'Bearer '+token,
+        apikey:supabasePublishableKey,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({
+        conversationId:activeIdRef.current||null,
+        message:text,
+        desktopActionResult:desktopActionResult||null,
+        regenerateAssistantId:regenerateAssistantId||null
+      })
+    });
+
+    if(!response.ok||!response.body){
+      const payload=await response.json().catch(()=>null);
+      throw new Error(String(payload?.message||payload?.error||'stream-failed'));
+    }
+
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='';
+    let conversationId=activeIdRef.current;
+    let doneReceived=false;
+    let firstDelta=false;
+
+    const handleEvent=(eventName:string,payload:any)=>{
+      if(eventName==='start'){
+        conversationId=String(payload?.conversationId||conversationId||'');
+        if(!conversationId)return;
+        activeIdRef.current=conversationId;
+        setActiveId(conversationId);
+
+        const row=payload?.userMessage;
+        if(row){
+          const userMessage:Message={
+            id:String(row.id),
+            role:'user',
+            content:String(row.content||text),
+            createdAt:new Date(row.created_at).getTime()
+          };
+          setPendingUserMessage(null);
+          setConversations(prev=>{
+            const existing=prev.find(item=>item.id===conversationId);
+            const base=existing?.messages||[];
+            const messages=[
+              ...base.filter(message=>message.id!==userMessage.id),
+              userMessage
+            ];
+            const updated:Conversation=existing
+              ? {...existing,messages,updatedAt:Date.now()}
+              : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages,updatedAt:Date.now()};
+            return [updated,...prev.filter(item=>item.id!==conversationId)];
+          });
+        }
+        return;
+      }
+
+      if(eventName==='delta'){
+        const delta=String(payload?.text||'');
+        if(!delta||!conversationId)return;
+
+        if(!firstDelta){
+          firstDelta=true;
+          setStreamingText(true);
+          animate('reply',0);
+        }
+
+        setConversations(prev=>{
+          const existing=prev.find(item=>item.id===conversationId);
+          if(!existing)return prev;
+          const found=existing.messages.some(message=>message.id===tempAssistantId);
+          const messages=found
+            ? existing.messages.map(message=>
+                message.id===tempAssistantId
+                  ? {...message,content:message.content+delta}
+                  : message
+              )
+            : [...existing.messages,{
+                id:tempAssistantId,
+                role:'assistant' as const,
+                content:delta,
+                createdAt:Date.now()
+              }];
+          const updated={...existing,messages,updatedAt:Date.now()};
+          return [updated,...prev.filter(item=>item.id!==conversationId)];
+        });
+        return;
+      }
+
+      if(eventName==='done'){
+        doneReceived=true;
+        const row=payload?.assistantMessage;
+        if(!row||!conversationId)return;
+
+        const assistantMessage:Message={
+          id:String(row.id),
+          role:'assistant',
+          content:String(row.content||''),
+          createdAt:new Date(row.created_at).getTime()
+        };
+
+        setConversations(prev=>prev.map(item=>{
+          if(item.id!==conversationId)return item;
+          const withoutOld=item.messages.filter(message=>
+            message.id!==tempAssistantId &&
+            (!regenerateAssistantId||message.id!==regenerateAssistantId)
+          );
+          return {...item,messages:[...withoutOld,assistantMessage],updatedAt:Date.now()};
+        }));
+
+        const perf=payload?.performance;
+        if(perf&&typeof perf==='object'){
+          console.debug('DAI latency',{
+            firstTokenMs:Number(perf.firstTokenMs||0),
+            totalMs:Number(perf.totalMs||0),
+            fastPath:Boolean(perf.fastPath)
+          });
+        }
+
+        streamMessageIdRef.current='';
+        setStreamingText(false);
+        animate('reply',900);
+        return;
+      }
+
+      if(eventName==='error'){
+        throw new Error(String(payload?.message||'ضي واجهت مشكلة وهي بتجهز الرد.'));
+      }
+    };
+
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const frames=buffer.split(/\r?\n\r?\n/);
+      buffer=frames.pop()||'';
+
+      for(const frame of frames){
+        let eventName='message';
+        const dataLines:string[]=[];
+        for(const line of frame.split(/\r?\n/)){
+          if(line.startsWith('event:'))eventName=line.slice(6).trim();
+          else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
+        }
+        if(!dataLines.length)continue;
+        let payload:any;
+        try{payload=JSON.parse(dataLines.join('\n'));}catch{continue;}
+        handleEvent(eventName,payload);
+      }
+    }
+
+    if(!doneReceived&&!controller.signal.aborted){
+      throw new Error('الرد اتوقف قبل ما يكتمل.');
+    }
+  }
+
+  async function regenerateLastReply(){
+    if(!active||sending||voiceSessionActive)return;
+    const messages=active.messages;
+    let assistantIndex=-1;
+    for(let index=messages.length-1;index>=0;index--){
+      if(messages[index].role==='assistant'){assistantIndex=index;break;}
+    }
+    if(assistantIndex<0)return;
+
+    let userIndex=-1;
+    for(let index=assistantIndex-1;index>=0;index--){
+      if(messages[index].role==='user'){userIndex=index;break;}
+    }
+    if(userIndex<0)return;
+
+    const oldAssistant=messages[assistantIndex];
+    const userText=messages[userIndex].content;
+    setErrorText('');
+    setSending(true);
+    setStreamingText(false);
+    setConversations(prev=>prev.map(item=>
+      item.id===active.id
+        ? {...item,messages:item.messages.filter(message=>message.id!==oldAssistant.id)}
+        : item
+    ));
+
+    try{
+      await streamTypedReply(userText,'',oldAssistant.id);
+    }catch(error){
+      if((error as Error)?.name!=='AbortError'){
+        setErrorText(String((error as Error)?.message||'ضي مقدرتش تعيد الرد دلوقتي.'));
+      }
+      setConversations(prev=>prev.map(item=>{
+        if(item.id!==active.id||item.messages.some(message=>message.id===oldAssistant.id))return item;
+        return {...item,messages:[...item.messages,oldAssistant].sort((a,b)=>a.createdAt-b.createdAt)};
+      }));
+      const tempId=streamMessageIdRef.current;
+      if(tempId){
+        setConversations(prev=>prev.map(item=>({
+          ...item,
+          messages:item.messages.filter(message=>message.id!==tempId)
+        })));
+      }
+    }finally{
+      if(textRequestAbortRef.current?.signal.aborted||textRequestAbortRef.current){
+        textRequestAbortRef.current=null;
+      }
+      streamMessageIdRef.current='';
+      setStreamingText(false);
+      setSending(false);
+    }
+  }
+
   async function sendMessage(messageOverride?:unknown){
     const fromVoice=typeof messageOverride==='string';
     const text=(fromVoice?messageOverride:input).trim();
@@ -594,6 +845,8 @@ export default function GithubApp(){
     clearTimeout(typingTimer.current);
     setErrorText('');
     setSending(true);
+    setStreamingText(false);
+
     const optimisticMessage:Message={
       id:'pending-'+Date.now(),
       role:'user',
@@ -606,6 +859,33 @@ export default function GithubApp(){
     let desktopActionResult='';
     if(desktopMode){
       desktopActionResult=await runDesktopCommand(text);
+    }
+
+    if(!fromVoice){
+      try{
+        await streamTypedReply(text,desktopActionResult);
+      }catch(error){
+        const aborted=(error as Error)?.name==='AbortError';
+        const tempId=streamMessageIdRef.current;
+        if(tempId){
+          setConversations(prev=>prev.map(item=>({
+            ...item,
+            messages:item.messages.filter(message=>message.id!==tempId)
+          })));
+        }
+        if(!aborted){
+          setInput(text);
+          setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
+        }
+        animate('idle',0);
+      }finally{
+        textRequestAbortRef.current=null;
+        streamMessageIdRef.current='';
+        setPendingUserMessage(null);
+        setStreamingText(false);
+        setSending(false);
+      }
+      return;
     }
 
     try {
@@ -639,54 +919,45 @@ export default function GithubApp(){
       setPendingUserMessage(null);
       setActiveId(conversationId);
 
-      // Typed turns reveal DAI's text as soon as it is ready.
-      // Voice turns can still reveal it with the start of DAI's voice.
       setConversations(prev=>{
-        const existing=prev.find(c=>c.id===conversationId);
+        const existing=prev.find(item=>item.id===conversationId);
         const baseMessages=existing?.messages||[];
-        const withoutDuplicate=baseMessages.filter(m=>m.id!==userMessage.id&&m.id!==assistantMessage.id);
+        const withoutDuplicate=baseMessages.filter(message=>message.id!==userMessage.id&&message.id!==assistantMessage.id);
         const updated:Conversation=existing
           ? {...existing,messages:[...withoutDuplicate,userMessage],updatedAt:Date.now()}
           : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages:[userMessage],updatedAt:Date.now()};
-        return [updated,...prev.filter(c=>c.id!==conversationId)];
+        return [updated,...prev.filter(item=>item.id!==conversationId)];
       });
 
       let revealed=false;
       const revealAssistant=()=>{
         if(revealed)return;
         revealed=true;
-        setConversations(prev=>prev.map(c=>
-          c.id===conversationId && !c.messages.some(m=>m.id===assistantMessage.id)
-            ? {...c,messages:[...c.messages,assistantMessage],updatedAt:Date.now()}
-            : c
+        setConversations(prev=>prev.map(item=>
+          item.id===conversationId && !item.messages.some(message=>message.id===assistantMessage.id)
+            ? {...item,messages:[...item.messages,assistantMessage],updatedAt:Date.now()}
+            : item
         ));
       };
 
-      if(fromVoice){
-        const answerState=stateForAssistantText(assistantMessage.content);
-        animate(answerState,answerState==='talk'?0:1600);
+      const answerState=stateForAssistantText(assistantMessage.content);
+      animate(answerState,answerState==='talk'?0:1600);
 
-        if(voiceEnabled){
-          const speaking=await speakReply(assistantMessage.content,revealAssistant);
-          if(!speaking)revealAssistant();
-        }else{
-          revealAssistant();
-        }
+      if(voiceEnabled){
+        const speaking=await speakReply(assistantMessage.content,revealAssistant);
+        if(!speaking)revealAssistant();
       }else{
         revealAssistant();
-        animate('reply',1350);
       }
     } catch (error) {
       console.error('DAI chat failed', error);
       setPendingUserMessage(null);
-      if(!fromVoice)setInput(text);
       setErrorText(await explainChatError(error));
       animate('idle',0);
     } finally {
       setSending(false);
     }
   }
-
 
   function pcm16ToBase64(samples:Float32Array){
     const pcm=new Int16Array(samples.length);
@@ -1131,7 +1402,14 @@ export default function GithubApp(){
         }
 
         const inputText=String(server?.inputTranscription?.text||'');
-        if(inputText)liveInputTranscriptRef.current+=inputText;
+        if(inputText){
+          if(liveOutputSourcesRef.current.size){
+            stopLivePlayback();
+            setVoiceSessionStatus('listening');
+            animate('listen',0);
+          }
+          liveInputTranscriptRef.current+=inputText;
+        }
 
         const outputText=String(server?.outputTranscription?.text||'');
         if(outputText)liveOutputTranscriptRef.current+=outputText;
@@ -1191,7 +1469,7 @@ export default function GithubApp(){
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
       <div className='classic-header-actions'>
-        <span className='classic-status'><i className={sending?'busy':''}/><span>{loadingData?'بجهّز حسابك…':sending?'ضي بتفكر…':'حسابك متصل'}</span></span>
+        <span className='classic-status'><i className={sending?'busy':''}/><span>{loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
       </div>
@@ -1227,6 +1505,11 @@ export default function GithubApp(){
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
               <p dir='auto'>{m.content}</p>
+              {m.role==='assistant'&&m.id===(active?.messages||[]).at(-1)?.id&&!sending&&
+                <button className='classic-regenerate' onClick={regenerateLastReply} title='إعادة الرد'>
+                  <RotateCcw className='h-3.5 w-3.5'/> إعادة الرد
+                </button>
+              }
             </article>
           ))}
         {!voiceSessionActive&&pendingUserMessage&&
@@ -1235,7 +1518,7 @@ export default function GithubApp(){
             <p dir='auto'>{pendingUserMessage.content}</p>
           </article>
         }
-        {!voiceSessionActive&&sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
+        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error'>{errorText}</div>}
@@ -1252,9 +1535,14 @@ export default function GithubApp(){
           <button className='classic-mic-button' aria-pressed={voiceSessionActive} onClick={toggleMic} aria-label={voiceSessionActive?'إنهاء المحادثة الصوتية':'بدء محادثة صوتية'} title={voiceSessionActive?'إنهاء الحوار الصوتي وإظهار النص':'ابدأ محادثة صوتية مباشرة مع ضي'}>
             {voiceSessionActive?<X className='h-5 w-5'/>:<Mic className='h-5 w-5'/>}
           </button>
-          <button className='classic-send' disabled={loadingData||sending||voiceSessionActive||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
-            <Send className='h-5 w-5'/>
-          </button>
+          {sending&&!voiceSessionActive
+            ? <button className='classic-send' onClick={stopTextReply} aria-label='إيقاف الرد' title='إيقاف الرد'>
+                <Square className='h-4 w-4'/>
+              </button>
+            : <button className='classic-send' disabled={loadingData||voiceSessionActive||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
+                <Send className='h-5 w-5'/>
+              </button>
+          }
         </div>
       </div>
     </section>
