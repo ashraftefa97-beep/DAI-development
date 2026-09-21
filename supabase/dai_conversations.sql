@@ -209,3 +209,21 @@ using ((select auth.uid()) = user_id);
 revoke all privileges on table public.dai_paypal_subscriptions from anon;
 revoke insert, update, delete, truncate, references, trigger on table public.dai_paypal_subscriptions from authenticated;
 grant select on table public.dai_paypal_subscriptions to authenticated;
+
+
+-- Private PayPal configuration. No client role may read or mutate it.
+create table if not exists public.dai_payment_config (
+  provider text primary key,
+  mode text not null,
+  product_id text not null,
+  monthly_plan_id text not null,
+  annual_plan_id text not null,
+  webhook_id text not null,
+  currency_code text not null default 'USD',
+  monthly_value text not null,
+  annual_value text not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.dai_payment_config enable row level security;
+revoke all privileges on table public.dai_payment_config from anon, authenticated;
