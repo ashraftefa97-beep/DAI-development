@@ -176,6 +176,8 @@ Deno.serve(async (req) => {
 
   const aiStartedAt = performance.now();
 
+  if (answer) clearTimeout(timeout);
+
   if (!answer) try {
     for (const model of modelCandidates) {
       const aiUrl =
