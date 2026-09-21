@@ -38,8 +38,8 @@ const publicSecretPatterns=[
 const failures=[];
 
 const animationCatalog=Array.isArray(product.animationCatalog)?product.animationCatalog:[];
-if(animationCatalog.length!==44){
-  failures.push(`DAI animation catalog must contain exactly 44 original animations, found ${animationCatalog.length}`);
+if(animationCatalog.length!==84){
+  failures.push(`DAI Professional animation catalog must contain exactly 84 animations, found ${animationCatalog.length}`);
 }
 const animationIds=animationCatalog.map(item=>String(item?.id||''));
 if(new Set(animationIds).size!==animationIds.length){
