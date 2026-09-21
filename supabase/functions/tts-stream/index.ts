@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
   if (rateAllowed !== true) return json({ error: 'طلبات صوت كتير بسرعة.', code: 'TTS_STREAM_RATE_LIMIT' }, 429);
 
   const body = await req.json().catch(() => ({}));
-  const text = String(body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 1200);
+  const text = String(body?.text || '').replace(/\s+/g, ' ').trim().slice(0, 2800);
   if (!text) return json({ error: 'Missing text' }, 400);
 
   const apiKey = (
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_STREAM_CONFIG' }, 503);
 
   const prompt =
-    'اقرئي بالمصري الطبيعي بصوت أنثوي شاب وخفيف، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي مع وضوح الكلام، النص فقط من غير أي إضافة:\n' + text;
+    'اقرئي بالمصري الطبيعي بصوت Leda الأنثوي نفسه من أول حرف لآخر حرف. ثبّتي طبقة الصوت والنبرة والشخصية طوال الرد، وما تخفضيش طبقة الصوت أو تغيّريها في آخر الجمل. سرعة محادثة نشيطة وواضحة، والنص فقط من غير أي إضافة:\n' + text;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
