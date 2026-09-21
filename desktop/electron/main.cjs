@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, screen, desktopCapturer } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -278,6 +278,38 @@ async function listRunningApps() {
   }
 }
 
+async function captureScreenSnapshot() {
+  try {
+    const primary = screen.getPrimaryDisplay();
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1280, height: 720 },
+      fetchWindowIcons: false,
+    });
+    const source =
+      sources.find((item) => String(item.display_id || '') === String(primary.id)) ||
+      sources[0];
+    if (!source || source.thumbnail.isEmpty()) {
+      return { ok: false, message: 'تعذر التقاط الشاشة الحالية.' };
+    }
+
+    let image = source.thumbnail.resize({ width: 960, quality: 'good' });
+    let bytes = image.toJPEG(72);
+    if (bytes.length > 1800000) {
+      image = source.thumbnail.resize({ width: 720, quality: 'good' });
+      bytes = image.toJPEG(68);
+    }
+
+    return {
+      ok: true,
+      imageDataUrl: 'data:image/jpeg;base64,' + bytes.toString('base64'),
+      capturedAt: new Date().toISOString(),
+    };
+  } catch {
+    return { ok: false, message: 'تعذر التقاط الشاشة الحالية.' };
+  }
+}
+
 async function arrangeWindow(target, layout) {
   const query = safeProgramQuery(target);
   const mode = ['left','right','maximize','center'].includes(String(layout || ''))
@@ -516,7 +548,7 @@ app.whenReady().then(async () => {
       owner: desktopEntitlement.owner,
       requiresProfessional: true,
       actions: professional
-        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion']
+        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion','screenSnapshot']
         : [],
     };
   });
@@ -621,6 +653,13 @@ app.whenReady().then(async () => {
     const access = await requireProfessional(event);
     if (!access.ok) return access;
     return listRunningApps();
+  });
+
+  ipcMain.handle('dai:screen-snapshot', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    if (!actionAllowed(event, 8)) return { ok: false, message: 'طلبات التقاط كتير بسرعة. حاول بعد لحظة.' };
+    return captureScreenSnapshot();
   });
 
   ipcMain.handle('dai:companion-state', async (event) => {
