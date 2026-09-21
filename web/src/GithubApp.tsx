@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { History, Mic, Plus, RotateCcw, Send, Settings, Square, Trash2, X } from 'lucide-react';
+import { Check, Crown, History, LockKeyhole, Mic, Plus, RotateCcw, Send, Settings, Sparkles, Square, Trash2, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
+type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.4.0';
+const DAI_WEB_VERSION='0.5.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -27,6 +28,9 @@ declare global {
       pickAndOpenFile: () => Promise<{ok:boolean;message?:string;canceled?:boolean}>;
       getStartup: () => Promise<boolean>;
       setStartup: (enabled:boolean) => Promise<boolean>;
+      setSession: (accessToken:string) => Promise<{ok:boolean;plan:DaiPlan;owner?:boolean;message?:string}>;
+      clearSession: () => Promise<boolean>;
+      runningApps: () => Promise<{ok:boolean;apps?:Array<{name:string;title:string}>;message?:string}>;
     };
   }
 }
@@ -102,6 +106,11 @@ export default function GithubApp(){
   const [userName,setUserName]=useState('');
   const [desktopMode,setDesktopMode]=useState(false);
   const [desktopStartup,setDesktopStartup]=useState(false);
+  const [plan,setPlan]=useState<DaiPlan>('standard');
+  const [planOwner,setPlanOwner]=useState(false);
+  const [planLoading,setPlanLoading]=useState(true);
+  const [upgradeOpen,setUpgradeOpen]=useState(false);
+  const [upgradeNotice,setUpgradeNotice]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
