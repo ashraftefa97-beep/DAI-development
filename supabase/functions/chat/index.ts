@@ -86,43 +86,96 @@ Deno.serve(async (req) => {
     .order('created_at', { ascending: true })
     .limit(24);
 
-  const aiApiKey = Deno.env.get('AI_API_KEY');
-  const aiBaseUrl = Deno.env.get('AI_BASE_URL') || 'https://api.openai.com/v1/chat/completions';
-  const aiModel = Deno.env.get('AI_MODEL') || 'gpt-4.1-mini';
+  const aiApiKey = (Deno.env.get('AI_API_KEY') || '').trim();
+  const aiModel = (Deno.env.get('AI_MODEL') || 'gpt-4.1-mini').trim();
+  const rawBaseUrl = (Deno.env.get('AI_BASE_URL') || 'https://api.openai.com/v1').trim();
 
-  if (!aiApiKey) return json({ error: 'AI backend is not configured yet' }, 503);
+  if (!aiApiKey) {
+    return json({ error: 'AI backend is not configured yet', code: 'AI_CONFIG' }, 503);
+  }
 
-  const aiResponse = await fetch(aiBaseUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${aiApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: aiModel,
-      messages: [
-        {
-          role: 'system',
-          content: 'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.',
-        },
-        ...(historyRows || []).map((item: any) => ({
-          role: item.role,
-          content: item.content,
-        })),
-      ],
-      temperature: 0.6,
-    }),
-  });
+  let aiUrl = '';
+  try {
+    const parsed = new URL(rawBaseUrl);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Unsupported protocol');
+
+    const clean = rawBaseUrl.replace(/\\/+$/, '');
+    if (/\\/chat\\/completions$/i.test(clean)) {
+      aiUrl = clean;
+    } else if (/\\/v1$/i.test(clean)) {
+      aiUrl = `${clean}/chat/completions`;
+    } else {
+      aiUrl = `${clean}/v1/chat/completions`;
+    }
+  } catch {
+    console.error('Invalid AI_BASE_URL');
+    return json({ error: 'AI_BASE_URL is invalid', code: 'AI_BASE_URL' }, 503);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+
+  let aiResponse: Response;
+  try {
+    aiResponse = await fetch(aiUrl, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${aiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: aiModel,
+        messages: [
+          {
+            role: 'system',
+            content: 'أنت ضي، مساعدة ذكية ودودة ومختصرة. جاوب بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. لا تدّعي معلومات أو مصادر غير مؤكدة.',
+          },
+          ...(historyRows || []).map((item: any) => ({
+            role: item.role,
+            content: item.content,
+          })),
+        ],
+        temperature: 0.6,
+        stream: false,
+      }),
+    });
+  } catch (error) {
+    console.error('AI provider network error', error);
+    const code = error instanceof DOMException && error.name === 'AbortError'
+      ? 'AI_TIMEOUT'
+      : 'AI_NETWORK';
+    return json({ error: 'Could not reach AI provider', code }, 502);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!aiResponse.ok) {
     const detail = await aiResponse.text().catch(() => '');
-    console.error('AI provider error', aiResponse.status, detail.slice(0, 500));
-    return json({ error: 'AI provider request failed' }, 502);
+    console.error('AI provider error', aiResponse.status, detail.slice(0, 800));
+
+    if (aiResponse.status === 401 || aiResponse.status === 403) {
+      return json({ error: 'AI provider rejected the API key', code: 'AI_AUTH' }, 502);
+    }
+    if (aiResponse.status === 404) {
+      return json({ error: 'AI endpoint or model was not found', code: 'AI_NOT_FOUND' }, 502);
+    }
+    if (aiResponse.status === 429) {
+      return json({ error: 'AI provider rate limit reached', code: 'AI_RATE_LIMIT' }, 502);
+    }
+    return json({
+      error: 'AI provider request failed',
+      code: 'AI_PROVIDER',
+      providerStatus: aiResponse.status,
+    }, 502);
   }
 
-  const aiJson = await aiResponse.json();
+  const aiJson = await aiResponse.json().catch(() => null);
   const answer = String(aiJson?.choices?.[0]?.message?.content || '').trim();
-  if (!answer) return json({ error: 'AI returned an empty response' }, 502);
+  if (!answer) {
+    console.error('AI provider returned no assistant content');
+    return json({ error: 'AI returned an empty response', code: 'AI_EMPTY' }, 502);
+  }
 
   const { data: assistantMessage, error: assistantError } = await supabase
     .from('dai_messages')
