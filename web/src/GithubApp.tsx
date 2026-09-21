@@ -111,6 +111,7 @@ export default function GithubApp(){
   const [planLoading,setPlanLoading]=useState(true);
   const [upgradeOpen,setUpgradeOpen]=useState(false);
   const [upgradeNotice,setUpgradeNotice]=useState('');
+  const [paypalBusy,setPaypalBusy]=useState<''|'monthly'|'annual'>('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -533,6 +534,101 @@ export default function GithubApp(){
   },[activeId,sending,voiceSessionActive]);
 
   const active=conversations.find(c=>c.id===activeId)||null;
+
+  async function refreshEntitlement(){
+    if(!supabase)return;
+    const {data,error}=await supabase.functions.invoke('entitlement',{body:{}});
+    if(error)return;
+    const nextPlan:DaiPlan=data?.plan==='professional'?'professional':'standard';
+    setPlan(nextPlan);
+    setPlanOwner(Boolean(data?.owner));
+    setPlanLoading(false);
+
+    if(desktopMode&&window.daiDesktop){
+      try{
+        const {data:sessionData}=await supabase.auth.getSession();
+        const token=sessionData.session?.access_token||'';
+        if(token){
+          const verified=await window.daiDesktop.setSession(token);
+          if(verified?.ok){
+            setPlan(verified.plan==='professional'?'professional':'standard');
+            setPlanOwner(Boolean(verified.owner));
+          }
+        }
+      }catch{}
+    }
+  }
+
+  async function startPayPalCheckout(billingPeriod:'monthly'|'annual'){
+    if(!supabase||professional||paypalBusy)return;
+    setPaypalBusy(billingPeriod);
+    setUpgradeNotice('');
+    try{
+      const {data,error}=await supabase.functions.invoke('paypal-create-subscription',{
+        body:{billingPeriod}
+      });
+      if(error)throw error;
+
+      if(data?.alreadyProfessional){
+        await refreshEntitlement();
+        setUpgradeNotice(String(data?.message||'Professional مفعلة بالفعل.'));
+        return;
+      }
+
+      const approvalUrl=String(data?.approvalUrl||'');
+      if(!/^https:\/\/(?:www\.)?(?:sandbox\.)?paypal\.com\//i.test(approvalUrl)){
+        throw new Error('paypal-link');
+      }
+
+      setUpgradeNotice('هتنتقل دلوقتي لصفحة PayPal الآمنة لإكمال الاشتراك.');
+      window.location.assign(approvalUrl);
+    }catch(error:any){
+      const message=String(error?.message||'');
+      if(/PAYPAL_CONFIG|PAYPAL_PLAN_CONFIG|not configured/i.test(message)){
+        setUpgradeNotice('ربط PayPal جاهز في ضي، لكن بيانات حساب PayPal Business وخطط الاشتراك لسه محتاجة تتضاف للسيرفر.');
+      }else{
+        setUpgradeNotice('تعذر بدء الدفع عبر PayPal دلوقتي. جرّب تاني بعد شوية.');
+      }
+    }finally{
+      setPaypalBusy('');
+    }
+  }
+
+  useEffect(()=>{
+    if(!supabase||!userId)return;
+    const url=new URL(window.location.href);
+    const paypalState=url.searchParams.get('paypal');
+    if(!paypalState)return;
+
+    let cancelled=false;
+    async function finishPayPalReturn(){
+      setUpgradeOpen(true);
+      if(paypalState==='cancelled'){
+        setUpgradeNotice('تم إلغاء عملية PayPal، ومفيش أي تغيير حصل في خطتك.');
+      }else if(paypalState==='success'){
+        setUpgradeNotice('جاري التحقق من حالة الاشتراك مع PayPal…');
+        try{
+          const {data,error}=await supabase!.functions.invoke('paypal-sync-subscription',{body:{}});
+          if(cancelled)return;
+          if(error)throw error;
+          await refreshEntitlement();
+          if(cancelled)return;
+          if(data?.status==='ACTIVE'){
+            setUpgradeNotice('تم تأكيد اشتراك PayPal وProfessional اتفعلت على حسابك.');
+          }else{
+            setUpgradeNotice('PayPal استلم الاشتراك، ولسه بنستنى حالته تبقى Active. جرّب تحديث الخطة بعد لحظات.');
+          }
+        }catch{
+          if(!cancelled)setUpgradeNotice('تم الرجوع من PayPal، لكن التحقق من الاشتراك اتأخر. جرّب تحديث الخطة بعد شوية.');
+        }
+      }
+      url.searchParams.delete('paypal');
+      window.history.replaceState({},'',url.pathname+url.search+url.hash);
+    }
+
+    void finishPayPalReturn();
+    return()=>{cancelled=true;};
+  },[userId]);
 
   useEffect(()=>{
     const node=chatScrollRef.current;
@@ -1720,14 +1816,26 @@ export default function GithubApp(){
               <li><Check/> تشغيل ضي مع Windows</li>
               <li><Check/> وعي اختياري بالبرامج المفتوحة</li>
             </ul>
-            <button
-              className='professional-cta'
-              disabled={professional}
-              onClick={()=>setUpgradeNotice('التسعير والخطة جاهزين. ربط الدفع الإلكتروني هيكون الخطوة التجارية الأخيرة قبل الإطلاق.')}
-            >{planOwner?'مفتوحة لك بالكامل':professional?'Professional مفعلة':'الترقية إلى Professional'}</button>
+            {professional
+              ? <button className='professional-cta' disabled>{planOwner?'مفتوحة لك بالكامل':'Professional مفعلة'}</button>
+              : <div className='dai-paypal-actions'>
+                  <button
+                    className='professional-cta'
+                    disabled={Boolean(paypalBusy)}
+                    onClick={()=>startPayPalCheckout('monthly')}
+                  >{paypalBusy==='monthly'?'جاري فتح PayPal…':'PayPal · شهري 29 ر.س'}</button>
+                  <button
+                    className='dai-paypal-yearly'
+                    disabled={Boolean(paypalBusy)}
+                    onClick={()=>startPayPalCheckout('annual')}
+                  >{paypalBusy==='annual'?'جاري فتح PayPal…':'PayPal · سنوي 249 ر.س'}</button>
+                </div>
+            }
+            {!professional&&<small className='dai-paypal-note'>السعر معروض بالريال. PayPal هيحصّل الاشتراك بعملة مدعومة في خطة الدفع.</small>}
           </article>
         </div>
         {upgradeNotice&&<div className='dai-upgrade-notice'>{upgradeNotice}</div>}
+        {!planOwner&&<button className='dai-plan-refresh' onClick={async()=>{setUpgradeNotice('جاري تحديث حالة الخطة…');try{await supabase?.functions.invoke('paypal-sync-subscription',{body:{}});await refreshEntitlement();setUpgradeNotice('تم تحديث حالة الخطة.');}catch{setUpgradeNotice('تعذر تحديث حالة الخطة دلوقتي.');}}}>تحديث حالة الاشتراك</button>}
         <p className='dai-plan-safety'>Professional لا يفتح Shell خام، ولا يقرأ كلمات المرور، ولا يعمل مراقبة مخفية. الأوامر الحساسة تظل بطلب تأكيد واضح.</p>
       </section>
     </div>}
