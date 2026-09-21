@@ -2212,3 +2212,89 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   opacity:.5;
   cursor:default;
 }
+
+
+/* Professional full animation library */
+.dai-animation-library-card {
+  margin-top:14px;
+}
+.dai-animation-library-copy {
+  margin:11px 0 12px;
+  color:#85899d;
+  font-size:10px;
+  line-height:1.7;
+}
+.dai-animation-groups {
+  display:grid;
+  gap:8px;
+}
+.dai-animation-group {
+  border:1px solid rgba(255,255,255,.05);
+  border-radius:13px;
+  background:rgba(255,255,255,.016);
+  overflow:hidden;
+}
+.dai-animation-group summary {
+  min-height:40px;
+  padding:0 11px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  cursor:pointer;
+  color:#d8d4df;
+  font-size:10px;
+  font-weight:800;
+  list-style:none;
+}
+.dai-animation-group summary::-webkit-details-marker { display:none; }
+.dai-animation-group summary b {
+  min-width:24px;
+  height:22px;
+  padding:0 7px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:rgba(246,169,193,.08);
+  color:#e8bdcc;
+  font-size:9px;
+}
+.dai-animation-grid {
+  padding:0 9px 9px;
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.dai-animation-grid button {
+  min-height:46px;
+  padding:7px 8px;
+  border-radius:11px;
+  border:1px solid #353a4f;
+  background:#171b29;
+  color:#d9d5df;
+  cursor:pointer;
+  text-align:right;
+}
+.dai-animation-grid button span,
+.dai-animation-grid button small { display:block; }
+.dai-animation-grid button span {
+  font-size:10px;
+  font-weight:800;
+}
+.dai-animation-grid button small {
+  margin-top:2px;
+  color:#73778a;
+  font-size:8px;
+}
+.dai-animation-grid button:hover:not(:disabled) {
+  border-color:rgba(246,169,193,.28);
+  color:#ffe0ea;
+  transform:translateY(-1px);
+}
+.dai-animation-grid button:disabled {
+  opacity:.38;
+  cursor:default;
+}
+@media(max-width:760px) {
+  .dai-animation-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
