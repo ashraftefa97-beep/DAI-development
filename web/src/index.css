@@ -656,3 +656,129 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   .classic-chat-message { width: 94%; }
   .classic-chat-message p { font-size:14px; }
 }
+
+
+/* ChatGPT-inspired DAI composer */
+.classic-input-bar {
+  width: min(900px, 100%);
+  min-height: 64px;
+  margin-top: 16px;
+  padding: 7px 9px;
+  direction: ltr;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  background: rgba(35, 36, 42, .96);
+  border: 1px solid rgba(255,255,255,.06);
+  box-shadow:
+    0 12px 34px rgba(0,0,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.025);
+}
+.classic-input-bar:focus-within {
+  border-color: rgba(246,169,193,.26);
+  box-shadow:
+    0 14px 38px rgba(0,0,0,.24),
+    0 0 0 1px rgba(246,169,193,.06),
+    inset 0 1px 0 rgba(255,255,255,.03);
+}
+.classic-input-bar textarea {
+  direction: rtl;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  max-height: 104px;
+  padding: 10px 8px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: #f6f1f5;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.classic-input-bar textarea::placeholder {
+  color: #a4a1aa;
+  opacity: .92;
+}
+.classic-plus-button,
+.classic-mic-button,
+.classic-send {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    border-color .18s ease,
+    color .18s ease,
+    box-shadow .18s ease,
+    opacity .18s ease;
+}
+.classic-plus-button,
+.classic-mic-button {
+  border: 0;
+  background: transparent;
+  color: #e3dee5;
+}
+.classic-plus-button:hover,
+.classic-mic-button:hover {
+  background: rgba(255,255,255,.06);
+  color: #fff6fa;
+}
+.classic-plus-button:active,
+.classic-mic-button:active,
+.classic-send:active {
+  transform: scale(.94);
+}
+.classic-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  direction: ltr;
+}
+.classic-mic-button[aria-pressed=true] {
+  color: #fff4f8;
+  background: rgba(246,169,193,.15);
+  box-shadow: 0 0 0 1px rgba(246,169,193,.18);
+}
+.classic-send {
+  border: 0;
+  color: #281b2b;
+  background: linear-gradient(145deg,#ffd0df,#f6a9c1 62%,#df8eaa);
+  box-shadow: 0 6px 16px rgba(246,169,193,.20);
+}
+.classic-send:hover:not(:disabled) {
+  background: linear-gradient(145deg,#ffdae5,#ffc0d4 62%,#e69ab4);
+  transform: translateY(-1px);
+}
+.classic-send:disabled {
+  opacity: .38;
+  color: #b2aab2;
+  background: rgba(255,255,255,.07);
+  box-shadow: none;
+  cursor: default;
+}
+@media(max-width:640px) {
+  .classic-input-bar {
+    min-height: 58px;
+    padding: 6px 7px;
+    gap: 5px;
+  }
+  .classic-plus-button,
+  .classic-mic-button,
+  .classic-send {
+    width: 38px;
+    height: 38px;
+  }
+  .classic-input-bar textarea {
+    min-height: 38px;
+    padding: 8px 5px;
+    font-size: 15px;
+  }
+}
