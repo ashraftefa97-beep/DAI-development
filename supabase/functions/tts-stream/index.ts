@@ -58,8 +58,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_STREAM_CONFIG' }, 503);
 
   const prompt =
-    'اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية الواضحة، بسرعة محادثة مريحة. ' +
-    'انطقي الكلمات كما هي من غير مقدمة أو إضافة أو شرح:\n\n' + text;
+    'اقرئي بالمصري الطبيعي، بصوت أنثوي دافئ، النص فقط من غير أي إضافة:\n' + text;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
