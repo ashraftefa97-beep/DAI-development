@@ -12,9 +12,13 @@ export const expressions = {
 export const gestures = [...new Set([
   ...product.animations.map(name => name.replace(/^dai_/, '').replace('idle_soft', 'idle')),
   'typing',
-  'reply'
+  'reply',
+  'curious',
+  'celebrate',
+  'focus',
+  'error'
 ])];
-const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy'};
+const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy',curious:'curious',celebrate:'happy',focus:'thinking',error:'confused'};
 export class DaiMotion {
   constructor(random = Math.random) {
     this.random = random;
@@ -37,7 +41,7 @@ export class DaiMotion {
     this.gesture = nextGesture;
     this.state = moods[this.gesture] || 'idle';
     this.gestureTime = 0; this.idleUntil = 0; this.caught = false;
-    if (['happy','found','idea'].includes(this.gesture)) this.burst(0,-65,this.gesture === 'found' ? 18 : 10);
+    if (['happy','found','idea','celebrate'].includes(this.gesture)) this.burst(0,-65,this.gesture === 'found' || this.gesture === 'celebrate' ? 18 : 10);
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
@@ -120,6 +124,69 @@ export class DaiMotion {
       }
     } else if(active==='stretch') {
       set({la:1,ra:1,lx:-143,rx:143,ly:-30,ry:-30,lr:-30,rr:30,left:.26,right:.26,sy:1.05,sx:.96,smile:.7});
+    } else if(active==='curious') {
+      const peek=this.reduced?0:Math.sin(e*2.2);
+      set({
+        left:1.08,
+        right:.72,
+        tilt:8+peek*2.5,
+        gaze_x:7+peek*2,
+        gaze_y:-3,
+        smile:.48,
+        cheek:.18,
+        ra:1,
+        rx:92+peek*4,
+        ry:38,
+        rr:-28,
+        brow:.18
+      });
+      if(!this.reduced)p.bob+=Math.sin(e*2.7)*1.1;
+    } else if(active==='celebrate') {
+      const beat=this.reduced?0:Math.sin(e*7.5);
+      set({
+        la:1,ra:1,
+        lx:-132,rx:132,
+        ly:-38+beat*9,ry:-38-beat*9,
+        lr:-26+beat*11,rr:26+beat*11,
+        left:.58,right:.58,
+        smile:1,mouth:.36,cheek:.82,happy:1,
+        tilt:beat*5,
+        notes:1
+      });
+      if(!this.reduced){
+        p.bob-=Math.abs(Math.sin(e*4.2))*10;
+        p.sx=1+Math.abs(beat)*.025;
+        p.sy=1-Math.abs(beat)*.018;
+      }
+    } else if(active==='focus') {
+      const micro=this.reduced?0:Math.sin(e*1.8);
+      set({
+        left:.78,right:.78,
+        gaze_x:-2+micro*1.4,
+        gaze_y:-6,
+        tilt:-3+micro,
+        smile:.18,
+        mouth:0,
+        brow:1,
+        cheek:.05
+      });
+      if(!this.reduced)p.bob+=Math.sin(e*1.4)*.35;
+    } else if(active==='error') {
+      const shake=this.reduced?0:Math.sin(e*15)*Math.exp(-e*.45);
+      set({
+        left:.55,right:.92,
+        gaze_x:shake*4,
+        gaze_y:2,
+        tilt:-7+shake*5,
+        smile:-.16,
+        mouth:.12,
+        brow:.9,
+        cheek:.04,
+        ra:1,
+        rx:103,
+        ry:58,
+        rr:-18+shake*8
+      });
     } else if(active==='fishing') {
       set({ra:1,rx:101,ry:55,rr:-25,rod:enter,gaze_x:10,gaze_y:5,tilt:5,smile:.48});
       if(e<1) set({rx:80+21*enter,ry:15+40*enter,tilt:-8+13*enter});
