@@ -812,7 +812,7 @@ export default function GithubApp(){
   },[controlOpen,professional,desktopMode]);
 
   function looksLikeDesktopCommand(value:string){
-    return /(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|ركز|ركزي|روح|روحي|volume|الصوت|ميديا|الميديا|ملء الشاشة|فل سكرين|fullscreen|ملف من الجهاز|فيديو من الجهاز|يوتيوب|جوجل|جيميل|واتساب ويب|open|launch|close)/i.test(value);
+    return /(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|ركز|ركزي|روح|روحي|رتب|رتبي|حط|حطي|كبر|كبري|يمين|شمال|يسار|وسط|الرفيقة|التجوال|volume|الصوت|ميديا|الميديا|ملء الشاشة|فل سكرين|fullscreen|ملف من الجهاز|فيديو من الجهاز|يوتيوب|جوجل|جيميل|واتساب ويب|open|launch|close|maximize)/i.test(value);
   }
 
   function cleanDesktopTarget(value:string){
@@ -877,6 +877,49 @@ export default function GithubApp(){
       if(/(?:ملء الشاشة|فل سكرين|fullscreen)/i.test(normalized)){
         const result=await bridge.execute({type:'shortcut',key:'fullscreen'});
         return result.ok?'ضي بدلت وضع ملء الشاشة.':('ضي مقدرتش تغير وضع الشاشة: '+(result.message||'خطأ.'));
+      }
+
+      if(/(?:اظهري|اظهر|شغلي|فعلي).*(?:الرفيقة|ضي العائمة|floating companion)/i.test(normalized)){
+        const result=await bridge.showCompanion();
+        if(result?.ok){
+          setCompanionVisible(true);
+          setCompanionWander(Boolean(result.wander));
+        }
+        return result?.ok?'ضي ظهرت كرفيقة عائمة.':(result?.message||'تعذر إظهار الرفيقة العائمة.');
+      }
+      if(/(?:اخفي|اخفِ|اقفلي).*(?:الرفيقة|ضي العائمة|floating companion)/i.test(normalized)){
+        const result=await bridge.hideCompanion();
+        if(result?.ok)setCompanionVisible(false);
+        return result?.ok?'تم إخفاء الرفيقة العائمة.':(result?.message||'تعذر إخفاء الرفيقة العائمة.');
+      }
+      if(/(?:شغلي|فعلي|ابدئي).*(?:التجوال|الحركة الحرة|roaming)/i.test(normalized)){
+        const result=await bridge.setCompanionWander(true);
+        if(result?.ok){
+          setCompanionVisible(Boolean(result.visible));
+          setCompanionWander(true);
+        }
+        return result?.ok?'ضي بدأت التجوال الهادي.':(result?.message||'تعذر تشغيل التجوال.');
+      }
+      if(/(?:وقفي|اقفلي|الغِ|الغي).*(?:التجوال|الحركة الحرة|roaming)/i.test(normalized)){
+        const result=await bridge.setCompanionWander(false);
+        if(result?.ok)setCompanionWander(false);
+        return result?.ok?'ضي وقفت التجوال.':(result?.message||'تعذر إيقاف التجوال.');
+      }
+
+      const layoutMatch=normalized.match(/^(?:حط|حطي|رتب|رتبي|خلي|خلّي)\s+(?:برنامج\s+)?(.+?)\s+(?:على\s+)?(يمين|اليمين|شمال|الشمال|يسار|اليسار|وسط|الوسط)$/i);
+      if(layoutMatch){
+        const target=cleanDesktopTarget(layoutMatch[1]);
+        const side=String(layoutMatch[2]||'');
+        const layout:'left'|'right'|'center'=/(يمين)/i.test(side)?'right':/(شمال|يسار)/i.test(side)?'left':'center';
+        const result=await bridge.execute({type:'windowLayout',target,layout});
+        return result.ok?(result.message||'ضي رتبت النافذة.'):(result.message||'ضي مقدرتش ترتب النافذة.');
+      }
+
+      const maximizeMatch=normalized.match(/^(?:كبر|كبري|كبّر|كبّري|maximize)\s+(?:برنامج\s+)?(.+)$/i);
+      if(maximizeMatch){
+        const target=cleanDesktopTarget(maximizeMatch[1]);
+        const result=await bridge.execute({type:'windowLayout',target,layout:'maximize'});
+        return result.ok?(result.message||'ضي كبرت النافذة.'):(result.message||'ضي مقدرتش تكبر النافذة.');
       }
 
       const webAliases:Array<[RegExp,string]>=[
@@ -1577,6 +1620,26 @@ export default function GithubApp(){
       if(name==='open_local_file'){
         return await bridge.pickAndOpenFile();
       }
+      if(name==='arrange_window'){
+        const target=cleanDesktopTarget(String(args?.name||''));
+        const layout=String(args?.layout||'') as 'left'|'right'|'center'|'maximize';
+        if(!target||!['left','right','center','maximize'].includes(layout)){
+          return {ok:false,message:'اسم البرنامج أو ترتيب النافذة ناقص.'};
+        }
+        return await bridge.execute({type:'windowLayout',target,layout});
+      }
+      if(name==='floating_companion'){
+        const command=String(args?.command||'');
+        if(command==='show')return await bridge.showCompanion();
+        if(command==='hide')return await bridge.hideCompanion();
+        if(command==='wanderOn'){
+          const shown=await bridge.showCompanion();
+          if(!shown?.ok)return shown;
+          return await bridge.setCompanionWander(true);
+        }
+        if(command==='wanderOff')return await bridge.setCompanionWander(false);
+        return {ok:false,message:'أمر الرفيقة العائمة غير معروف.'};
+      }
     }catch(error){
       console.error('DAI live desktop tool failed',error);
       return {ok:false,message:'حصل خطأ محلي أثناء تنفيذ الأمر.'};
@@ -1674,6 +1737,29 @@ export default function GithubApp(){
               name:'open_local_file',
               description:'افتح نافذة اختيار ملف محلي ليختار المستخدم فيديو أو صوت أو ملفًا آخر.',
               parameters:{type:'OBJECT',properties:{}}
+            },
+            {
+              name:'arrange_window',
+              description:'رتب نافذة برنامج ظاهرة على Windows إلى اليمين أو اليسار أو الوسط أو كبرها.',
+              parameters:{
+                type:'OBJECT',
+                properties:{
+                  name:{type:'STRING',description:'اسم البرنامج أو النافذة'},
+                  layout:{type:'STRING',enum:['left','right','center','maximize']}
+                },
+                required:['name','layout']
+              }
+            },
+            {
+              name:'floating_companion',
+              description:'تحكم في رفيقة ضي العائمة أو التجوال الهادي على سطح المكتب.',
+              parameters:{
+                type:'OBJECT',
+                properties:{
+                  command:{type:'STRING',enum:['show','hide','wanderOn','wanderOff']}
+                },
+                required:['command']
+              }
             }
           ]
         }] : undefined;
