@@ -14,6 +14,7 @@ function json(body: unknown, status = 200) {
 }
 
 Deno.serve(async (req) => {
+  const requestStartedAt = performance.now();
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
@@ -61,8 +62,8 @@ Deno.serve(async (req) => {
         .from('dai_messages')
         .select('role,content,created_at')
         .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-        .limit(12);
+        .order('created_at', { ascending: false })
+        .limit(8);
 
   const geminiApiKey = (
     Deno.env.get('GEMINI_API_KEY') ||
@@ -111,6 +112,8 @@ Deno.serve(async (req) => {
 
   const contents = [
     ...(historyRows || [])
+      .slice()
+      .reverse()
       .filter((item: any) => item.role === 'user' || item.role === 'assistant')
       .map((item: any) => ({
         role: item.role === 'assistant' ? 'model' : 'user',
@@ -122,13 +125,21 @@ Deno.serve(async (req) => {
     },
   ];
 
+  const complexRequest =
+    message.length > 900 ||
+    /(?:كود|برمج|debug|حلل|تحليل|بالتفصيل|خطوة بخطوة|خطة كاملة|code|refactor|analy[sz]e|explain in detail)/i.test(message);
+  const thinkingLevel = complexRequest ? 'low' : 'minimal';
+  const maxOutputTokens = complexRequest ? 850 : 360;
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
   let answer = '';
   let usedModel = '';
   let lastStatus = 0;
   let lastDetail = '';
+
+  const aiStartedAt = performance.now();
 
   try {
     for (const model of modelCandidates) {
@@ -151,8 +162,10 @@ Deno.serve(async (req) => {
             },
             contents,
             generationConfig: {
-              temperature: 0.55,
-              maxOutputTokens: 500,
+              maxOutputTokens,
+              thinkingConfig: {
+                thinkingLevel,
+              },
             },
           }),
         });
@@ -288,10 +301,12 @@ Deno.serve(async (req) => {
     return json({ error: 'Could not read saved conversation messages' }, 500);
   }
 
-  await supabase
+  const updatePromise = supabase
     .from('dai_conversations')
     .update({ updated_at: new Date().toISOString() })
     .eq('id', conversationId);
+
+  await updatePromise;
 
   return json({
     conversationId,
@@ -299,5 +314,11 @@ Deno.serve(async (req) => {
     assistantMessage,
     provider: 'gemini',
     model: usedModel,
+    performance: {
+      aiMs: Math.round(performance.now() - aiStartedAt),
+      totalMs: Math.round(performance.now() - requestStartedAt),
+      thinkingLevel,
+      historyMessages: (historyRows || []).length,
+    },
   });
 });
