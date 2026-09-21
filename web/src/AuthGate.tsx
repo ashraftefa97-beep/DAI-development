@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { LogIn, LogOut, UserPlus } from 'lucide-react';
+import { KeyRound, LogIn, LogOut, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
 
 type Mode = 'login' | 'register';
@@ -19,6 +19,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountNotice, setAccountNotice] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [accountBusy, setAccountBusy] = useState(false);
 
   function getUserName(user:any){
     return String(
@@ -154,12 +158,91 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     }
   }
 
-  async function logout() {
+  async function logout(scope: 'local' | 'global' = 'local') {
     if (!supabase) return;
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope });
     setSessionEmail('');
     setSessionName('');
     setNeedsName(false);
+    setAccountOpen(false);
+  }
+
+  async function saveAccountProfile() {
+    if (!supabase || profileName.trim().length < 2 || !profileGender || accountBusy) return;
+    setAccountBusy(true);
+    setAccountNotice('');
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { display_name: profileName.trim(), gender: profileGender },
+      });
+      if (error) throw error;
+      applySessionUser(data.user);
+      setAccountNotice('تم حفظ بيانات الحساب.');
+    } catch {
+      setAccountNotice('ضي مقدرتش تحفظ بيانات الحساب دلوقتي.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function changePassword() {
+    if (!supabase || newPassword.length < 8 || accountBusy) return;
+    setAccountBusy(true);
+    setAccountNotice('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNewPassword('');
+      setAccountNotice('تم تغيير كلمة المرور.');
+    } catch {
+      setAccountNotice('تعذر تغيير كلمة المرور. جرّب تاني.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function clearAllChats() {
+    if (!supabase || accountBusy) return;
+    if (!window.confirm('تمسح كل محادثاتك مع ضي نهائيًا؟ الإجراء ده مش بيرجع.')) return;
+    setAccountBusy(true);
+    setAccountNotice('');
+    try {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id || '';
+      if (!uid) throw new Error('session');
+      const { error } = await supabase.from('dai_conversations').delete().eq('user_id', uid);
+      if (error) throw error;
+      setAccountNotice('تم مسح كل المحادثات.');
+      window.setTimeout(() => window.location.reload(), 450);
+    } catch {
+      setAccountNotice('تعذر مسح المحادثات. جرّب تاني.');
+    } finally {
+      setAccountBusy(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (!supabase || accountBusy) return;
+    const confirmation = window.prompt('لحذف الحساب نهائيًا اكتب: حذف');
+    if (confirmation?.trim() !== 'حذف') return;
+
+    setAccountBusy(true);
+    setAccountNotice('');
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirm: 'DELETE' },
+      });
+      if (error || !data?.deleted) throw error || new Error('delete-failed');
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+      setSessionEmail('');
+      setSessionName('');
+      setAccountOpen(false);
+      window.location.reload();
+    } catch {
+      setAccountNotice('تعذر حذف الحساب دلوقتي. جرّب تاني.');
+    } finally {
+      setAccountBusy(false);
+    }
   }
 
   if (!ready) {
@@ -293,10 +376,85 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   return (
     <>
       <div className='auth-session-pill' dir='rtl'>
-        <span>{sessionName || sessionEmail}</span>
-        <button onClick={logout} aria-label='تسجيل الخروج'><LogOut className='h-4 w-4' /></button>
+        <button className='auth-account-open' onClick={() => { setAccountOpen(true); setAccountNotice(''); }} aria-label='إدارة الحساب'>
+          <UserCog className='h-4 w-4' />
+          <span>{sessionName || sessionEmail}</span>
+        </button>
+        <button onClick={() => logout('local')} aria-label='تسجيل الخروج'><LogOut className='h-4 w-4' /></button>
       </div>
+
       {children}
+
+      {accountOpen && (
+        <div className='auth-account-overlay' onMouseDown={e => { if (e.target === e.currentTarget) setAccountOpen(false); }}>
+          <section className='auth-account-panel' dir='rtl' role='dialog' aria-modal='true' aria-label='إدارة الحساب'>
+            <header className='auth-account-head'>
+              <div>
+                <span>حسابك</span>
+                <h2>إدارة الحساب والخصوصية</h2>
+              </div>
+              <button onClick={() => setAccountOpen(false)} aria-label='إغلاق'><X className='h-5 w-5' /></button>
+            </header>
+
+            <div className='auth-account-section'>
+              <h3><UserCog className='h-4 w-4' /> بيانات ضي عنك</h3>
+              <label className='auth-field'>
+                <span>الاسم اللي ضي تناديك بيه</span>
+                <input value={profileName} onChange={e => setProfileName(e.target.value)} maxLength={40} autoComplete='name' />
+              </label>
+              <label className='auth-field'>
+                <span>النوع</span>
+                <select value={profileGender} onChange={e => setProfileGender(e.target.value as UserGender)}>
+                  <option value=''>اختار</option>
+                  <option value='male'>ذكر</option>
+                  <option value='female'>أنثى</option>
+                </select>
+              </label>
+              <button className='auth-account-action' disabled={accountBusy || profileName.trim().length < 2 || !profileGender} onClick={saveAccountProfile}>
+                حفظ البيانات
+              </button>
+            </div>
+
+            <div className='auth-account-section'>
+              <h3><KeyRound className='h-4 w-4' /> الأمان</h3>
+              <label className='auth-field'>
+                <span>كلمة مرور جديدة</span>
+                <input
+                  type='password'
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  autoComplete='new-password'
+                  placeholder='8 أحرف أو أكثر'
+                />
+              </label>
+              <button className='auth-account-action' disabled={accountBusy || newPassword.length < 8} onClick={changePassword}>
+                تغيير كلمة المرور
+              </button>
+              <button className='auth-account-secondary' disabled={accountBusy} onClick={() => logout('global')}>
+                تسجيل خروج من كل الأجهزة
+              </button>
+            </div>
+
+            <div className='auth-account-section auth-privacy-section'>
+              <h3><ShieldCheck className='h-4 w-4' /> الخصوصية</h3>
+              <p>المحادثات مرتبطة بحسابك ومحميّة بسياسات RLS. ضي لا تستخدم ذاكرة طويلة المدى منفصلة حاليًا؛ بيانات المحادثات هي المصدر المحفوظ الأساسي.</p>
+              <button className='auth-account-secondary' disabled={accountBusy} onClick={clearAllChats}>
+                مسح كل المحادثات
+              </button>
+            </div>
+
+            <div className='auth-account-section danger'>
+              <h3><Trash2 className='h-4 w-4' /> المنطقة الخطرة</h3>
+              <p>حذف الحساب يمسح بيانات الحساب ومحادثاته نهائيًا.</p>
+              <button className='auth-account-danger' disabled={accountBusy} onClick={deleteAccount}>
+                حذف الحساب نهائيًا
+              </button>
+            </div>
+
+            {accountNotice && <div className='auth-notice' role='status'>{accountNotice}</div>}
+          </section>
+        </div>
+      )}
     </>
   );
 }
