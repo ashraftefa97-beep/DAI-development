@@ -13,6 +13,37 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function pickInstantReply(text: string) {
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/[!?.؟،]+$/g, '')
+    .replace(/\s+/g, ' ');
+
+  const variants = (items: string[]) => items[Math.abs(Date.now()) % items.length];
+
+  if (/^(ازيك|إزيك|عاملة ايه|عامله ايه|اخبارك|أخبارك)$/.test(normalized)) {
+    return variants([
+      'تمام الحمد لله، أخبارك إيه؟',
+      'كويسة الحمد لله، قولي الدنيا معاك عاملة إيه.',
+      'الحمد لله تمام، إيه الأخبار؟',
+    ]);
+  }
+  if (/^(هاي|hi|hello|هلو|اهلا|أهلا|السلام عليكم)$/.test(normalized)) {
+    return variants(['أهلًا!', 'وعليكم السلام!', 'أهلًا بيك، إيه الأخبار؟']);
+  }
+  if (/^(صباح الخير|صباحو)$/.test(normalized)) {
+    return variants(['صباح النور!', 'صباح الفل!', 'صباح جميل عليك!']);
+  }
+  if (/^(مساء الخير|مساءو)$/.test(normalized)) {
+    return variants(['مساء النور!', 'مساء الفل!', 'مساء جميل!']);
+  }
+  if (/^(شكرا|شكرًا|ميرسي|thanks|thank you|تسلمي|تسلم)$/.test(normalized)) {
+    return variants(['العفو!', 'ولا يهمك.', 'في أي وقت.']);
+  }
+  return '';
+}
+
 Deno.serve(async (req) => {
   const requestStartedAt = performance.now();
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -46,24 +77,26 @@ Deno.serve(async (req) => {
 
   const needsConversation = !conversationId;
 
+  let historyRows: Array<{ role: string; content: string; created_at: string }> = [];
+
   if (!needsConversation) {
-    const { data: owned } = await supabase
-      .from('dai_conversations')
-      .select('id')
-      .eq('id', conversationId)
-      .single();
-
-    if (!owned) return json({ error: 'Conversation not found' }, 404);
-  }
-
-  const { data: historyRows } = needsConversation
-    ? { data: [] as Array<{ role: string; content: string; created_at: string }> }
-    : await supabase
+    const [ownedResult, historyResult] = await Promise.all([
+      supabase
+        .from('dai_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .single(),
+      supabase
         .from('dai_messages')
         .select('role,content,created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
-        .limit(8);
+        .limit(4),
+    ]);
+
+    if (!ownedResult.data) return json({ error: 'Conversation not found' }, 404);
+    historyRows = historyResult.data || [];
+  }
 
   const geminiApiKey = (
     Deno.env.get('GEMINI_API_KEY') ||
@@ -109,7 +142,7 @@ Deno.serve(async (req) => {
     : 'لو المستخدم طلب تحكمًا محليًا في الكمبيوتر ولم تصلك نتيجة تنفيذ محلية، لا تدّعي إن الأمر اتنفذ.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري طبيعي ومرن ومتنوع، كحوار حقيقي مش خدمة عملاء. لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية قصيرة وطبيعية ومتنوعة بدل جملة محفوظة، ومتسأليش تلقائيًا «أقدر أساعدك بإيه النهارده؟» إلا لو السياق محتاج سؤال متابعة. تجنبي تكرار نفس افتتاحية الرد من رسالة للتانية. ${userGenderRule} ${nicknameRule} ${desktopRule} الرسائل المكتوبة يرد عليها التطبيق كتابة فقط، والمحادثة الصوتية فقط هي اللي يكون فيها رد صوتي. لو المستخدم سأل عن صوتك، قولي إن ضي بتتكلم بصوتها في المحادثة الصوتية. لا تذكري اسم مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري طبيعي ومرن ومتنوع، كحوار حقيقي مش خدمة عملاء. لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية قصيرة وطبيعية ومتنوعة بدل جملة محفوظة، ومتسأليش تلقائيًا «أقدر أساعدك بإيه النهارده؟» إلا لو السياق محتاج سؤال متابعة. تجنبي تكرار نفس افتتاحية الرد من رسالة للتانية. ${userGenderRule} ${nicknameRule} ${desktopRule} الرسائل المكتوبة يرد عليها التطبيق كتابة فقط، والمحادثة الصوتية فقط هي اللي يكون فيها رد صوتي. لو المستخدم سأل عن صوتك، قولي إن ضي بتتكلم بصوتها في المحادثة الصوتية. لا تذكري اسم مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const contents = [
     ...(historyRows || [])
@@ -126,23 +159,24 @@ Deno.serve(async (req) => {
     },
   ];
 
+  const instantAnswer = pickInstantReply(message);
   const complexRequest =
-    message.length > 900 ||
+    message.length > 700 ||
     /(?:كود|برمج|debug|حلل|تحليل|بالتفصيل|خطوة بخطوة|خطة كاملة|code|refactor|analy[sz]e|explain in detail)/i.test(message);
-  const thinkingLevel = complexRequest ? 'low' : 'minimal';
-  const maxOutputTokens = complexRequest ? 850 : 360;
+  const thinkingLevel = 'minimal';
+  const maxOutputTokens = complexRequest ? 420 : 220;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), 3600);
 
-  let answer = '';
-  let usedModel = '';
+  let answer = instantAnswer;
+  let usedModel = instantAnswer ? 'local-fast-path' : '';
   let lastStatus = 0;
   let lastDetail = '';
 
   const aiStartedAt = performance.now();
 
-  try {
+  if (!answer) try {
     for (const model of modelCandidates) {
       const aiUrl =
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
@@ -274,7 +308,7 @@ Deno.serve(async (req) => {
     conversationId = created.id;
   }
 
-  const { data: savedMessages, error: saveError } = await supabase
+  const saveMessagesPromise = supabase
     .from('dai_messages')
     .insert([
       {
@@ -292,6 +326,16 @@ Deno.serve(async (req) => {
     ])
     .select('id,role,content,created_at');
 
+  const touchConversationPromise = supabase
+    .from('dai_conversations')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId);
+
+  const [{ data: savedMessages, error: saveError }] = await Promise.all([
+    saveMessagesPromise,
+    touchConversationPromise,
+  ]);
+
   if (saveError || !savedMessages || savedMessages.length < 2) {
     return json({ error: 'Could not save conversation messages' }, 500);
   }
@@ -301,13 +345,6 @@ Deno.serve(async (req) => {
   if (!userMessage || !assistantMessage) {
     return json({ error: 'Could not read saved conversation messages' }, 500);
   }
-
-  const updatePromise = supabase
-    .from('dai_conversations')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', conversationId);
-
-  await updatePromise;
 
   return json({
     conversationId,
@@ -319,7 +356,8 @@ Deno.serve(async (req) => {
       aiMs: Math.round(performance.now() - aiStartedAt),
       totalMs: Math.round(performance.now() - requestStartedAt),
       thinkingLevel,
-      historyMessages: (historyRows || []).length,
+      historyMessages: historyRows.length,
+      fastPath: Boolean(instantAnswer),
     },
   });
 });
