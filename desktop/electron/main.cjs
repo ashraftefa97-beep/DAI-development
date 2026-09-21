@@ -5,7 +5,16 @@ const path = require('path');
 const APP_URL = process.env.DAI_WEB_URL || 'https://ashraftefa97-beep.github.io/DAI-development/';
 const ALLOWED_ORIGIN = new URL(APP_URL).origin;
 const SUPABASE_ORIGIN = 'https://buenonmbyudjhpedmoqk.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.DAI_SUPABASE_PUBLISHABLE_KEY ||
+  'sb_publishable_uo9ZnHKtD-aDpE_zSJTaJg_inIzQ_Gt';
 let mainWindow = null;
+let desktopEntitlement = {
+  token: '',
+  plan: 'standard',
+  owner: false,
+  checkedAt: 0,
+};
 
 const actionWindows = new Map();
 function actionAllowed(event, max = 30) {
@@ -64,6 +73,60 @@ function senderAllowed(event) {
   } catch {
     return false;
   }
+}
+
+async function verifyEntitlement(token) {
+  const clean = String(token || '').trim();
+  if (clean.length < 60) {
+    desktopEntitlement = { token: '', plan: 'standard', owner: false, checkedAt: Date.now() };
+    return { ok: false, plan: 'standard', owner: false, message: 'جلسة الحساب غير صالحة.' };
+  }
+
+  try {
+    const response = await fetch(SUPABASE_ORIGIN + '/functions/v1/entitlement', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + clean,
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      desktopEntitlement = { token: '', plan: 'standard', owner: false, checkedAt: Date.now() };
+      return { ok: false, plan: 'standard', owner: false, message: 'تعذر التحقق من خطة الحساب.' };
+    }
+
+    const plan = payload?.plan === 'professional' ? 'professional' : 'standard';
+    const owner = Boolean(payload?.owner);
+    desktopEntitlement = { token: clean, plan, owner, checkedAt: Date.now() };
+    return { ok: true, plan, owner };
+  } catch {
+    return {
+      ok: false,
+      plan: desktopEntitlement.plan,
+      owner: desktopEntitlement.owner,
+      message: 'تعذر الاتصال بخدمة التحقق من الخطة.',
+    };
+  }
+}
+
+async function requireProfessional(event) {
+  if (!senderAllowed(event)) return { ok: false, message: 'غير مسموح.' };
+  if (!desktopEntitlement.token) {
+    return { ok: false, message: 'الميزة دي محتاجة DAI Professional وتسجيل دخول صالح.' };
+  }
+
+  if (Date.now() - desktopEntitlement.checkedAt > 5 * 60 * 1000) {
+    const refreshed = await verifyEntitlement(desktopEntitlement.token);
+    if (!refreshed.ok) return { ok: false, message: refreshed.message || 'تعذر التحقق من الخطة.' };
+  }
+
+  if (desktopEntitlement.plan !== 'professional') {
+    return { ok: false, message: 'الميزة دي متاحة في DAI Professional فقط.' };
+  }
+  return { ok: true };
 }
 
 function ps(script, env = {}) {
@@ -190,6 +253,27 @@ async function sendShortcut(name) {
   return ps(script, { DAI_KEYS: keys });
 }
 
+async function listRunningApps() {
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    "$items=Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 30 ProcessName,MainWindowTitle",
+    "$items | ConvertTo-Json -Compress"
+  ].join('\n');
+  const result = await ps(script);
+  if (!result.ok) return { ok: false, message: 'تعذر قراءة البرامج المفتوحة.' };
+  try {
+    const parsed = JSON.parse(result.message || '[]');
+    const rows = Array.isArray(parsed) ? parsed : parsed ? [parsed] : [];
+    const apps = rows.map((row) => ({
+      name: String(row?.ProcessName || '').slice(0, 80),
+      title: String(row?.MainWindowTitle || '').slice(0, 180),
+    })).filter((row) => row.name);
+    return { ok: true, apps };
+  } catch {
+    return { ok: true, apps: [] };
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -250,15 +334,33 @@ function createWindow() {
 app.whenReady().then(() => {
   ipcMain.handle('dai:capabilities', (event) => {
     if (!senderAllowed(event)) return { ok: false };
+    const professional = desktopEntitlement.plan === 'professional';
     return {
       ok: true,
       platform: process.platform,
-      actions: ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile'],
+      plan: desktopEntitlement.plan,
+      owner: desktopEntitlement.owner,
+      requiresProfessional: true,
+      actions: professional
+        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps']
+        : [],
     };
   });
 
+  ipcMain.handle('dai:set-session', async (event, token) => {
+    if (!senderAllowed(event)) return { ok: false, plan: 'standard', message: 'غير مسموح.' };
+    return verifyEntitlement(token);
+  });
+
+  ipcMain.handle('dai:clear-session', (event) => {
+    if (!senderAllowed(event)) return false;
+    desktopEntitlement = { token: '', plan: 'standard', owner: false, checkedAt: Date.now() };
+    return true;
+  });
+
   ipcMain.handle('dai:execute', async (event, action) => {
-    if (!senderAllowed(event)) return { ok: false, message: 'غير مسموح.' };
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
     if (!actionAllowed(event)) return { ok: false, message: 'طلبات محلية كتير بسرعة. حاول بعد لحظة.' };
     const type = String(action?.type || '');
 
@@ -311,7 +413,8 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('dai:pick-file', async (event) => {
-    if (!senderAllowed(event) || !mainWindow) return { ok: false, message: 'غير مسموح.' };
+    const access = await requireProfessional(event);
+    if (!access.ok || !mainWindow) return access.ok ? { ok: false, message: 'تعذر فتح نافذة الملفات.' } : access;
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'اختار ملف تفتحه ضي',
       properties: ['openFile'],
@@ -326,15 +429,23 @@ app.whenReady().then(() => {
     return { ok: true, message: 'فتحت الملف.' };
   });
 
-  ipcMain.handle('dai:get-startup', (event) => {
-    if (!senderAllowed(event)) return false;
+  ipcMain.handle('dai:get-startup', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return false;
     return app.getLoginItemSettings().openAtLogin;
   });
 
-  ipcMain.handle('dai:set-startup', (event, enabled) => {
-    if (!senderAllowed(event)) return false;
+  ipcMain.handle('dai:set-startup', async (event, enabled) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return false;
     app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
     return app.getLoginItemSettings().openAtLogin;
+  });
+
+  ipcMain.handle('dai:running-apps', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    return listRunningApps();
   });
 
   createWindow();
