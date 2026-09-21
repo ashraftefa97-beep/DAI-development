@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.github.json --noEmit",
     "security-check": "node scripts/security-check.mjs"
   },
   "dependencies": {
