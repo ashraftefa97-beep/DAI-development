@@ -227,3 +227,72 @@ create table if not exists public.dai_payment_config (
 
 alter table public.dai_payment_config enable row level security;
 revoke all privileges on table public.dai_payment_config from anon, authenticated;
+
+
+-- Optional Professional memory controlled by the user.
+create table if not exists public.dai_pro_memory (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  enabled boolean not null default true,
+  content text not null default '',
+  updated_at timestamptz not null default now(),
+  constraint dai_pro_memory_content_len check (char_length(content) <= 4000)
+);
+
+alter table public.dai_pro_memory enable row level security;
+
+drop policy if exists "Professional users can read own memory" on public.dai_pro_memory;
+drop policy if exists "Professional users can insert own memory" on public.dai_pro_memory;
+drop policy if exists "Professional users can update own memory" on public.dai_pro_memory;
+drop policy if exists "Professional users can delete own memory" on public.dai_pro_memory;
+
+create policy "Professional users can read own memory"
+on public.dai_pro_memory
+for select
+to authenticated
+using (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1 from public.dai_entitlements e
+    where e.user_id = (select auth.uid())
+      and e.plan = 'professional'
+      and (e.expires_at is null or e.expires_at > now())
+  )
+);
+
+create policy "Professional users can insert own memory"
+on public.dai_pro_memory
+for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1 from public.dai_entitlements e
+    where e.user_id = (select auth.uid())
+      and e.plan = 'professional'
+      and (e.expires_at is null or e.expires_at > now())
+  )
+);
+
+create policy "Professional users can update own memory"
+on public.dai_pro_memory
+for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1 from public.dai_entitlements e
+    where e.user_id = (select auth.uid())
+      and e.plan = 'professional'
+      and (e.expires_at is null or e.expires_at > now())
+  )
+);
+
+create policy "Professional users can delete own memory"
+on public.dai_pro_memory
+for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+grant select,insert,update,delete on public.dai_pro_memory to authenticated;
+revoke all privileges on public.dai_pro_memory from anon;
