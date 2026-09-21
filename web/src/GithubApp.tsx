@@ -113,40 +113,53 @@ export default function GithubApp(){
 
   async function sendMessage(){
     const text=input.trim();
-    if(!text||!supabase||!userId)return;
+    if(!text||!supabase||loadingData)return;
     setInput('');
     setErrorText('');
-    animate(/بحث|دور|search|أحدث|احدث|آخر/i.test(text)?'search':'idea',1200);
+    animate(/بحث|دور|search|أحدث|احدث|آخر/i.test(text)?'search':'idea',0);
 
-    let conversationId=activeId;
-    if(!conversationId){
-      conversationId=await createConversation(text.slice(0,32)||'محادثة جديدة')||'';
-      if(!conversationId){setInput(text);return;}
+    try {
+      const { data, error } = await supabase.functions.invoke('chat', {
+        body: {
+          conversationId: activeId || null,
+          message: text,
+        },
+      });
+
+      if(error) throw error;
+      if(!data?.assistantMessage) throw new Error('empty');
+
+      const conversationId=String(data.conversationId);
+      const userRow=data.userMessage;
+      const assistantRow=data.assistantMessage;
+      const userMessage:Message={
+        id:userRow.id,
+        role:'user',
+        content:userRow.content,
+        createdAt:new Date(userRow.created_at).getTime()
+      };
+      const assistantMessage:Message={
+        id:assistantRow.id,
+        role:'assistant',
+        content:assistantRow.content,
+        createdAt:new Date(assistantRow.created_at).getTime()
+      };
+
+      setActiveId(conversationId);
+      setConversations(prev=>{
+        const existing=prev.find(c=>c.id===conversationId);
+        const updated:Conversation=existing
+          ? {...existing,messages:[...existing.messages,userMessage,assistantMessage],updatedAt:Date.now()}
+          : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages:[userMessage,assistantMessage],updatedAt:Date.now()};
+        return [updated,...prev.filter(c=>c.id!==conversationId)];
+      });
+
+      animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
+    } catch {
+      setInput(text);
+      setErrorText('الـAI لسه مش متوصل أو حصل خطأ في الـbackend.');
+      animate('idle',0);
     }
-
-    const { data:userRow,error:userError }=await supabase
-      .from('dai_messages')
-      .insert({conversation_id:conversationId,user_id:userId,role:'user',content:text})
-      .select('id,role,content,created_at')
-      .single();
-    if(userError){setErrorText('تعذر حفظ رسالتك.');setInput(text);return;}
-
-    const userMessage:Message={id:userRow.id,role:'user',content:userRow.content,createdAt:new Date(userRow.created_at).getTime()};
-    setConversations(prev=>prev.map(c=>c.id===conversationId?{...c,messages:[...c.messages,userMessage],updatedAt:Date.now()}:c));
-
-    const replyText='أنا شغالة دلوقتي من GitHub Pages، ومحادثتك اتحفظت في حسابك على Supabase. الـAI الحقيقي هنوصله في الخطوة الجاية.';
-    const { data:replyRow,error:replyError }=await supabase
-      .from('dai_messages')
-      .insert({conversation_id:conversationId,user_id:userId,role:'assistant',content:replyText})
-      .select('id,role,content,created_at')
-      .single();
-
-    await supabase.from('dai_conversations').update({updated_at:new Date().toISOString(),title:active?.title==='محادثة جديدة'?text.slice(0,32):undefined}).eq('id',conversationId);
-
-    if(replyError){setErrorText('اتحفظت رسالتك لكن تعذر حفظ الرد المؤقت.');return;}
-    const reply:Message={id:replyRow.id,role:'assistant',content:replyRow.content,createdAt:new Date(replyRow.created_at).getTime()};
-    setConversations(prev=>prev.map(c=>c.id===conversationId?{...c,messages:[...c.messages,reply],updatedAt:Date.now()}:c).sort((a,b)=>b.updatedAt-a.updatedAt));
-    window.setTimeout(()=>animate('talk',3400),500);
   }
 
   async function newConversation(){
@@ -224,7 +237,7 @@ export default function GithubApp(){
         <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder='اكتب لضي…' onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <button className='classic-send' disabled={loadingData} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
       </div>
-      <p className='classic-hint'>المحادثات محفوظة في حسابك على Supabase. الـAI الحقيقي لسه هنوصله بالـbackend.</p>
+      <p className='classic-hint'>المحادثات محفوظة في حسابك على Supabase، والردود بتيجي من الـAI backend.</p>
     </section>
 
     {historyOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setHistoryOpen(false)}}>
