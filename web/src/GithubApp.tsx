@@ -110,7 +110,6 @@ export default function GithubApp(){
   const streamMessageIdRef=useRef('');
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
-  const voiceTranscriptRef=useRef('');
   const keepListeningRef=useRef(false);
   const activeIdRef=useRef('');
   const voiceSessionActiveRef=useRef(false);
