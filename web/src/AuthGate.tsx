@@ -189,17 +189,24 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setAccountBusy(true);
     setAccountNotice('');
     try {
-      const [{ data: conversations, error: conversationsError }, { data: messages, error: messagesError }] = await Promise.all([
+      const [
+        { data: conversations, error: conversationsError },
+        { data: messages, error: messagesError },
+        { data: proMemory, error: memoryError },
+      ] = await Promise.all([
         supabase.from('dai_conversations').select('id,title,created_at,updated_at').order('created_at',{ascending:true}),
         supabase.from('dai_messages').select('id,conversation_id,role,content,created_at').order('created_at',{ascending:true}),
+        supabase.from('dai_pro_memory').select('enabled,content,updated_at').maybeSingle(),
       ]);
       if (conversationsError || messagesError) throw conversationsError || messagesError;
+      if (memoryError && memoryError.code !== 'PGRST116') console.warn('DAI memory export skipped', memoryError.code);
       const payload = {
         product: 'DAI AI',
         exportedAt: new Date().toISOString(),
         account: { email: sessionEmail, displayName: sessionName },
         conversations: conversations || [],
         messages: messages || [],
+        professionalMemory: proMemory || null,
       };
       const url = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
       const link = document.createElement('a');
@@ -548,7 +555,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
             <div className='auth-account-section auth-privacy-section'>
               <h3><ShieldCheck className='h-4 w-4' /> الخصوصية</h3>
-              <p>المحادثات مرتبطة بحسابك ومحميّة بسياسات RLS. ضي لا تستخدم ذاكرة طويلة المدى منفصلة حاليًا؛ بيانات المحادثات هي المصدر المحفوظ الأساسي.</p>
+              <p>المحادثات مرتبطة بحسابك ومحميّة بسياسات RLS. لو Professional، تقدر تفعّل ذاكرة اختيارية منفصلة من Control Center وتمسحها في أي وقت، وهي تدخل ضمن تصدير بياناتك.</p>
               <button className='auth-account-secondary' disabled={accountBusy} onClick={exportMyData}>
                 <Download className='h-4 w-4' /> تصدير بياناتي
               </button>
