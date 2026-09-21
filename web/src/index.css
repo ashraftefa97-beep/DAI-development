@@ -574,6 +574,12 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .auth-primary { border: 0; background: linear-gradient(135deg,#f6a9c1,#d77fa3); color: #281b2b; }
 .auth-google { border: 1px solid #363a4f; background: #181c2c; color: #eee6ef; }
 .auth-primary:disabled, .auth-google:disabled { opacity: .5; cursor: default; }
+.auth-text-button {
+  display:block; margin:9px 0 0 auto; padding:4px 0; border:0; background:transparent;
+  color:#dba6ba; font-size:11px; cursor:pointer;
+}
+.auth-text-button:hover { color:#ffd5e2; }
+.auth-text-button:disabled { opacity:.5; cursor:default; }
 .auth-divider { display: flex; align-items: center; gap: 10px; color: #6f7185; margin: 16px 0 0; font-size: 11px; }
 .auth-divider::before,.auth-divider::after { content:''; height:1px; background:#2a2e42; flex:1; }
 .auth-notice,.auth-setup-note {
@@ -616,7 +622,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   min-height:40px; margin-top:10px; padding:0 14px; border-radius:12px; cursor:pointer; font-weight:700;
 }
 .auth-account-action { border:0; background:linear-gradient(135deg,#f6a9c1,#d77fa3); color:#281b2b; }
-.auth-account-secondary { border:1px solid #383c51; background:#171b2b; color:#e7dce7; margin-inline-end:8px; }
+.auth-account-secondary { border:1px solid #383c51; background:#171b2b; color:#e7dce7; margin-inline-end:8px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
 .auth-account-danger { border:1px solid rgba(255,110,125,.34); background:rgba(255,72,94,.09); color:#ffb6c0; }
 .auth-account-action:disabled,.auth-account-secondary:disabled,.auth-account-danger:disabled { opacity:.48; cursor:default; }
 .auth-account-section.danger { border-top-color:rgba(255,110,125,.16); }
