@@ -24,6 +24,7 @@ async function explainChatError(error:any){
       if(code==='AI_BASE_URL') return 'قيمة AI_BASE_URL غير صحيحة. حط رابط مزود الـAI الأساسي أو مسار chat/completions كامل.';
       if(code==='AI_AUTH') return 'مزود الـAI رفض AI_API_KEY. راجع المفتاح في Supabase Secrets.';
       if(code==='AI_NOT_FOUND') return 'مزود الـAI مش لاقي الـendpoint أو الموديل. راجع AI_BASE_URL و AI_MODEL.';
+      if(code==='AI_CREDITS') return 'رصيد OpenAI API خلص. ضي متوصلة صح، لكن لازم تضيف رصيد للـAPI أو تغيّر مزود الـAI.';
       if(code==='AI_RATE_LIMIT') return 'مزود الـAI وصل لحد الاستخدام مؤقتًا. جرّب بعد شوية.';
       if(code==='AI_TIMEOUT') return 'مزود الـAI اتأخر في الرد. جرّب تاني.';
       if(code==='AI_NETWORK') return 'Supabase مش قادر يوصل لمزود الـAI حاليًا.';
