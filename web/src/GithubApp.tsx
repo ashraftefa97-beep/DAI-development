@@ -3161,7 +3161,7 @@ export default function GithubApp(){
               <li><Check/> Smart Routines متعددة الخطوات</li>
               <li><Check/> ترتيب النوافذ يمين/يسار/وسط/تكبير</li>
               <li><Check/> وعي اختياري بالبرامج المفتوحة</li>
-              <li><Check/> مكتبة ضي الكاملة: 44 حركة Professional</li>
+              <li><Check/> مكتبة ضي الكاملة: 84 حركة Professional</li>
               <li><Check/> Pro Memory اختيارية تحت تحكم المستخدم</li>
               <li><Check/> Screen Awareness يدوي بدون مراقبة خلفية</li>
             </ul>
