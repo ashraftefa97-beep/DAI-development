@@ -2093,3 +2093,98 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .dai-voice-health { grid-template-columns:1fr; }
   .dai-voice-health button { width:100%; }
 }
+
+
+/* Reliable voice note flow */
+.dai-voice-note-status {
+  margin:0 auto 8px;
+  width:min(720px,calc(100% - 20px));
+  min-height:36px;
+  padding:7px 11px;
+  border-radius:12px;
+  border:1px solid rgba(246,169,193,.14);
+  background:rgba(246,169,193,.035);
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#d9d3dc;
+}
+.dai-voice-note-status strong { font-size:10px; }
+.dai-voice-note-status small {
+  margin-right:auto;
+  color:#84889a;
+  font-size:9px;
+}
+.dai-voice-note-dot {
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#f19ab7;
+  box-shadow:0 0 0 0 rgba(241,154,183,.3);
+}
+.dai-voice-note-status.recording .dai-voice-note-dot {
+  animation:daiVoicePulse 1.2s ease-out infinite;
+}
+.dai-voice-note-status.processing .dai-voice-note-dot {
+  background:#c5a2e2;
+  animation:daiVoicePulse 1.4s ease-out infinite;
+}
+@keyframes daiVoicePulse {
+  0% { box-shadow:0 0 0 0 rgba(241,154,183,.32); }
+  70% { box-shadow:0 0 0 8px rgba(241,154,183,0); }
+  100% { box-shadow:0 0 0 0 rgba(241,154,183,0); }
+}
+.classic-mic-button.recording {
+  border-color:rgba(247,119,155,.42)!important;
+  background:rgba(247,119,155,.12)!important;
+  color:#ffd8e4!important;
+  box-shadow:0 0 0 4px rgba(247,119,155,.05);
+}
+.classic-mic-button.processing {
+  opacity:.65;
+}
+.dai-live-voice-setting {
+  margin-top:9px;
+  padding:11px 12px;
+  border-radius:13px;
+  border:1px solid rgba(185,154,222,.10);
+  background:rgba(185,154,222,.025);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.dai-live-voice-setting strong,
+.dai-live-voice-setting small { display:block; }
+.dai-live-voice-setting strong { color:#dcd7e2;font-size:10px; }
+.dai-live-voice-setting small {
+  margin-top:3px;
+  color:#777b8f;
+  font-size:9px;
+  line-height:1.5;
+}
+.dai-live-voice-setting button {
+  min-width:88px;
+  min-height:34px;
+  border-radius:10px;
+  border:1px solid rgba(185,154,222,.20);
+  background:rgba(185,154,222,.07);
+  color:#d8c7e5;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer;
+}
+.dai-live-voice-setting button:disabled {
+  opacity:.45;
+  cursor:default;
+}
+@media(max-width:600px) {
+  .dai-live-voice-setting {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .dai-live-voice-setting button { width:100%; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .dai-voice-note-status .dai-voice-note-dot { animation:none!important; }
+}
