@@ -632,6 +632,23 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   font-size: 15px;
   line-height: 1.75;
 }
+.classic-regenerate {
+  margin-top: 7px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #85879b;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.classic-regenerate:hover {
+  color: #ffd4e1;
+  background: rgba(246,169,193,.07);
+}
 .classic-chat-typing {
   display: flex;
   align-items: center;
