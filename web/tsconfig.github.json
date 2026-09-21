@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src/github-main.tsx",
+    "src/GithubApp.tsx",
+    "src/AuthGate.tsx",
+    "src/DaiFace.tsx",
+    "src/DaiFaceBoundary.tsx",
+    "src/supabaseClient.ts",
+    "src/**/*.d.ts"
+  ],
+  "exclude": [
+    "src/App.tsx",
+    "src/main.tsx"
+  ]
+}
