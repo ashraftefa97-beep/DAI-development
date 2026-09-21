@@ -28,6 +28,8 @@ const publicSecretPatterns=[
   ['SUPABASE_SERVICE_ROLE_KEY','service role key name leaked into public build'],
   ['GEMINI_API_KEY','AI provider secret name leaked into public build'],
   ['AI_API_KEY','AI provider secret name leaked into public build'],
+  ['PAYPAL_CLIENT_SECRET','PayPal client secret name leaked into public build'],
+  ['PAYPAL_WEBHOOK_ID','PayPal webhook identifier leaked into public build'],
   ['sk-proj-','OpenAI-style secret key leaked into public build'],
   ['service_role','service role material leaked into public build'],
 ];
