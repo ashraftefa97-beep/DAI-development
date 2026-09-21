@@ -4,7 +4,41 @@ const path = require('path');
 
 const APP_URL = process.env.DAI_WEB_URL || 'https://ashraftefa97-beep.github.io/DAI-development/';
 const ALLOWED_ORIGIN = new URL(APP_URL).origin;
+const SUPABASE_ORIGIN = 'https://buenonmbyudjhpedmoqk.supabase.co';
 let mainWindow = null;
+
+const actionWindows = new Map();
+function actionAllowed(event, max = 30) {
+  const key = String(event.sender?.id || 'renderer');
+  const now = Date.now();
+  const current = actionWindows.get(key) || { start: now, count: 0 };
+  if (now - current.start >= 10000) {
+    current.start = now;
+    current.count = 0;
+  }
+  current.count++;
+  actionWindows.set(key, current);
+  return current.count <= max;
+}
+
+function safeProgramQuery(value) {
+  const query = String(value || '').trim().slice(0, 80);
+  if (!query) return '';
+  if (/[\\/:*"<>|;&`$\r\n]/.test(query)) return '';
+  if (/^(?:https?|file|shell|ms-settings|javascript):/i.test(query)) return '';
+  return query;
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (!['https:', 'http:'].includes(url.protocol)) return '';
+    if (url.username || url.password) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
 
 function senderAllowed(event) {
   try {
@@ -35,8 +69,8 @@ function ps(script, env = {}) {
 }
 
 async function openApp(target) {
-  const query = String(target || '').trim().slice(0, 120);
-  if (!query) return { ok: false, message: 'اسم البرنامج ناقص.' };
+  const query = safeProgramQuery(target);
+  if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -46,16 +80,15 @@ async function openApp(target) {
     "  Write-Output ('فتحت '+$app.Name)",
     "  exit 0",
     "}",
-    "try { Start-Process $q; Write-Output ('فتحت '+$q); exit 0 } catch {}",
-    "Write-Error ('ملقتش برنامج باسم '+$q)",
+    "Write-Error ('ملقتش برنامج مسجل باسم '+$q)",
     "exit 2"
   ].join('\n');
   return ps(script, { DAI_TARGET: query });
 }
 
 async function focusApp(target) {
-  const query = String(target || '').trim().slice(0, 120);
-  if (!query) return { ok: false, message: 'اسم البرنامج ناقص.' };
+  const query = safeProgramQuery(target);
+  if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -69,8 +102,8 @@ async function focusApp(target) {
 }
 
 async function closeApp(target) {
-  const query = String(target || '').trim().slice(0, 120);
-  if (!query) return { ok: false, message: 'اسم البرنامج ناقص.' };
+  const query = safeProgramQuery(target);
+  if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -163,22 +196,35 @@ function createWindow() {
   mainWindow.loadURL(APP_URL);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(APP_URL)) return { action: 'allow' };
-    shell.openExternal(url);
+    try {
+      if (new URL(url).origin === ALLOWED_ORIGIN) return { action: 'allow' };
+    } catch {}
+    const safeUrl = safeExternalUrl(url);
+    if (safeUrl) void shell.openExternal(safeUrl);
     return { action: 'deny' };
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
     try {
       const origin = new URL(url).origin;
-      const supabaseOrigin = 'https://buenonmbyudjhpedmoqk.supabase.co';
-      if (origin !== ALLOWED_ORIGIN && origin !== supabaseOrigin) {
+      if (origin !== ALLOWED_ORIGIN && origin !== SUPABASE_ORIGIN) {
         event.preventDefault();
-        shell.openExternal(url);
+        const safeUrl = safeExternalUrl(url);
+        if (safeUrl) void shell.openExternal(safeUrl);
       }
     } catch {
       event.preventDefault();
     }
+  });
+
+  mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    let allowed = false;
+    try {
+      allowed =
+        new URL(webContents.getURL()).origin === ALLOWED_ORIGIN &&
+        permission === 'media';
+    } catch {}
+    callback(allowed);
   });
 
   mainWindow.on('closed', () => { mainWindow = null; });
@@ -196,25 +242,35 @@ app.whenReady().then(() => {
 
   ipcMain.handle('dai:execute', async (event, action) => {
     if (!senderAllowed(event)) return { ok: false, message: 'غير مسموح.' };
+    if (!actionAllowed(event)) return { ok: false, message: 'طلبات محلية كتير بسرعة. حاول بعد لحظة.' };
     const type = String(action?.type || '');
 
     if (type === 'openApp') return openApp(action.target);
     if (type === 'focusApp') return focusApp(action.target);
-    if (type === 'closeApp') return closeApp(action.target);
+    if (type === 'closeApp') {
+      const target = safeProgramQuery(action.target);
+      if (!target || !mainWindow) return { ok: false, message: 'اسم البرنامج غير صالح.' };
+      const answer = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'تأكيد الإغلاق',
+        message: 'ضي هتقفل برنامج ' + target,
+        detail: 'الإغلاق ممكن يوقف شغل غير محفوظ داخل البرنامج.',
+        buttons: ['إلغاء', 'إغلاق البرنامج'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      });
+      if (answer.response !== 1) return { ok: false, message: 'المستخدم ألغى إغلاق البرنامج.' };
+      return closeApp(target);
+    }
     if (type === 'media') return mediaKey(String(action.key || ''));
     if (type === 'shortcut') return sendShortcut(String(action.key || ''));
 
     if (type === 'openExternal') {
-      try {
-        const url = new URL(String(action.url || ''));
-        if (!['https:', 'http:'].includes(url.protocol)) {
-          return { ok: false, message: 'الرابط غير مسموح.' };
-        }
-        await shell.openExternal(url.toString());
-        return { ok: true, message: 'فتحت الرابط.' };
-      } catch {
-        return { ok: false, message: 'الرابط غير صحيح.' };
-      }
+      const url = safeExternalUrl(action.url);
+      if (!url) return { ok: false, message: 'الرابط غير صحيح أو غير مسموح.' };
+      await shell.openExternal(url);
+      return { ok: true, message: 'فتحت الرابط.' };
     }
 
     return { ok: false, message: 'الأمر المحلي غير معروف.' };
@@ -227,7 +283,7 @@ app.whenReady().then(() => {
       properties: ['openFile'],
       filters: [
         { name: 'Media', extensions: ['mp4','mkv','mov','avi','mp3','wav','m4a','flac','aac'] },
-        { name: 'All files', extensions: ['*'] },
+        { name: 'Documents and images', extensions: ['pdf','txt','png','jpg','jpeg','webp'] },
       ],
     });
     if (result.canceled || !result.filePaths[0]) return { ok: false, canceled: true };
