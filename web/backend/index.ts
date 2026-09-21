@@ -17,7 +17,8 @@ type StoredMessage = {
   createdAt: number;
   sources?: Source[];
 };
-type Preferences = { autoResearch: boolean; saveSearchHistory: boolean };
+type UserGender = 'male' | 'female' | null;
+type Preferences = { autoResearch: boolean; saveSearchHistory: boolean; gender: UserGender };
 
 // Warm-instance admission control. Distributed atomic limits require platform support.
 const requestWindows = new Map<string, {start:number;count:number}>();
@@ -42,7 +43,7 @@ const allowedTypes = new Set([
   'application/pdf',
   'text/plain',
 ]);
-const defaultPreferences: Preferences = product.preferences;
+const defaultPreferences: Preferences = { ...product.preferences, gender: null };
 
 function conversationTable(userId: string) {
   return 'conversations:' + userId;
@@ -81,6 +82,7 @@ async function getPreferences(userId: string): Promise<Preferences> {
   return {
     autoResearch: items[0].autoResearch !== false,
     saveSearchHistory: items[0].saveSearchHistory !== false,
+    gender: items[0].gender === 'male' || items[0].gender === 'female' ? items[0].gender : null,
   };
 }
 
@@ -274,10 +276,16 @@ export const handler = router({
     async ctx => {
       const userId = ctx.user!.userId;
       const body = ctx.body as Partial<Preferences>;
-      if(!body || typeof body.autoResearch !== 'boolean' || typeof body.saveSearchHistory !== 'boolean')return error('إعدادات غير صالحة',400);
+      if(
+        !body ||
+        typeof body.autoResearch !== 'boolean' ||
+        typeof body.saveSearchHistory !== 'boolean' ||
+        !['male','female',null].includes(body.gender ?? null)
+      ) return error('إعدادات غير صالحة',400);
       const next: Preferences = {
         autoResearch: body.autoResearch !== false,
         saveSearchHistory: body.saveSearchHistory !== false,
+        gender: body.gender === 'male' || body.gender === 'female' ? body.gender : null,
       };
       const table = settingsTable(userId);
       const { items } = await db.list<Preferences>(table, { limit: 1 });
@@ -400,10 +408,17 @@ export const handler = router({
           ? '\n\nتمت محاولة البحث الخارجي لكن لم يتم العثور على مصادر مفيدة. لا تدّعي أنك بحثت أو أن معلوماتك آنية.'
           : '';
 
+      const userGenderRule = preferences.gender === 'male'
+        ? '\n\nالمستخدم اختار في حسابه إنه ذكر. خاطبه بصيغة المذكر في العربية مثل «إنت» و«جاهز» لما يكون السياق محتاج صيغة جنس.'
+        : preferences.gender === 'female'
+          ? '\n\nالمستخدمة اختارت في حسابها إنها أنثى. خاطبيها بصيغة المؤنث في العربية مثل «إنتِ» و«جاهزة» لما يكون السياق محتاج صيغة جنس.'
+          : '\n\nجنس المستخدم غير محدد في الحساب. لا تفترضي جنسه واستخدمي صياغة محايدة قدر الإمكان.';
+
       const generated = await ai.generate({
         messages: history,
         system:
           product.systemPrompt +
+          userGenderRule +
           researchContext,
         maxTokens: 1200,
         temperature: 0.5,
