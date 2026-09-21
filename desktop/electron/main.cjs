@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, screen } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -9,6 +9,10 @@ const SUPABASE_PUBLISHABLE_KEY =
   process.env.DAI_SUPABASE_PUBLISHABLE_KEY ||
   'sb_publishable_uo9ZnHKtD-aDpE_zSJTaJg_inIzQ_Gt';
 let mainWindow = null;
+let companionWindow = null;
+let companionWander = false;
+let companionWanderTimer = null;
+let companionMoveTimer = null;
 let desktopEntitlement = {
   token: '',
   plan: 'standard',
@@ -274,6 +278,158 @@ async function listRunningApps() {
   }
 }
 
+async function arrangeWindow(target, layout) {
+  const query = safeProgramQuery(target);
+  const mode = ['left','right','maximize','center'].includes(String(layout || ''))
+    ? String(layout)
+    : '';
+  if (!query || !mode) return { ok: false, message: 'اسم البرنامج أو ترتيب النافذة غير صالح.' };
+
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "Add-Type @'",
+    "using System;",
+    "using System.Runtime.InteropServices;",
+    "public static class DAIWindowLayout {",
+    "  [DllImport(\"user32.dll\")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint flags);",
+    "  [DllImport(\"user32.dll\")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);",
+    "}",
+    "'@",
+    "$q=$env:DAI_TARGET",
+    "$mode=$env:DAI_LAYOUT",
+    "$p=Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and ($_.ProcessName -like ('*'+$q+'*') -or $_.MainWindowTitle -like ('*'+$q+'*')) } | Select-Object -First 1",
+    "if(!$p){ Write-Error ('مش لاقية نافذة مفتوحة باسم '+$q); exit 2 }",
+    "$h=[IntPtr]$p.MainWindowHandle",
+    "if($mode -eq 'maximize'){ [void][DAIWindowLayout]::ShowWindowAsync($h,3); Write-Output ('كبرت نافذة '+$p.ProcessName); exit 0 }",
+    "$wa=[System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea",
+    "$x=$wa.X; $y=$wa.Y; $w=$wa.Width; $hgt=$wa.Height",
+    "if($mode -eq 'left'){ $w=[int]($w/2) }",
+    "elseif($mode -eq 'right'){ $x=$wa.X+[int]($w/2); $w=$wa.Width-[int]($wa.Width/2) }",
+    "elseif($mode -eq 'center'){ $nw=[int]($w*.72); $nh=[int]($hgt*.78); $x=$wa.X+[int](($w-$nw)/2); $y=$wa.Y+[int](($hgt-$nh)/2); $w=$nw; $hgt=$nh }",
+    "[void][DAIWindowLayout]::ShowWindowAsync($h,9)",
+    "[void][DAIWindowLayout]::SetWindowPos($h,[IntPtr]::Zero,$x,$y,$w,$hgt,0x0040)",
+    "Write-Output ('رتبت نافذة '+$p.ProcessName)"
+  ].join('\n');
+  return ps(script, { DAI_TARGET: query, DAI_LAYOUT: mode });
+}
+
+function companionUrl() {
+  const url = new URL(APP_URL);
+  url.searchParams.set('companion', '1');
+  return url.toString();
+}
+
+function stopCompanionMotion() {
+  if (companionMoveTimer) clearInterval(companionMoveTimer);
+  companionMoveTimer = null;
+}
+
+function moveCompanionSmooth(targetX, targetY, duration = 1900) {
+  if (!companionWindow || companionWindow.isDestroyed()) return;
+  stopCompanionMotion();
+  const [startX, startY] = companionWindow.getPosition();
+  const started = Date.now();
+  companionMoveTimer = setInterval(() => {
+    if (!companionWindow || companionWindow.isDestroyed()) {
+      stopCompanionMotion();
+      return;
+    }
+    const t = Math.min(1, (Date.now() - started) / duration);
+    const eased = t < .5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2;
+    const x = Math.round(startX + (targetX - startX) * eased);
+    const y = Math.round(startY + (targetY - startY) * eased);
+    companionWindow.setPosition(x, y, false);
+    if (t >= 1) stopCompanionMotion();
+  }, 32);
+}
+
+function wanderCompanionOnce() {
+  if (!companionWindow || companionWindow.isDestroyed() || !companionWander) return;
+  const display = screen.getDisplayMatching(companionWindow.getBounds());
+  const area = display.workArea;
+  const [width, height] = companionWindow.getSize();
+  const margin = 18;
+  const maxX = Math.max(area.x + margin, area.x + area.width - width - margin);
+  const maxY = Math.max(area.y + margin, area.y + area.height - height - margin);
+  const x = Math.round(area.x + margin + Math.random() * Math.max(1, maxX - area.x - margin));
+  const y = Math.round(area.y + margin + Math.random() * Math.max(1, maxY - area.y - margin));
+  moveCompanionSmooth(x, y, 2200 + Math.round(Math.random() * 900));
+}
+
+function scheduleCompanionWander() {
+  if (companionWanderTimer) clearInterval(companionWanderTimer);
+  companionWanderTimer = null;
+  if (!companionWander) return;
+  companionWanderTimer = setInterval(wanderCompanionOnce, 9000);
+}
+
+function createCompanionWindow() {
+  if (companionWindow && !companionWindow.isDestroyed()) return companionWindow;
+  const display = screen.getPrimaryDisplay();
+  const area = display.workArea;
+  const width = 310;
+  const height = 270;
+
+  companionWindow = new BrowserWindow({
+    width,
+    height,
+    x: area.x + area.width - width - 24,
+    y: area.y + area.height - height - 24,
+    minWidth: width,
+    minHeight: height,
+    maxWidth: width,
+    maxHeight: height,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+    },
+  });
+
+  companionWindow.setAlwaysOnTop(true, 'floating');
+  companionWindow.once('ready-to-show', () => {
+    if (companionWindow && !companionWindow.isDestroyed()) companionWindow.showInactive();
+  });
+  companionWindow.loadURL(companionUrl());
+
+  companionWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const safeUrl = safeExternalUrl(url);
+    if (safeUrl) void shell.openExternal(safeUrl);
+    return { action: 'deny' };
+  });
+
+  companionWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+    let allowed = false;
+    try {
+      allowed = new URL(webContents.getURL()).origin === ALLOWED_ORIGIN && permission === 'media';
+    } catch {}
+    callback(allowed);
+  });
+
+  companionWindow.on('closed', () => {
+    companionWindow = null;
+    stopCompanionMotion();
+    if (companionWanderTimer) clearInterval(companionWanderTimer);
+    companionWanderTimer = null;
+  });
+
+  scheduleCompanionWander();
+  return companionWindow;
+}
+
 async function applyInstallerPreferences() {
   const script = [
     "$path='HKCU:\\Software\\DAI AI'",
@@ -360,7 +516,7 @@ app.whenReady().then(async () => {
       owner: desktopEntitlement.owner,
       requiresProfessional: true,
       actions: professional
-        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps']
+        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion']
         : [],
     };
   });
@@ -402,6 +558,7 @@ app.whenReady().then(async () => {
     }
     if (type === 'media') return mediaKey(String(action.key || ''));
     if (type === 'shortcut') return sendShortcut(String(action.key || ''));
+    if (type === 'windowLayout') return arrangeWindow(action.target, action.layout);
 
     if (type === 'openExternal') {
       const url = safeExternalUrl(action.url);
@@ -466,6 +623,49 @@ app.whenReady().then(async () => {
     return listRunningApps();
   });
 
+  ipcMain.handle('dai:companion-state', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    return {
+      ok: true,
+      visible: Boolean(companionWindow && !companionWindow.isDestroyed() && companionWindow.isVisible()),
+      wander: companionWander,
+    };
+  });
+
+  ipcMain.handle('dai:companion-show', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    const win = createCompanionWindow();
+    win.showInactive();
+    return { ok: true, visible: true, wander: companionWander };
+  });
+
+  ipcMain.handle('dai:companion-hide', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    if (companionWindow && !companionWindow.isDestroyed()) companionWindow.hide();
+    return { ok: true, visible: false, wander: companionWander };
+  });
+
+  ipcMain.handle('dai:companion-wander', async (event, enabled) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    companionWander = Boolean(enabled);
+    scheduleCompanionWander();
+    if (companionWander) wanderCompanionOnce();
+    return { ok: true, visible: Boolean(companionWindow && !companionWindow.isDestroyed() && companionWindow.isVisible()), wander: companionWander };
+  });
+
+  ipcMain.handle('dai:open-main', async (event) => {
+    const access = await requireProfessional(event);
+    if (!access.ok) return access;
+    if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+    mainWindow.show();
+    mainWindow.focus();
+    return { ok: true };
+  });
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -473,5 +673,8 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  stopCompanionMotion();
+  if (companionWanderTimer) clearInterval(companionWanderTimer);
+  companionWanderTimer = null;
   if (process.platform !== 'darwin') app.quit();
 });
