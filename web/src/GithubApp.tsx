@@ -8,7 +8,7 @@ type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:n
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.6.0';
+const DAI_WEB_VERSION='0.6.1';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -134,6 +134,8 @@ export default function GithubApp(){
   const [memorySaving,setMemorySaving]=useState(false);
   const [screenBusy,setScreenBusy]=useState(false);
   const [screenSummary,setScreenSummary]=useState('');
+  const [voiceTestBusy,setVoiceTestBusy]=useState(false);
+  const [voiceNotice,setVoiceNotice]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -157,6 +159,9 @@ export default function GithubApp(){
   const voiceSessionTurnsRef=useRef<Array<{role:'user'|'assistant';content:string}>>([]);
   const liveInputTranscriptRef=useRef('');
   const liveOutputTranscriptRef=useRef('');
+  const liveTurnCompleteRef=useRef(false);
+  const liveSpeakingStartedAtRef=useRef(0);
+  const liveBargeFramesRef=useRef(0);
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -275,11 +280,20 @@ export default function GithubApp(){
     utterance.rate=0.96;
     utterance.pitch=1.08;
     utterance.volume=1;
-    utterance.onstart=()=>{ clearTimeout(timer.current); setDaiState('talk'); onStart?.(); };
+    utterance.onstart=()=>{
+      clearTimeout(timer.current);
+      setDaiState('talk');
+      setVoiceNotice('الصوت شغال.');
+      onStart?.();
+    };
     utterance.onend=()=>setDaiState('idle');
-    utterance.onerror=()=>setDaiState('idle');
+    utterance.onerror=()=>{
+      setDaiState('idle');
+      setVoiceNotice('المتصفح مقدرش يشغّل الصوت الاحتياطي.');
+    };
 
     window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
     window.speechSynthesis.speak(utterance);
     return true;
   }
@@ -1467,6 +1481,29 @@ export default function GithubApp(){
     return btoa(binary);
   }
 
+  function resampleMono(input:Float32Array,inputRate:number,outputRate=16000){
+    if(!input.length||inputRate<=0)return new Float32Array(0);
+    if(Math.abs(inputRate-outputRate)<1)return new Float32Array(input);
+    const ratio=inputRate/outputRate;
+    const outputLength=Math.max(1,Math.round(input.length/ratio));
+    const output=new Float32Array(outputLength);
+    for(let i=0;i<outputLength;i++){
+      const sourceIndex=i*ratio;
+      const left=Math.floor(sourceIndex);
+      const right=Math.min(input.length-1,left+1);
+      const mix=sourceIndex-left;
+      output[i]=(input[left]||0)*(1-mix)+(input[right]||0)*mix;
+    }
+    return output;
+  }
+
+  function audioRms(samples:Float32Array){
+    if(!samples.length)return 0;
+    let sum=0;
+    for(let i=0;i<samples.length;i++)sum+=samples[i]*samples[i];
+    return Math.sqrt(sum/samples.length);
+  }
+
   function base64PcmToFloat32(base64:string){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
@@ -1477,31 +1514,64 @@ export default function GithubApp(){
     return output;
   }
 
+  function liveOutputRate(mimeType='audio/pcm;rate=24000'){
+    const match=String(mimeType).match(/rate=(\d+)/i);
+    const rate=Number(match?.[1]||24000);
+    return Number.isFinite(rate)&&rate>=8000&&rate<=96000?rate:24000;
+  }
+
+  function settleLiveListening(){
+    if(!voiceSessionActiveRef.current)return;
+    if(liveOutputSourcesRef.current.size>0)return;
+    if(!liveTurnCompleteRef.current)return;
+    liveTurnCompleteRef.current=false;
+    liveSpeakingStartedAtRef.current=0;
+    liveBargeFramesRef.current=0;
+    setVoiceSessionStatus('listening');
+    animate('listen',0);
+  }
+
   function stopLivePlayback(){
     for(const source of liveOutputSourcesRef.current){
       try{source.stop();}catch{}
     }
     liveOutputSourcesRef.current.clear();
     liveNextPlayTimeRef.current=0;
+    liveSpeakingStartedAtRef.current=0;
+    liveBargeFramesRef.current=0;
   }
 
-  function playLiveAudio(base64:string){
+  async function playLiveAudio(base64:string,mimeType='audio/pcm;rate=24000'){
     const ctx=liveOutputContextRef.current;
     if(!ctx)return;
+    if(ctx.state==='suspended'){
+      try{await ctx.resume();}catch{}
+    }
+
     const samples=base64PcmToFloat32(base64);
     if(!samples.length)return;
 
-    const buffer=ctx.createBuffer(1,samples.length,24000);
+    liveTurnCompleteRef.current=false;
+    if(!liveSpeakingStartedAtRef.current)liveSpeakingStartedAtRef.current=Date.now();
+
+    const sampleRate=liveOutputRate(mimeType);
+    const buffer=ctx.createBuffer(1,samples.length,sampleRate);
     buffer.copyToChannel(samples,0);
     const source=ctx.createBufferSource();
     source.buffer=buffer;
     source.connect(ctx.destination);
 
-    const startAt=Math.max(ctx.currentTime+.025,liveNextPlayTimeRef.current||0);
+    const startAt=Math.max(ctx.currentTime+.02,liveNextPlayTimeRef.current||0);
     source.start(startAt);
     liveNextPlayTimeRef.current=startAt+buffer.duration;
     liveOutputSourcesRef.current.add(source);
-    source.onended=()=>liveOutputSourcesRef.current.delete(source);
+    source.onended=()=>{
+      liveOutputSourcesRef.current.delete(source);
+      if(!liveOutputSourcesRef.current.size){
+        liveNextPlayTimeRef.current=0;
+        settleLiveListening();
+      }
+    };
 
     setVoiceSessionStatus('speaking');
     animate('talk',0);
@@ -1509,14 +1579,21 @@ export default function GithubApp(){
 
   async function startLiveCapture(socket:WebSocket){
     const stream=await navigator.mediaDevices.getUserMedia({
-      audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+      audio:{
+        channelCount:1,
+        sampleRate:16000,
+        echoCancellation:true,
+        noiseSuppression:true,
+        autoGainControl:true
+      }
     });
     if(!voiceSessionActiveRef.current){
       stream.getTracks().forEach(track=>track.stop());
       return;
     }
 
-    const ctx=new AudioContext();
+    const AudioContextCtor=window.AudioContext;
+    const ctx=new AudioContextCtor();
     await ctx.resume();
     const source=ctx.createMediaStreamSource(stream);
     const processor=ctx.createScriptProcessor(4096,1,1);
@@ -1535,13 +1612,45 @@ export default function GithubApp(){
 
     processor.onaudioprocess=(event)=>{
       if(!voiceSessionActiveRef.current||socket.readyState!==WebSocket.OPEN)return;
+
       const channel=event.inputBuffer.getChannelData(0);
-      const audioData=pcm16ToBase64(channel);
+      const outputSpeaking=liveOutputSourcesRef.current.size>0;
+
+      if(outputSpeaking){
+        const speakingFor=Date.now()-liveSpeakingStartedAtRef.current;
+        if(speakingFor<650){
+          liveBargeFramesRef.current=0;
+          return;
+        }
+
+        const level=audioRms(channel);
+        if(level<0.085){
+          liveBargeFramesRef.current=0;
+          return;
+        }
+
+        liveBargeFramesRef.current++;
+        if(liveBargeFramesRef.current<3)return;
+
+        // A sustained voice over DAI's output is treated as a real interruption.
+        liveBargeFramesRef.current=0;
+        liveTurnCompleteRef.current=false;
+        stopLivePlayback();
+        setVoiceSessionStatus('listening');
+        animate('listen',0);
+      }else{
+        liveBargeFramesRef.current=0;
+      }
+
+      const resampled=resampleMono(channel,ctx.sampleRate,16000);
+      if(!resampled.length)return;
+      const audioData=pcm16ToBase64(resampled);
+
       socket.send(JSON.stringify({
         realtimeInput:{
           audio:{
             data:audioData,
-            mimeType:'audio/pcm;rate='+ctx.sampleRate
+            mimeType:'audio/pcm;rate=16000'
           }
         }
       }));
@@ -1549,6 +1658,7 @@ export default function GithubApp(){
 
     setListening(true);
     setVoiceSessionStatus('listening');
+    setVoiceNotice('الميكروفون شغال والصوت جاهز.');
     animate('listen',0);
   }
 
@@ -1652,6 +1762,9 @@ export default function GithubApp(){
       liveInputContextRef.current=null;
     }
 
+    liveTurnCompleteRef.current=false;
+    liveSpeakingStartedAtRef.current=0;
+    liveBargeFramesRef.current=0;
     stopLivePlayback();
     if(liveOutputContextRef.current){
       try{await liveOutputContextRef.current.close();}catch{}
@@ -1755,6 +1868,9 @@ export default function GithubApp(){
     voiceSessionTurnsRef.current=[];
     liveInputTranscriptRef.current='';
     liveOutputTranscriptRef.current='';
+    liveTurnCompleteRef.current=false;
+    liveSpeakingStartedAtRef.current=0;
+    liveBargeFramesRef.current=0;
 
     try{
       const outputCtx=new AudioContext();
@@ -1938,6 +2054,7 @@ export default function GithubApp(){
         if(!server)return;
 
         if(server.interrupted){
+          liveTurnCompleteRef.current=false;
           stopLivePlayback();
           setVoiceSessionStatus('listening');
           animate('listen',0);
@@ -1945,11 +2062,8 @@ export default function GithubApp(){
 
         const inputText=String(server?.inputTranscription?.text||'');
         if(inputText){
-          if(liveOutputSourcesRef.current.size){
-            stopLivePlayback();
-            setVoiceSessionStatus('listening');
-            animate('listen',0);
-          }
+          // Transcription alone must never cut DAI off; interruption is handled
+          // by local barge-in gating or the provider's explicit interrupted event.
           liveInputTranscriptRef.current+=inputText;
         }
 
@@ -1959,13 +2073,18 @@ export default function GithubApp(){
         const parts=server?.modelTurn?.parts||[];
         for(const part of parts){
           const inline=part?.inlineData;
-          if(inline?.data)playLiveAudio(String(inline.data));
+          if(inline?.data){
+            await playLiveAudio(
+              String(inline.data),
+              String(inline.mimeType||inline.mime_type||'audio/pcm;rate=24000')
+            );
+          }
         }
 
         if(server.turnComplete){
           finishLiveTurn();
-          setVoiceSessionStatus('listening');
-          animate('listen',0);
+          liveTurnCompleteRef.current=true;
+          settleLiveListening();
         }
       };
 
@@ -1983,6 +2102,22 @@ export default function GithubApp(){
       console.error('DAI live voice failed',error);
       setErrorText('ضي مش قادرة تبدأ المحادثة الصوتية دلوقتي. جرّب تاني.');
       await endLiveVoice();
+    }
+  }
+
+  async function testDaiVoice(){
+    if(voiceTestBusy||voiceSessionActiveRef.current)return;
+    setVoiceTestBusy(true);
+    setVoiceNotice('بجهّز صوت ضي…');
+    try{
+      const played=await speakReply('أهلًا، أنا ضي. الصوت شغال دلوقتي.');
+      setVoiceNotice(played?'الصوت بدأ.':'تعذر تشغيل الصوت.');
+      if(!played)setErrorText('ضي مقدرتش تشغّل الصوت. جرّب السماح بالصوت في المتصفح.');
+    }catch{
+      setVoiceNotice('تعذر تشغيل اختبار الصوت.');
+      setErrorText('ضي مقدرتش تشغّل الصوت دلوقتي.');
+    }finally{
+      window.setTimeout(()=>setVoiceTestBusy(false),700);
     }
   }
 
@@ -2147,6 +2282,12 @@ export default function GithubApp(){
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
         <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت الردود الصوتية</strong><small>ضي تتكلم بصوتها فقط لما أنت تكلمها بالصوت. الرسائل المكتوبة تفضل كتابة فقط.</small></span></label>
+        <div className='dai-voice-health'>
+          <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive} onClick={()=>void testDaiVoice()}>
+            {voiceTestBusy?'بجهّز الصوت…':'اختبار صوت ضي'}
+          </button>
+          <small>{voiceNotice||'الاختبار يشغّل جملة قصيرة للتأكد إن الصوت مسموع.'}</small>
+        </div>
 
         <button className={'dai-plan-setting '+plan} onClick={()=>setUpgradeOpen(true)}>
           <span className='dai-plan-setting-icon'>{professional?<Crown className='h-5 w-5'/>:<LockKeyhole className='h-5 w-5'/>}</span>
