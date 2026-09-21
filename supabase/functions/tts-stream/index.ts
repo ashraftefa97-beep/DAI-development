@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_STREAM_CONFIG' }, 503);
 
   const prompt =
-    'اقرئي بالمصري الطبيعي، بصوت أنثوي دافئ، النص فقط من غير أي إضافة:\n' + text;
+    'اقرئي بالمصري الطبيعي بصوت أنثوي شاب وخفيف، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي مع وضوح الكلام، النص فقط من غير أي إضافة:\n' + text;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
           type: 'audio',
         },
         generation_config: {
-          speech_config: [{ voice: 'Aoede' }],
+          speech_config: [{ voice: 'Leda' }],
         },
         stream: true,
         store: false,
