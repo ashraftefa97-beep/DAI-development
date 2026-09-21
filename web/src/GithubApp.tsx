@@ -8,7 +8,7 @@ type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:n
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.6.1';
+const DAI_WEB_VERSION='0.7.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -136,6 +136,9 @@ export default function GithubApp(){
   const [screenSummary,setScreenSummary]=useState('');
   const [voiceTestBusy,setVoiceTestBusy]=useState(false);
   const [voiceNotice,setVoiceNotice]=useState('');
+  const [voiceNoteRecording,setVoiceNoteRecording]=useState(false);
+  const [voiceNoteProcessing,setVoiceNoteProcessing]=useState(false);
+  const [voiceNoteSeconds,setVoiceNoteSeconds]=useState(0);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -163,6 +166,10 @@ export default function GithubApp(){
   const liveSpeakingStartedAtRef=useRef(0);
   const liveBargeFramesRef=useRef(0);
   const liveInputPcmBufferRef=useRef<Float32Array>(new Float32Array(0));
+  const voiceRecorderRef=useRef<MediaRecorder|null>(null);
+  const voiceRecorderStreamRef=useRef<MediaStream|null>(null);
+  const voiceRecorderChunksRef=useRef<Blob[]>([]);
+  const voiceRecorderTimerRef=useRef<number|undefined>(undefined);
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -226,6 +233,10 @@ export default function GithubApp(){
     if(/بحب|قلب|سعيدة|فرحانة/i.test(text))return 'heart';
     if(/فكرة|اقتراح|ممكن نعمل|أنسب حل|الخطة/i.test(text))return 'idea';
     return 'talk';
+  }
+
+  function wantsSpokenReply(text:string){
+    return /(?:قولي|قول|اتكلمي|اتكلم|ردي|رد|اقري|اقرئي|انطقي|انطق|اسمع|سمعني|عاوز اسمع|عايز اسمع|بصوتك|بالصوت|صوتي|voice|speak|say it aloud|read it aloud)/i.test(text);
   }
 
   function pickArabicFemaleVoice(){
@@ -476,6 +487,11 @@ export default function GithubApp(){
       audioRef.current.src='';
       audioRef.current=null;
     }
+    try{
+      if(voiceRecorderRef.current?.state==='recording')voiceRecorderRef.current.stop();
+    }catch{}
+    if(voiceRecorderTimerRef.current)window.clearInterval(voiceRecorderTimerRef.current);
+    voiceRecorderStreamRef.current?.getTracks().forEach(track=>track.stop());
   }; },[]);
 
   useEffect(()=>{
@@ -1145,6 +1161,7 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
+    let finalAssistantText='';
 
     const handleEvent=(eventName:string,payload:any)=>{
       if(eventName==='start'){
@@ -1221,6 +1238,7 @@ export default function GithubApp(){
           content:String(row.content||''),
           createdAt:new Date(row.created_at).getTime()
         };
+        finalAssistantText=assistantMessage.content;
 
         setConversations(prev=>prev.map(item=>{
           if(item.id!==conversationId)return item;
@@ -1274,6 +1292,11 @@ export default function GithubApp(){
 
     if(!doneReceived&&!controller.signal.aborted){
       throw new Error('الرد اتوقف قبل ما يكتمل.');
+    }
+
+    if(doneReceived&&finalAssistantText&&wantsSpokenReply(text)&&voiceEnabled){
+      const spoken=await speakReply(finalAssistantText);
+      setVoiceNotice(spoken?'ضي بترد بصوتها.':'تعذر تشغيل الصوت، والرد ظاهر كتابة.');
     }
   }
 
@@ -1338,7 +1361,7 @@ export default function GithubApp(){
     await sendMessage(text,'typed');
   }
 
-  async function sendMessage(messageOverride?:unknown,source:'auto'|'typed'='auto'){
+  async function sendMessage(messageOverride?:unknown,source:'auto'|'typed'|'voice'='auto'){
     const fromVoice=typeof messageOverride==='string'&&source!=='typed';
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
@@ -2127,6 +2150,157 @@ export default function GithubApp(){
     }
   }
 
+  function preferredRecorderMime(){
+    if(typeof MediaRecorder==='undefined')return '';
+    const candidates=[
+      'audio/webm;codecs=opus',
+      'audio/mp4',
+      'audio/webm',
+      'audio/ogg;codecs=opus'
+    ];
+    return candidates.find(type=>{
+      try{return MediaRecorder.isTypeSupported(type);}catch{return false;}
+    })||'';
+  }
+
+  async function blobToBase64(blob:Blob){
+    const bytes=new Uint8Array(await blob.arrayBuffer());
+    let binary='';
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk){
+      binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+    }
+    return btoa(binary);
+  }
+
+  function cleanupVoiceRecorder(){
+    if(voiceRecorderTimerRef.current){
+      window.clearInterval(voiceRecorderTimerRef.current);
+      voiceRecorderTimerRef.current=undefined;
+    }
+    voiceRecorderStreamRef.current?.getTracks().forEach(track=>track.stop());
+    voiceRecorderStreamRef.current=null;
+    voiceRecorderRef.current=null;
+    voiceRecorderChunksRef.current=[];
+    setVoiceNoteRecording(false);
+    setVoiceNoteSeconds(0);
+  }
+
+  async function processVoiceNote(blob:Blob,mimeType:string){
+    if(!supabase)return;
+    setVoiceNoteProcessing(true);
+    setVoiceNotice('ضي بتفهم التسجيل…');
+    animate('thinking',0);
+    try{
+      if(blob.size<350)throw new Error('empty-recording');
+      if(blob.size>6_500_000)throw new Error('recording-too-large');
+
+      const audioBase64=await blobToBase64(blob);
+      const {data,error}=await supabase.functions.invoke('transcribe-voice',{
+        body:{audioBase64,mimeType:mimeType||blob.type||'audio/webm'}
+      });
+      if(error)throw error;
+
+      const transcript=String(data?.transcript||'').trim();
+      if(!transcript)throw new Error('empty-transcript');
+
+      setVoiceNotice('سمعتك: '+transcript.slice(0,90)+(transcript.length>90?'…':''));
+      setInput('');
+      await sendMessage(transcript,'voice');
+    }catch(error){
+      console.error('DAI voice note failed',error);
+      const message=String((error as Error)?.message||'');
+      if(message==='recording-too-large'){
+        setErrorText('التسجيل طويل زيادة. خلّيه أقل من دقيقة وجرب تاني.');
+      }else{
+        setErrorText('ضي مقدرتش تفهم التسجيل ده. جرّب تسجله تاني.');
+      }
+      setVoiceNotice('التسجيل ماوصلش بشكل سليم.');
+      animate('error',1500);
+    }finally{
+      setVoiceNoteProcessing(false);
+    }
+  }
+
+  async function startVoiceNote(){
+    if(voiceNoteRecording||voiceNoteProcessing||sending||voiceSessionActiveRef.current)return;
+    if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){
+      setErrorText('المتصفح ده مش بيدعم تسجيل الصوت بالطريقة المطلوبة.');
+      return;
+    }
+
+    setErrorText('');
+    setVoiceNotice('بسجّل… اضغط الميكروفون تاني للإرسال.');
+    setVoiceNoteSeconds(0);
+    animate('listen',0);
+
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({
+        audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+      });
+      const mimeType=preferredRecorderMime();
+      const options:MediaRecorderOptions={audioBitsPerSecond:48000};
+      if(mimeType)options.mimeType=mimeType;
+
+      const recorder=new MediaRecorder(stream,options);
+      voiceRecorderStreamRef.current=stream;
+      voiceRecorderRef.current=recorder;
+      voiceRecorderChunksRef.current=[];
+
+      recorder.ondataavailable=event=>{
+        if(event.data&&event.data.size>0)voiceRecorderChunksRef.current.push(event.data);
+      };
+
+      recorder.onerror=event=>{
+        console.error('DAI MediaRecorder error',event);
+        cleanupVoiceRecorder();
+        setErrorText('حصل خطأ في تسجيل الصوت. جرّب تاني.');
+        setVoiceNotice('التسجيل وقف بسبب خطأ.');
+      };
+
+      recorder.onstop=()=>{
+        const chunks=[...voiceRecorderChunksRef.current];
+        const actualMime=recorder.mimeType||mimeType||chunks[0]?.type||'audio/webm';
+        const blob=new Blob(chunks,{type:actualMime});
+        cleanupVoiceRecorder();
+        void processVoiceNote(blob,actualMime);
+      };
+
+      recorder.start(500);
+      setVoiceNoteRecording(true);
+      voiceRecorderTimerRef.current=window.setInterval(()=>{
+        setVoiceNoteSeconds(current=>{
+          const next=current+1;
+          if(next>=60&&voiceRecorderRef.current?.state==='recording'){
+            try{voiceRecorderRef.current.stop();}catch{}
+          }
+          return next;
+        });
+      },1000);
+    }catch(error){
+      console.error('DAI microphone permission failed',error);
+      cleanupVoiceRecorder();
+      setErrorText('ضي مش قادرة تفتح الميكروفون. اسمح بالميكروفون للموقع وجرب تاني.');
+      setVoiceNotice('الميكروفون مش متاح.');
+      animate('error',1500);
+    }
+  }
+
+  function stopVoiceNote(){
+    const recorder=voiceRecorderRef.current;
+    if(!recorder||recorder.state!=='recording')return;
+    setVoiceNotice('بجهّز التسجيل للإرسال…');
+    try{recorder.stop();}catch{
+      cleanupVoiceRecorder();
+      setErrorText('التسجيل وقف بشكل غير متوقع. جرّب تاني.');
+    }
+  }
+
+  function toggleVoiceNote(){
+    if(voiceNoteRecording)stopVoiceNote();
+    else void startVoiceNote();
+  }
+
   async function testDaiVoice(){
     if(voiceTestBusy||voiceSessionActiveRef.current)return;
     setVoiceTestBusy(true);
@@ -2143,7 +2317,7 @@ export default function GithubApp(){
     }
   }
 
-  function toggleMic(){
+  function toggleLiveVoice(){
     if(voiceSessionActiveRef.current)void endLiveVoice();
     else void startLiveVoice();
   }
@@ -2267,21 +2441,34 @@ export default function GithubApp(){
 
       {!!files.length&&<div className='github-files'>{files.map(f=><span key={f}>{f}</span>)}</div>}
 
+      {(voiceNoteRecording||voiceNoteProcessing)&&<div className={'dai-voice-note-status '+(voiceNoteRecording?'recording':'processing')}>
+        <span className='dai-voice-note-dot'/>
+        <strong>{voiceNoteRecording?'بسجّل صوتك':'ضي بتفهم التسجيل'}</strong>
+        <small>{voiceNoteRecording?Math.min(60,voiceNoteSeconds)+'ث':'لحظة واحدة…'}</small>
+      </div>}
+
       <div className='classic-input-bar'>
         <button className='classic-plus-button' onClick={()=>document.getElementById('github-file')?.click()} aria-label='إضافة ملف' title='إضافة ملف'>
           <Plus className='h-5 w-5'/>
         </button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
-        <textarea disabled={voiceSessionActive} value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={voiceSessionActive?'محادثة صوتية شغالة…':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <textarea disabled={voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={voiceNoteRecording?'بسجّل صوتك…':voiceNoteProcessing?'ضي بتفهم التسجيل…':voiceSessionActive?'محادثة صوتية مباشرة شغالة…':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <div className='classic-input-actions'>
-          <button className='classic-mic-button' aria-pressed={voiceSessionActive} onClick={toggleMic} aria-label={voiceSessionActive?'إنهاء المحادثة الصوتية':'بدء محادثة صوتية'} title={voiceSessionActive?'إنهاء الحوار الصوتي وإظهار النص':'ابدأ محادثة صوتية مباشرة مع ضي'}>
-            {voiceSessionActive?<X className='h-5 w-5'/>:<Mic className='h-5 w-5'/>}
+          <button
+            className={'classic-mic-button '+(voiceNoteRecording?'recording':'')+' '+(voiceNoteProcessing?'processing':'')}
+            aria-pressed={voiceNoteRecording}
+            disabled={voiceNoteProcessing||sending||voiceSessionActive}
+            onClick={toggleVoiceNote}
+            aria-label={voiceNoteRecording?'إيقاف وإرسال التسجيل':'تسجيل رسالة صوتية'}
+            title={voiceNoteRecording?'اضغط للإيقاف والإرسال':'سجّل رسالة صوتية لضـي'}
+          >
+            {voiceNoteRecording?<Square className='h-4 w-4'/>:<Mic className='h-5 w-5'/>}
           </button>
           {sending&&!voiceSessionActive
             ? <button className='classic-send' onClick={stopTextReply} aria-label='إيقاف الرد' title='إيقاف الرد'>
                 <Square className='h-4 w-4'/>
               </button>
-            : <button className='classic-send' disabled={loadingData||voiceSessionActive||!online||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
+            : <button className='classic-send' disabled={loadingData||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing||!online||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
                 <Send className='h-5 w-5'/>
               </button>
           }
@@ -2303,12 +2490,18 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت الردود الصوتية</strong><small>ضي تتكلم بصوتها فقط لما أنت تكلمها بالصوت. الرسائل المكتوبة تفضل كتابة فقط.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>الرسائل الصوتية ترد عليها ضي كتابة وصوت. ولو كتبت «قولي بصوتك» هتسمع الرد كمان.</small></span></label>
         <div className='dai-voice-health'>
-          <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive} onClick={()=>void testDaiVoice()}>
+          <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} onClick={()=>void testDaiVoice()}>
             {voiceTestBusy?'بجهّز الصوت…':'اختبار صوت ضي'}
           </button>
           <small>{voiceNotice||'الاختبار يشغّل جملة قصيرة للتأكد إن الصوت مسموع.'}</small>
+        </div>
+        <div className='dai-live-voice-setting'>
+          <div><strong>محادثة صوتية مباشرة</strong><small>Live Voice اختيارية. التسجيل العادي فوق هو المسار الأكثر ثباتًا خصوصًا على الموبايل.</small></div>
+          <button disabled={voiceNoteRecording||voiceNoteProcessing||sending} onClick={toggleLiveVoice}>
+            {voiceSessionActive?'إنهاء Live':'بدء Live'}
+          </button>
         </div>
 
         <button className={'dai-plan-setting '+plan} onClick={()=>setUpgradeOpen(true)}>
