@@ -176,9 +176,7 @@ export default function GithubApp(){
   const [speakingMessageId,setSpeakingMessageId]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
-  const audioRef=useRef<HTMLAudioElement|null>(null);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
-  const speechAudioSourceRef=useRef<AudioBufferSourceNode|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechStreamNextTimeRef=useRef(0);
   const speechAudioUnlockedRef=useRef(false);
@@ -387,34 +385,6 @@ export default function GithubApp(){
     return /(?:قولي|قول|اتكلمي|اتكلم|ردي|رد|اقري|اقرئي|انطقي|انطق|اسمع|سمعني|عاوز اسمع|عايز اسمع|بصوتك|بالصوت|صوتي|voice|speak|say it aloud|read it aloud)/i.test(text);
   }
 
-  function pickArabicFemaleVoice(){
-    if(!('speechSynthesis' in window)) return null;
-    const voices=window.speechSynthesis.getVoices();
-    const arabic=voices.filter(v=>/^ar\b/i.test(v.lang||''));
-    if(!arabic.length)return null;
-
-    const femaleHints=[
-      'zariyah','hoda','salma','laila','layla','amira','female',
-      'زريه','هدى','سلمى','ليلى','أميرة'
-    ];
-
-    const preferred=arabic
-      .map(v=>{
-        const name=(v.name||'').toLowerCase();
-        const lang=(v.lang||'').toLowerCase();
-        let score=0;
-        if(femaleHints.some(h=>name.includes(h))) score+=100;
-        if(name.includes('natural')||name.includes('online')) score+=30;
-        if(lang==='ar-eg') score+=20;
-        if(lang==='ar-sa') score+=15;
-        return {v,score};
-      })
-      .sort((a,b)=>b.score-a.score);
-
-    const female=preferred.find(item=>item.score>=100);
-    return female?.v||null;
-  }
-
   function cleanForSpeech(text:string){
     return text
       .replace(/```[\s\S]*?```/g,' ')
@@ -423,63 +393,6 @@ export default function GithubApp(){
       .replace(/[*_#>|~]/g,' ')
       .replace(/\s+/g,' ')
       .trim();
-  }
-
-  function earlySpeechChunk(text:string){
-    const spoken=cleanForSpeech(text);
-    if(spoken.length<8)return '';
-    const sentence=spoken.match(/^(.{8,96}?[.!?؟،؛:])/);
-    if(sentence?.[1])return sentence[1].trim();
-    if(spoken.length<38)return '';
-    const soft=spoken.slice(0,52);
-    const cut=Math.max(
-      soft.lastIndexOf(' '),
-      soft.lastIndexOf('،'),
-      soft.lastIndexOf('؛')
-    );
-    return soft.slice(0,cut>=26?cut:38).trim();
-  }
-
-  function speakBrowserFallback(text:string,onStart?:()=>void,onEnd?:()=>void){
-    if(!('speechSynthesis' in window))return false;
-    const spoken=cleanForSpeech(text);
-    if(!spoken)return false;
-
-    const utterance=new SpeechSynthesisUtterance(spoken);
-    const voice=pickArabicFemaleVoice();
-    if(!voice)return false;
-    utterance.voice=voice;
-    utterance.lang=voice.lang||'ar-EG';
-    utterance.rate=1.06;
-    utterance.pitch=1.08;
-    utterance.volume=1;
-    utterance.onstart=()=>{
-      clearTimeout(timer.current);
-      setDaiState('talk');
-      setVoiceNotice('الصوت شغال.');
-      onStart?.();
-    };
-    utterance.onend=()=>{
-      setDaiState('idle');
-      onEnd?.();
-    };
-    utterance.onerror=()=>{
-      setDaiState('idle');
-      setVoiceNotice('المتصفح مقدرش يشغّل الصوت الاحتياطي.');
-      onEnd?.();
-    };
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.resume();
-    window.speechSynthesis.speak(utterance);
-    return true;
-  }
-
-  function base64ToArrayBuffer(base64:string){
-    const binary=atob(base64);
-    const bytes=new Uint8Array(binary.length);
-    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
   function ensureSpeechAudioContext(){
@@ -514,47 +427,11 @@ export default function GithubApp(){
   }
 
   function stopSpeechAudio(){
-    try{speechAudioSourceRef.current?.stop();}catch{}
-    speechAudioSourceRef.current=null;
     for(const source of speechStreamSourcesRef.current){
       try{source.stop();}catch{}
     }
     speechStreamSourcesRef.current.clear();
     speechStreamNextTimeRef.current=0;
-    if(audioRef.current){
-      try{audioRef.current.pause();}catch{}
-      audioRef.current.src='';
-      audioRef.current=null;
-    }
-  }
-
-  async function playSpeechBuffer(
-    base64:string,
-    onStart?:()=>void,
-    onEnd?:()=>void
-  ){
-    const ctx=ensureSpeechAudioContext();
-    if(!ctx)throw new Error('webaudio-unavailable');
-    if(ctx.state==='suspended'){
-      try{await ctx.resume();}catch{}
-    }
-    if(ctx.state!=='running')throw new Error('webaudio-locked');
-
-    const bytes=base64ToArrayBuffer(base64);
-    const decoded=await ctx.decodeAudioData(bytes.slice(0));
-    stopSpeechAudio();
-
-    const source=ctx.createBufferSource();
-    source.buffer=decoded;
-    source.connect(ctx.destination);
-    speechAudioSourceRef.current=source;
-    source.onended=()=>{
-      if(speechAudioSourceRef.current===source)speechAudioSourceRef.current=null;
-      onEnd?.();
-    };
-    source.start(0);
-    onStart?.();
-    return true;
   }
 
   function base64L16ToFloat32(base64:string){
@@ -576,7 +453,7 @@ export default function GithubApp(){
     onEnd?:()=>void
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
-    const spoken=cleanForSpeech(text).slice(0,1200);
+    const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
     let {data:{session}}=await supabase.auth.getSession();
@@ -704,110 +581,52 @@ export default function GithubApp(){
     return true;
   }
 
-  function splitSpeechChunks(text:string){
-    const firstLimit=220;
-    const nextLimit=520;
-    const sentences=(text.match(/[^.!?؟\n]+[.!?؟]?/g)||[text])
-      .map(part=>part.trim())
-      .filter(Boolean);
-    const chunks:string[]=[];
-    let current='';
-
-    for(const sentence of sentences){
-      const limit=chunks.length===0?firstLimit:nextLimit;
-      if(!current){
-        current=sentence;
-        continue;
-      }
-      if((current+' '+sentence).length<=limit){
-        current+=' '+sentence;
-      }else{
-        chunks.push(current);
-        current=sentence;
-      }
-    }
-    if(current)chunks.push(current);
-
-    if(chunks[0]&&chunks[0].length>firstLimit){
-      const first=chunks.shift()!;
-      chunks.unshift(first.slice(firstLimit).trim());
-      chunks.unshift(first.slice(0,firstLimit).trim());
-    }
-
-    return chunks.filter(Boolean);
-  }
-
-  async function requestTtsChunk(text:string){
-    const {data,error}=await supabase!.functions.invoke('tts',{body:{text}});
-    if(error)throw error;
-    if(!data?.audioBase64)throw new Error('Gemini TTS returned no audio');
-    return {
-      audioBase64:String(data.audioBase64),
-      mimeType:String(data.mimeType||'audio/wav')
-    };
-  }
-
   async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void){
     if(!voiceEnabled||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
-    const chunks=splitSpeechChunks(spoken);
-    if(!chunks.length)return false;
-
     const responseState=stateForAssistantText(text);
-    // Preparing audio is not speaking. Keep DAI calm until WebAudio actually starts.
     animate('voicewait',0);
     setVoiceNotice('بجهّز صوت ضي…');
 
     const runId=++speechRunRef.current;
-
     if('speechSynthesis' in window)window.speechSynthesis.cancel();
     stopSpeechAudio();
 
-    const playChunk=async(index:number,prepared?:Promise<{audioBase64:string;mimeType:string}>):Promise<boolean>=>{
-      if(runId!==speechRunRef.current)return false;
-
-      try{
-        const data=await (prepared||requestTtsChunk(chunks[index]));
-        if(runId!==speechRunRef.current)return false;
-
-        const nextPrepared=index+1<chunks.length
-          ? requestTtsChunk(chunks[index+1])
-          : undefined;
-
-        await playSpeechBuffer(
-          data.audioBase64,
-          ()=>{
-            if(runId!==speechRunRef.current)return;
-            clearTimeout(timer.current);
-            setDaiState('talk');
-            setVoiceNotice('الصوت شغال.');
-            if(index===0)onStart?.();
-          },
-          ()=>{
-            if(runId!==speechRunRef.current)return;
-
-            if(index+1<chunks.length){
-              void playChunk(index+1,nextPrepared);
-              return;
-            }
-
-            const finishState=responseState==='talk'?'idle':responseState;
-            if(finishState==='idle')setDaiState('idle');
-            else animate(finishState,1100);
-            onEnd?.();
-          }
-        );
-        return true;
-      }catch(error){
-        if(runId!==speechRunRef.current)return false;
-        console.error('Gemini TTS chunk failed, using browser fallback',error);
-        return speakBrowserFallback(chunks.slice(index).join(' '),index===0?onStart:undefined,onEnd);
+    try{
+      await unlockSpeechAudio();
+      const played=await streamSpeech(
+        spoken,
+        runId,
+        ()=>{
+          if(runId!==speechRunRef.current)return;
+          clearTimeout(timer.current);
+          setDaiState('talk');
+          setVoiceNotice('ضي بتتكلم.');
+          onStart?.();
+        },
+        ()=>{
+          if(runId!==speechRunRef.current)return;
+          const finishState=responseState==='talk'?'idle':responseState;
+          if(finishState==='idle')setDaiState('idle');
+          else animate(finishState,1100);
+          setVoiceNotice('الصوت خلص.');
+          onEnd?.();
+        }
+      );
+      if(!played&&runId===speechRunRef.current){
+        setDaiState('idle');
+        setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
       }
-    };
-
-    return playChunk(0);
+      return played;
+    }catch(error){
+      if(runId!==speechRunRef.current)return false;
+      console.error('DAI Leda streaming TTS failed; no voice fallback used',error);
+      setDaiState('idle');
+      setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+      return false;
+    }
   }
 
   useEffect(()=>{
@@ -1562,116 +1381,22 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
-    let streamedAssistantText='';
     const shouldSpeak=voiceEnabled && (
       speechMode==='always' ||
       (speechMode==='auto' && wantsSpokenReply(text))
     );
-    let earlyText='';
-    let earlyFinished=false;
-    let earlyFailed=false;
-    let finalVoiceReady=false;
-    let finalVoiceText='';
-    let remainingVoiceText='';
 
-    const playRemainingVoice=async()=>{
-      if(!shouldSpeak||!finalVoiceReady)return;
-
-      if(earlyText&&!earlyFailed){
-        if(!earlyFinished)return;
-
-        if(remainingVoiceText){
-          animate('voicewait',0);
-          setVoiceNotice('بجهّز تكملة الرد بنفس صوت ضي…');
-          try{
-            await unlockSpeechAudio();
-            const continuationChunks=splitSpeechChunks(remainingVoiceText);
-            const continuationRun=++speechRunRef.current;
-            if('speechSynthesis' in window)window.speechSynthesis.cancel();
-            stopSpeechAudio();
-
-            let started=false;
-            for(const chunk of continuationChunks){
-              if(controller.signal.aborted||continuationRun!==speechRunRef.current)return;
-              const ok=await streamSpeech(
-                chunk,
-                continuationRun,
-                ()=>{
-                  if(!started){
-                    started=true;
-                    setDaiState('talk');
-                    setVoiceNotice('ضي بتتكلم.');
-                  }
-                }
-              );
-              if(!ok)throw new Error('streaming-continuation-failed');
-            }
-
-            if(continuationRun===speechRunRef.current){
-              setDaiState('idle');
-              setVoiceNotice('الصوت خلص.');
-            }
-          }catch(error){
-            console.error('DAI streaming continuation failed',error);
-            setDaiState('idle');
-            setVoiceNotice('الصوت وقف عشان ضي ما تغيّرش صوتها لنبرة مختلفة.');
-          }
-        }else{
-          setDaiState('idle');
-          setVoiceNotice('الصوت خلص.');
-        }
-        return;
-      }
-
-      if(finalVoiceText){
-        await unlockSpeechAudio();
-        const spoken=await speakReply(finalVoiceText);
-        setVoiceNotice(spoken?'ضي بترد بصوتها.':'تعذر تشغيل الصوت، والرد ظاهر كتابة.');
-      }
-    };
-
-    const maybeStartEarlyVoice=()=>{
-      if(!shouldSpeak||earlyText||controller.signal.aborted)return;
-      const candidate=earlySpeechChunk(streamedAssistantText);
-      if(!candidate)return;
-
-      earlyText=candidate;
-      animate('voicewait',0);
-      setVoiceNotice('بجهّز أول جزء من صوت ضي…');
-      const earlyRun=++speechRunRef.current;
-      if('speechSynthesis' in window)window.speechSynthesis.cancel();
-      stopSpeechAudio();
-
-      void streamSpeech(
-        candidate,
-        earlyRun,
-        ()=>{
-          if(earlyRun!==speechRunRef.current)return;
-          clearTimeout(timer.current);
-          setDaiState('talk');
-          setVoiceNotice('ضي بتتكلم.');
-        },
-        ()=>{
-          if(earlyRun!==speechRunRef.current)return;
-          earlyFinished=true;
-          if(finalVoiceReady){
-            if(remainingVoiceText)setDaiState('voicewait');
-            void playRemainingVoice();
-          }else{
-            setDaiState('voicewait');
-          }
-        }
-      ).then(ok=>{
-        if(ok)return;
-        earlyFailed=true;
-        earlyFinished=true;
-        if(finalVoiceReady)void playRemainingVoice();
-      }).catch(error=>{
-        console.error('DAI streaming first TTS failed',error);
-        earlyFailed=true;
-        earlyFinished=true;
-        if(finalVoiceReady)void playRemainingVoice();
-      });
+    const revealAssistant=(assistantMessage:Message)=>{
+      if(!conversationId)return;
+      setConversations(prev=>prev.map(item=>{
+        if(item.id!==conversationId)return item;
+        const withoutOld=item.messages.filter(message=>
+          message.id!==tempAssistantId &&
+          (!regenerateAssistantId||message.id!==regenerateAssistantId)
+        );
+        if(withoutOld.some(message=>message.id===assistantMessage.id))return item;
+        return {...item,messages:[...withoutOld,assistantMessage],updatedAt:Date.now()};
+      }));
     };
 
     const handleEvent=(eventName:string,payload:any)=>{
@@ -1710,19 +1435,19 @@ export default function GithubApp(){
         const delta=String(payload?.text||'');
         if(!delta||!conversationId)return;
 
-        streamedAssistantText+=delta;
-
         if(!firstDelta){
           firstDelta=true;
-          setStreamingText(true);
+          setStreamingText(!shouldSpeak);
           if(shouldSpeak){
             animate('voicewait',0);
+            setVoiceNotice('ضي بتجهّز الرد والصوت…');
           }else if(Date.now()>=animationLockUntilRef.current){
             animate('reply',0);
           }
         }
 
-        maybeStartEarlyVoice();
+        // For spoken replies, do not reveal text before Leda actually starts.
+        if(shouldSpeak)return;
 
         setConversations(prev=>{
           const existing=prev.find(item=>item.id===conversationId);
@@ -1758,15 +1483,6 @@ export default function GithubApp(){
           createdAt:new Date(row.created_at).getTime()
         };
 
-        setConversations(prev=>prev.map(item=>{
-          if(item.id!==conversationId)return item;
-          const withoutOld=item.messages.filter(message=>
-            message.id!==tempAssistantId &&
-            (!regenerateAssistantId||message.id!==regenerateAssistantId)
-          );
-          return {...item,messages:[...withoutOld,assistantMessage],updatedAt:Date.now()};
-        }));
-
         const perf=payload?.performance;
         if(perf&&typeof perf==='object'){
           console.debug('DAI latency',{
@@ -1780,26 +1496,38 @@ export default function GithubApp(){
         setStreamingText(false);
 
         if(shouldSpeak){
-          finalVoiceText=assistantMessage.content;
-          finalVoiceReady=true;
-
-          if(earlyText&&!earlyFailed){
-            const cleanedFinal=cleanForSpeech(finalVoiceText);
-            const cleanedEarly=cleanForSpeech(earlyText);
-            remainingVoiceText=cleanedFinal.startsWith(cleanedEarly)
-              ? cleanedFinal.slice(cleanedEarly.length).trim()
-              : cleanedFinal;
-
-          }
-
-          if(!earlyText){
-            animate('voicewait',0);
-            void playRemainingVoice();
-          }else if(earlyFinished||earlyFailed){
-            void playRemainingVoice();
-          }
+          animate('voicewait',0);
+          setVoiceNotice('بجهّز صوت ضي…');
+          void (async()=>{
+            let revealed=false;
+            const reveal=()=>{
+              if(revealed)return;
+              revealed=true;
+              revealAssistant(assistantMessage);
+            };
+            try{
+              await unlockSpeechAudio();
+              const spoken=await speakReply(
+                assistantMessage.content,
+                ()=>{
+                  reveal();
+                  setVoiceNotice('ضي بتتكلم.');
+                }
+              );
+              if(!spoken){
+                reveal();
+                setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+              }
+            }catch(error){
+              console.error('DAI spoken reply failed',error);
+              reveal();
+              setDaiState('idle');
+              setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+            }
+          })();
           void chooseContextAnimation(text,assistantMessage.content);
         }else{
+          revealAssistant(assistantMessage);
           if(Date.now()>=animationLockUntilRef.current)animate('reply',900);
           void chooseContextAnimation(text,assistantMessage.content);
         }
@@ -1835,8 +1563,6 @@ export default function GithubApp(){
     if(!doneReceived&&!controller.signal.aborted){
       throw new Error('الرد اتوقف قبل ما يكتمل.');
     }
-
-    // Spoken replies are queued while the stream is arriving so audio can start earlier.
   }
 
   async function regenerateLastReply(){
