@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { product } from '../src/product.mjs';
 
 const root=process.cwd();
 
@@ -36,6 +37,29 @@ const publicSecretPatterns=[
 
 const failures=[];
 
+const animationCatalog=Array.isArray(product.animationCatalog)?product.animationCatalog:[];
+if(animationCatalog.length!==44){
+  failures.push(`DAI animation catalog must contain exactly 44 original animations, found ${animationCatalog.length}`);
+}
+const animationIds=animationCatalog.map(item=>String(item?.id||''));
+if(new Set(animationIds).size!==animationIds.length){
+  failures.push('DAI animation catalog contains duplicate ids');
+}
+const motionSource=read(path.join(root,'src','motion.mjs'));
+const implementedGestures=new Set(
+  [...motionSource.matchAll(/active==='([^']+)'/g)].map(match=>match[1])
+);
+for(const item of animationCatalog){
+  const gesture=String(item?.gesture||'').replace('idle_soft','idle');
+  if(!gesture){
+    failures.push(`DAI animation ${item?.id||'<unknown>'} is missing a gesture`);
+    continue;
+  }
+  if(gesture!=='idle'&&!implementedGestures.has(gesture)){
+    failures.push(`DAI animation ${item.id} has no motion implementation for gesture "${gesture}"`);
+  }
+}
+
 for(const file of srcFiles){
   const content=read(file);
   for(const [needle,label] of sourceForbidden){
@@ -68,4 +92,4 @@ if(failures.length){
   process.exit(1);
 }
 
-console.log(`DAI security check passed: ${srcFiles.length} source files and ${distFiles.length} public build files checked.`);
+console.log(`DAI security check passed: ${srcFiles.length} source files, ${distFiles.length} public build files, and ${animationCatalog.length} animations checked.`);
