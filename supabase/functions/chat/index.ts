@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   if (!geminiApiKey) {
-    return json({ error: 'Gemini API key is not configured', code: 'GEMINI_CONFIG' }, 503);
+    return json({ error: 'خدمة ضي الذكية غير متاحة حاليًا.', code: 'AI_CONFIG' }, 503);
   }
 
   const userName = String(
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
   const maxOutputTokens = complexRequest ? 420 : 220;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3600);
+  const timeout = setTimeout(() => controller.abort(), complexRequest ? 25000 : 16000);
 
   let answer = instantAnswer;
   let usedModel = instantAnswer ? 'local-fast-path' : '';
@@ -250,9 +250,9 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Gemini network error', error);
     const code = error instanceof DOMException && error.name === 'AbortError'
-      ? 'GEMINI_TIMEOUT'
-      : 'GEMINI_NETWORK';
-    return json({ error: 'Could not reach Gemini', code }, 502);
+      ? 'AI_TIMEOUT'
+      : 'AI_NETWORK';
+    return json({ error: 'ضي واجهت مشكلة أثناء تجهيز الرد.', code }, 502);
   } finally {
     clearTimeout(timeout);
   }
@@ -263,11 +263,11 @@ Deno.serve(async (req) => {
     const lowered = lastDetail.toLowerCase();
 
     if (lastStatus === 400) {
-      return json({ error: 'Gemini rejected the request', code: 'GEMINI_BAD_REQUEST' }, 502);
+      return json({ error: 'ضي واجهت مشكلة أثناء فهم الطلب تقنيًا.', code: 'AI_BAD_REQUEST' }, 502);
     }
 
     if (lastStatus === 401 || lastStatus === 403) {
-      return json({ error: 'Gemini rejected the API key or project access', code: 'GEMINI_AUTH' }, 502);
+      return json({ error: 'خدمة ضي الذكية غير متاحة حاليًا.', code: 'AI_AUTH' }, 502);
     }
 
     if (lastStatus === 429) {
@@ -276,22 +276,22 @@ Deno.serve(async (req) => {
         lowered.includes('quota') ||
         lowered.includes('rate');
       return json({
-        error: quotaCode ? 'Gemini free quota is exhausted' : 'Gemini is busy',
-        code: quotaCode ? 'GEMINI_QUOTA' : 'GEMINI_RATE_LIMIT',
+        error: quotaCode ? 'ضي وصلت لحد الاستخدام الحالي.' : 'ضي عليها ضغط مؤقتًا.',
+        code: quotaCode ? 'AI_QUOTA' : 'AI_RATE_LIMIT',
       }, 502);
     }
 
     if (lastStatus === 404) {
-      return json({ error: 'No configured Gemini model is available', code: 'GEMINI_MODEL' }, 502);
+      return json({ error: 'خدمة ضي الذكية غير متاحة حاليًا.', code: 'AI_MODEL' }, 502);
     }
 
     if (lastStatus === 503) {
-      return json({ error: 'Gemini is temporarily overloaded', code: 'GEMINI_OVERLOADED' }, 502);
+      return json({ error: 'ضي عليها ضغط مؤقتًا.', code: 'AI_OVERLOADED' }, 502);
     }
 
     return json({
-      error: 'Gemini request failed',
-      code: 'GEMINI_PROVIDER',
+      error: 'ضي واجهت مشكلة أثناء تجهيز الرد.',
+      code: 'AI_PROVIDER',
       providerStatus: lastStatus,
     }, 502);
   }
@@ -352,8 +352,6 @@ Deno.serve(async (req) => {
     conversationId,
     userMessage,
     assistantMessage,
-    provider: 'gemini',
-    model: usedModel,
     performance: {
       aiMs: Math.round(performance.now() - aiStartedAt),
       totalMs: Math.round(performance.now() - requestStartedAt),
