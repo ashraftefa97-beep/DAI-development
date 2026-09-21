@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     ''
   ).trim();
 
-  if (!geminiApiKey) return json({ error: 'Gemini API key is not configured', code: 'TTS_CONFIG' }, 503);
+  if (!geminiApiKey) return json({ error: 'خدمة صوت ضي غير متاحة حاليًا.', code: 'TTS_CONFIG' }, 503);
 
   const body = await req.json().catch(() => ({}));
   const text = String(body?.text || '').trim();
@@ -113,15 +113,15 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       console.error('Gemini TTS error', response.status, responseText.slice(0, 1200));
       if (response.status === 401 || response.status === 403) {
-        return json({ error: 'Gemini rejected the API key', code: 'TTS_AUTH' }, 502);
+        return json({ error: 'خدمة صوت ضي غير متاحة حاليًا.', code: 'TTS_AUTH' }, 502);
       }
       if (response.status === 404) {
-        return json({ error: 'Gemini TTS model is unavailable', code: 'TTS_MODEL' }, 502);
+        return json({ error: 'صوت ضي غير متاح حاليًا.', code: 'TTS_MODEL' }, 502);
       }
       if (response.status === 429) {
-        return json({ error: 'Gemini TTS quota reached', code: 'TTS_QUOTA' }, 502);
+        return json({ error: 'صوت ضي وصل لحد الاستخدام الحالي.', code: 'TTS_QUOTA' }, 502);
       }
-      return json({ error: 'Gemini TTS failed', code: 'TTS_PROVIDER', providerStatus: response.status }, 502);
+      return json({ error: 'ضي واجهت مشكلة أثناء تجهيز الصوت.', code: 'TTS_PROVIDER' }, 502);
     }
 
     const payload = JSON.parse(responseText || '{}');
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
 
     if (!pcmBase64) {
       console.error('Gemini TTS returned no audio', responseText.slice(0, 1200));
-      return json({ error: 'Gemini TTS returned no audio', code: 'TTS_EMPTY' }, 502);
+      return json({ error: 'ضي مقدرتش تجهز الصوت.', code: 'TTS_EMPTY' }, 502);
     }
 
     const wavBase64 = pcmBase64ToWavBase64(pcmBase64);
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     const code = error instanceof DOMException && error.name === 'AbortError'
       ? 'TTS_TIMEOUT'
       : 'TTS_NETWORK';
-    return json({ error: 'Could not reach Gemini TTS', code }, 502);
+    return json({ error: 'ضي واجهت مشكلة أثناء تجهيز الصوت.', code }, 502);
   } finally {
     clearTimeout(timeout);
   }
