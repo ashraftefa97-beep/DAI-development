@@ -8,7 +8,7 @@ type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:n
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.7.2';
+const DAI_WEB_VERSION='0.8.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -145,6 +145,8 @@ export default function GithubApp(){
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechAudioSourceRef=useRef<AudioBufferSourceNode|null>(null);
+  const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
+  const speechStreamNextTimeRef=useRef(0);
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
@@ -282,13 +284,13 @@ export default function GithubApp(){
 
   function earlySpeechChunk(text:string){
     const spoken=cleanForSpeech(text);
-    if(spoken.length<24)return '';
-    const sentence=spoken.match(/^(.{24,150}?[.!?؟])/);
+    if(spoken.length<8)return '';
+    const sentence=spoken.match(/^(.{8,120}?[.!?؟])/);
     if(sentence?.[1])return sentence[1].trim();
-    if(spoken.length<105)return '';
-    const soft=spoken.slice(0,120);
+    if(spoken.length<62)return '';
+    const soft=spoken.slice(0,78);
     const cut=Math.max(soft.lastIndexOf(' '),soft.lastIndexOf('،'));
-    return soft.slice(0,cut>=70?cut:105).trim();
+    return soft.slice(0,cut>=42?cut:62).trim();
   }
 
   function speakBrowserFallback(text:string,onStart?:()=>void,onEnd?:()=>void){
@@ -370,6 +372,11 @@ export default function GithubApp(){
   function stopSpeechAudio(){
     try{speechAudioSourceRef.current?.stop();}catch{}
     speechAudioSourceRef.current=null;
+    for(const source of speechStreamSourcesRef.current){
+      try{source.stop();}catch{}
+    }
+    speechStreamSourcesRef.current.clear();
+    speechStreamNextTimeRef.current=0;
     if(audioRef.current){
       try{audioRef.current.pause();}catch{}
       audioRef.current.src='';
@@ -403,6 +410,153 @@ export default function GithubApp(){
     };
     source.start(0);
     onStart?.();
+    return true;
+  }
+
+  function base64L16ToFloat32(base64:string){
+    const binary=atob(base64);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const frames=Math.floor(bytes.byteLength/2);
+    const output=new Float32Array(frames);
+    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+    // audio/l16 is signed 16-bit network byte order (big-endian).
+    for(let i=0;i<frames;i++)output[i]=view.getInt16(i*2,false)/32768;
+    return output;
+  }
+
+  async function streamSpeech(
+    text:string,
+    runId:number,
+    onStart?:()=>void,
+    onEnd?:()=>void
+  ){
+    if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
+    const spoken=cleanForSpeech(text).slice(0,1200);
+    if(!spoken)return false;
+
+    let {data:{session}}=await supabase.auth.getSession();
+    if(!session){
+      const refreshed=await supabase.auth.refreshSession();
+      session=refreshed.data.session;
+    }
+    const token=session?.access_token||'';
+    if(!token)return false;
+
+    const ctx=ensureSpeechAudioContext();
+    if(!ctx)return false;
+    if(ctx.state==='suspended'){
+      try{await ctx.resume();}catch{}
+    }
+    if(ctx.state!=='running')return false;
+
+    const response=await fetch(
+      supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-stream',
+      {
+        method:'POST',
+        headers:{
+          Authorization:'Bearer '+token,
+          apikey:supabasePublishableKey,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({text:spoken})
+      }
+    );
+    if(!response.ok||!response.body)throw new Error('tts-stream-failed');
+
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='';
+    let started=false;
+    let gotAudio=false;
+    let providerDone=false;
+
+    const scheduleChunk=(base64:string,sampleRate=24000)=>{
+      if(runId!==speechRunRef.current)return;
+      const samples=base64L16ToFloat32(base64);
+      if(!samples.length)return;
+
+      const audioBuffer=ctx.createBuffer(1,samples.length,sampleRate);
+      audioBuffer.copyToChannel(samples,0);
+      const source=ctx.createBufferSource();
+      source.buffer=audioBuffer;
+      source.connect(ctx.destination);
+
+      const startAt=Math.max(
+        ctx.currentTime+.012,
+        speechStreamNextTimeRef.current||0
+      );
+      source.start(startAt);
+      speechStreamNextTimeRef.current=startAt+audioBuffer.duration;
+      speechStreamSourcesRef.current.add(source);
+      source.onended=()=>{
+        speechStreamSourcesRef.current.delete(source);
+      };
+
+      if(!started){
+        started=true;
+        gotAudio=true;
+        const delay=Math.max(0,(startAt-ctx.currentTime)*1000);
+        window.setTimeout(()=>{
+          if(runId!==speechRunRef.current)return;
+          onStart?.();
+        },delay);
+      }else{
+        gotAudio=true;
+      }
+    };
+
+    while(true){
+      const {value,done}=await reader.read();
+      if(done)break;
+      if(runId!==speechRunRef.current){
+        try{reader.cancel();}catch{}
+        return false;
+      }
+
+      buffer+=decoder.decode(value,{stream:true});
+      const frames=buffer.split(/\r?\n\r?\n/);
+      buffer=frames.pop()||'';
+
+      for(const frame of frames){
+        let eventName='message';
+        const dataLines:string[]=[];
+        for(const line of frame.split(/\r?\n/)){
+          if(line.startsWith('event:'))eventName=line.slice(6).trim();
+          else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
+        }
+        if(!dataLines.length)continue;
+        let payload:any;
+        try{payload=JSON.parse(dataLines.join('\n'));}catch{continue;}
+
+        if(eventName==='audio'&&payload?.data){
+          scheduleChunk(
+            String(payload.data),
+            Number(payload.sampleRate||24000)
+          );
+        }else if(eventName==='done'){
+          providerDone=true;
+        }else if(eventName==='error'){
+          throw new Error(String(payload?.code||'tts-stream-error'));
+        }
+      }
+    }
+
+    if(!gotAudio)return false;
+
+    const waitForDrain=async()=>{
+      while(runId===speechRunRef.current){
+        const waitMs=Math.max(
+          0,
+          (speechStreamNextTimeRef.current-ctx.currentTime)*1000
+        );
+        if(providerDone&&waitMs<=25&&speechStreamSourcesRef.current.size===0)break;
+        await new Promise(resolve=>window.setTimeout(resolve,Math.min(90,Math.max(20,waitMs))));
+      }
+    };
+
+    await waitForDrain();
+    if(runId===speechRunRef.current)onEnd?.();
     return true;
   }
 
@@ -459,7 +613,7 @@ export default function GithubApp(){
 
     const responseState=stateForAssistantText(text);
     // Preparing audio is not speaking. Keep DAI calm until WebAudio actually starts.
-    animate('focus',0);
+    animate('voicewait',0);
     setVoiceNotice('بجهّز صوت ضي…');
 
     const runId=++speechRunRef.current;
@@ -1256,20 +1410,37 @@ export default function GithubApp(){
     let earlyFailed=false;
     let finalVoiceReady=false;
     let finalVoiceText='';
+    let remainingVoiceText='';
+    let remainingPrepared:Promise<{audioBase64:string;mimeType:string}>|null=null;
 
     const playRemainingVoice=async()=>{
       if(!shouldSpeak||!finalVoiceReady)return;
 
       if(earlyText&&!earlyFailed){
         if(!earlyFinished)return;
-        const cleanedFinal=cleanForSpeech(finalVoiceText);
-        const cleanedEarly=cleanForSpeech(earlyText);
-        const remaining=cleanedFinal.startsWith(cleanedEarly)
-          ? cleanedFinal.slice(cleanedEarly.length).trim()
-          : cleanedFinal;
 
-        if(remaining){
-          await speakReply(remaining);
+        if(remainingVoiceText){
+          animate('voicewait',0);
+          setVoiceNotice('بجهّز تكملة الرد…');
+          try{
+            const data=await (remainingPrepared||requestTtsChunk(remainingVoiceText));
+            if(controller.signal.aborted)return;
+            await unlockSpeechAudio();
+            await playSpeechBuffer(
+              data.audioBase64,
+              ()=>{
+                setDaiState('talk');
+                setVoiceNotice('ضي بتتكلم.');
+              },
+              ()=>{
+                setDaiState('idle');
+                setVoiceNotice('الصوت خلص.');
+              }
+            );
+          }catch(error){
+            console.error('DAI prepared remainder TTS failed',error);
+            await speakReply(remainingVoiceText);
+          }
         }else{
           setDaiState('idle');
           setVoiceNotice('الصوت خلص.');
@@ -1290,38 +1461,42 @@ export default function GithubApp(){
       if(!candidate)return;
 
       earlyText=candidate;
-      animate('focus',0);
+      animate('voicewait',0);
       setVoiceNotice('بجهّز أول جزء من صوت ضي…');
       const earlyRun=++speechRunRef.current;
       if('speechSynthesis' in window)window.speechSynthesis.cancel();
       stopSpeechAudio();
 
-      void requestTtsChunk(candidate)
-        .then(async data=>{
-          if(controller.signal.aborted||earlyRun!==speechRunRef.current)return;
-          await unlockSpeechAudio();
-          await playSpeechBuffer(
-            data.audioBase64,
-            ()=>{
-              if(earlyRun!==speechRunRef.current)return;
-              clearTimeout(timer.current);
-              setDaiState('talk');
-              setVoiceNotice('ضي بتتكلم.');
-            },
-            ()=>{
-              if(earlyRun!==speechRunRef.current)return;
-              earlyFinished=true;
-              setDaiState('focus');
-              void playRemainingVoice();
-            }
-          );
-        })
-        .catch(error=>{
-          console.error('DAI early TTS failed',error);
-          earlyFailed=true;
+      void streamSpeech(
+        candidate,
+        earlyRun,
+        ()=>{
+          if(earlyRun!==speechRunRef.current)return;
+          clearTimeout(timer.current);
+          setDaiState('talk');
+          setVoiceNotice('ضي بتتكلم.');
+        },
+        ()=>{
+          if(earlyRun!==speechRunRef.current)return;
           earlyFinished=true;
-          if(finalVoiceReady)void playRemainingVoice();
-        });
+          if(finalVoiceReady){
+            if(remainingVoiceText)setDaiState('voicewait');
+            void playRemainingVoice();
+          }else{
+            setDaiState('voicewait');
+          }
+        }
+      ).then(ok=>{
+        if(ok)return;
+        earlyFailed=true;
+        earlyFinished=true;
+        if(finalVoiceReady)void playRemainingVoice();
+      }).catch(error=>{
+        console.error('DAI streaming first TTS failed',error);
+        earlyFailed=true;
+        earlyFinished=true;
+        if(finalVoiceReady)void playRemainingVoice();
+      });
     };
 
     const handleEvent=(eventName:string,payload:any)=>{
@@ -1365,7 +1540,7 @@ export default function GithubApp(){
         if(!firstDelta){
           firstDelta=true;
           setStreamingText(true);
-          animate(shouldSpeak?'focus':'reply',0);
+          animate(shouldSpeak?'voicewait':'reply',0);
         }
 
         maybeStartEarlyVoice();
@@ -1428,8 +1603,21 @@ export default function GithubApp(){
         if(shouldSpeak){
           finalVoiceText=assistantMessage.content;
           finalVoiceReady=true;
+
+          if(earlyText&&!earlyFailed){
+            const cleanedFinal=cleanForSpeech(finalVoiceText);
+            const cleanedEarly=cleanForSpeech(earlyText);
+            remainingVoiceText=cleanedFinal.startsWith(cleanedEarly)
+              ? cleanedFinal.slice(cleanedEarly.length).trim()
+              : cleanedFinal;
+            if(remainingVoiceText){
+              remainingPrepared=requestTtsChunk(remainingVoiceText);
+              remainingPrepared.catch(()=>{});
+            }
+          }
+
           if(!earlyText){
-            animate('focus',0);
+            animate('voicewait',0);
             void playRemainingVoice();
           }else if(earlyFinished||earlyFailed){
             void playRemainingVoice();
@@ -1557,7 +1745,7 @@ export default function GithubApp(){
       createdAt:Date.now()
     };
     setPendingUserMessage(optimisticMessage);
-    animate(stateForUserText(text),0);
+    animate(fromVoice?'voicewait':stateForUserText(text),0);
 
     let desktopActionResult='';
     if(desktopMode){
@@ -1672,7 +1860,7 @@ export default function GithubApp(){
       };
 
       if(voiceEnabled){
-        animate('focus',0);
+        animate('voicewait',0);
         const speaking=await speakReply(assistantMessage.content,revealAssistant);
         if(!speaking)revealAssistant();
       }else{
