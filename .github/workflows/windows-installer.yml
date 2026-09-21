@@ -26,6 +26,8 @@ jobs:
 
       - name: Install desktop dependencies
         working-directory: desktop/electron
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
         run: npm install
 
       - name: Build Windows installer
