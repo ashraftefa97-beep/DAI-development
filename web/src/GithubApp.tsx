@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
+import DaiFaceBoundary from './DaiFaceBoundary';
 import { History, Mic, Plus, RotateCcw, Send, Settings, Square, Trash2, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
+
+const DAI_WEB_VERSION='0.4.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -93,6 +96,8 @@ export default function GithubApp(){
   const [streamingText,setStreamingText]=useState(false);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
+  const [online,setOnline]=useState(()=>typeof navigator==='undefined'?true:navigator.onLine);
+  const [lastFailedText,setLastFailedText]=useState('');
   const [userId,setUserId]=useState('');
   const [userName,setUserName]=useState('');
   const [desktopMode,setDesktopMode]=useState(false);
@@ -123,6 +128,16 @@ export default function GithubApp(){
   const liveOutputTranscriptRef=useRef('');
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
+
+  useEffect(()=>{
+    const update=()=>setOnline(navigator.onLine);
+    window.addEventListener('online',update);
+    window.addEventListener('offline',update);
+    return()=>{
+      window.removeEventListener('online',update);
+      window.removeEventListener('offline',update);
+    };
+  },[]);
 
   useEffect(()=>{
     let alive=true;
@@ -630,7 +645,11 @@ export default function GithubApp(){
     const tempAssistantId='stream-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     streamMessageIdRef.current=tempAssistantId;
 
-    const {data:{session}}=await supabase.auth.getSession();
+    let {data:{session}}=await supabase.auth.getSession();
+    if(!session){
+      const refreshed=await supabase.auth.refreshSession();
+      session=refreshed.data.session;
+    }
     const token=session?.access_token||'';
     if(!token)throw new Error('session');
 
@@ -823,6 +842,7 @@ export default function GithubApp(){
       await streamTypedReply(userText,'',oldAssistant.id);
     }catch(error){
       if((error as Error)?.name!=='AbortError'){
+        setLastFailedText(userText);
         setErrorText(String((error as Error)?.message||'ضي مقدرتش تعيد الرد دلوقتي.'));
       }
       setConversations(prev=>prev.map(item=>{
@@ -846,11 +866,24 @@ export default function GithubApp(){
     }
   }
 
-  async function sendMessage(messageOverride?:unknown){
-    const fromVoice=typeof messageOverride==='string';
+  async function retryLastFailed(){
+    if(!lastFailedText||sending||!online)return;
+    const text=lastFailedText;
+    setLastFailedText('');
+    await sendMessage(text,'typed');
+  }
+
+  async function sendMessage(messageOverride?:unknown,source:'auto'|'typed'='auto'){
+    const fromVoice=typeof messageOverride==='string'&&source!=='typed';
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
+    if(!online){
+      setErrorText('مفيش اتصال بالإنترنت دلوقتي. الرسالة لسه موجودة وتقدر تعيد المحاولة أول ما الاتصال يرجع.');
+      if(!fromVoice)setLastFailedText(text);
+      return;
+    }
     if(!fromVoice)setInput('');
+    setLastFailedText('');
     clearTimeout(typingTimer.current);
     setErrorText('');
     setSending(true);
@@ -884,6 +917,7 @@ export default function GithubApp(){
         }
         if(!aborted){
           setInput(text);
+          setLastFailedText(text);
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
         }
         animate('idle',0);
@@ -1478,14 +1512,14 @@ export default function GithubApp(){
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
       <div className='classic-header-actions'>
-        <span className='classic-status'><i className={sending?'busy':''}/><span>{loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
+        <span className='classic-status' role='status' aria-live='polite'><i className={sending?'busy':online?'':'offline'}/><span>{!online?'مفيش اتصال':loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
       </div>
     </header>
 
     <section className='classic-stage'>
-      <div className='classic-face-wrap classic-logo-stage'><DaiFace state={daiState} reduced={reduced}/></div>
+      <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced}/></DaiFaceBoundary></div>
 
       <div className='classic-motion-controls'>
         <button onClick={()=>animate('fishing',7400)}>صيد</button>
@@ -1500,7 +1534,7 @@ export default function GithubApp(){
         <button onClick={()=>animate('stretch',3800)}>تمدد</button>
       </div>
 
-      <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة'>
+      <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
         {voiceSessionActive&&
           <div className='classic-live-voice'>
             <div className={'classic-live-orb '+voiceSessionStatus}><i/><i/><i/><i/></div>
@@ -1530,7 +1564,7 @@ export default function GithubApp(){
         {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
       </section>
 
-      {errorText&&<div className='classic-error stage-error'>{errorText}</div>}
+      {errorText&&<div className='classic-error stage-error' role='alert'><span>{errorText}</span>{lastFailedText&&!sending&&online&&<button onClick={retryLastFailed}><RotateCcw className='h-3.5 w-3.5'/> إعادة المحاولة</button>}</div>}
 
       {!!files.length&&<div className='github-files'>{files.map(f=><span key={f}>{f}</span>)}</div>}
 
@@ -1548,7 +1582,7 @@ export default function GithubApp(){
             ? <button className='classic-send' onClick={stopTextReply} aria-label='إيقاف الرد' title='إيقاف الرد'>
                 <Square className='h-4 w-4'/>
               </button>
-            : <button className='classic-send' disabled={loadingData||voiceSessionActive||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
+            : <button className='classic-send' disabled={loadingData||voiceSessionActive||!online||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
                 <Send className='h-5 w-5'/>
               </button>
           }
@@ -1574,6 +1608,7 @@ export default function GithubApp(){
         {desktopMode&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
         {desktopMode&&<div className='classic-privacy'>نسخة الكمبيوتر مفعّل فيها فتح البرامج والتحكم في تشغيل الوسائط والصوت واختصارات التنقل المسموح بها.</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
+        <div className='classic-version'>DAI Web v{DAI_WEB_VERSION}</div>
       </section>
     </div>}
   </main>;
