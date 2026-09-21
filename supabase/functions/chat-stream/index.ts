@@ -8,18 +8,6 @@ const corsHeaders = {
 
 const encoder = new TextEncoder();
 
-const requestWindows = new Map<string, { start: number; count: number }>();
-function allowRequest(userId: string, max = 14) {
-  const now = Date.now();
-  for (const [key, value] of requestWindows) {
-    if (now - value.start >= 60000) requestWindows.delete(key);
-  }
-  const window = requestWindows.get(userId) || { start: now, count: 0 };
-  window.count++;
-  requestWindows.set(userId, window);
-  return window.count <= max;
-}
-
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -92,7 +80,13 @@ Deno.serve(async (req) => {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const user = authData.user;
   if (authError || !user) return json({ error: 'Unauthorized' }, 401);
-  if (!allowRequest(user.id)) {
+
+  const { data: rateAllowed, error: rateError } = await supabase.rpc('dai_rate_limit_hit', {
+    p_limit: 14,
+    p_window_seconds: 60,
+  });
+  if (rateError) return json({ error: 'خدمة ضي مشغولة حاليًا. جرّب بعد لحظة.', code: 'RATE_CHECK' }, 503);
+  if (rateAllowed !== true) {
     return json({ error: 'طلبات كتير في وقت قصير. استنى شوية وجرب تاني.', code: 'RATE_LIMIT' }, 429);
   }
 
