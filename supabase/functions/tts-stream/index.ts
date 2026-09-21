@@ -81,9 +81,6 @@ Deno.serve(async (req) => {
         input: prompt,
         response_format: {
           type: 'audio',
-          mime_type: 'audio/l16',
-          sample_rate: 24000,
-          delivery: 'inline',
         },
         generation_config: {
           speech_config: [{ voice: 'Aoede' }],
@@ -115,7 +112,7 @@ Deno.serve(async (req) => {
       let sentAudio = false;
       let audioChunks = 0;
 
-      output.enqueue(sse('start', { sampleRate: 24000, format: 'audio/l16' }));
+      output.enqueue(sse('start', { sampleRate: 24000, format: 'pcm16le' }));
 
       try {
         while (true) {
