@@ -216,8 +216,8 @@ export default function GithubApp(){
     return c.id;
   }
 
-  async function sendMessage(){
-    const text=input.trim();
+  async function sendMessage(messageOverride?:string){
+    const text=(messageOverride??input).trim();
     if(!text||!supabase||loadingData)return;
     setInput('');
     setErrorText('');
@@ -285,14 +285,63 @@ export default function GithubApp(){
 
   function toggleMic(){
     const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
-    if(!SR)return;
+    if(!SR){
+      setErrorText('المتصفح ده مش بيدعم الاستماع الصوتي. جرّب Chrome أو Edge.');
+      return;
+    }
     if(listening)return;
+
+    if('speechSynthesis' in window) window.speechSynthesis.cancel();
+
     const rec=new SR();
-    rec.lang='ar-SA';rec.interimResults=false;rec.maxAlternatives=1;
-    setListening(true);animate('listen',0);
-    rec.onresult=(e:any)=>setInput(v=>(v?v+' ':'')+e.results[0][0].transcript);
-    rec.onerror=()=>{};
-    rec.onend=()=>{setListening(false);animate('idle',0);};
+    rec.lang='ar-EG';
+    rec.interimResults=true;
+    rec.maxAlternatives=1;
+    rec.continuous=false;
+
+    let sentVoice=false;
+    setListening(true);
+    setErrorText('');
+    setInput('');
+    animate('listen',0);
+
+    rec.onresult=(e:any)=>{
+      let finalText='';
+      let interimText='';
+
+      for(let i=e.resultIndex;i<e.results.length;i++){
+        const chunk=String(e.results[i][0]?.transcript||'').trim();
+        if(!chunk)continue;
+        if(e.results[i].isFinal) finalText+=(finalText?' ':'')+chunk;
+        else interimText+=(interimText?' ':'')+chunk;
+      }
+
+      const visible=(finalText||interimText).trim();
+      if(visible)setInput(visible);
+
+      if(finalText&&!sentVoice){
+        sentVoice=true;
+        setListening(false);
+        void sendMessage(finalText);
+        try{ rec.stop(); }catch{}
+      }
+    };
+
+    rec.onerror=(e:any)=>{
+      setListening(false);
+      if(e?.error==='not-allowed'||e?.error==='service-not-allowed'){
+        setErrorText('اسمح للموقع باستخدام الميكروفون من إعدادات المتصفح.');
+      }else if(e?.error!=='no-speech'&&e?.error!=='aborted'){
+        setErrorText('حصلت مشكلة أثناء الاستماع. جرّب تاني.');
+      }
+      if(!sentVoice)animate('idle',0);
+    };
+
+    rec.onend=()=>{
+      setListening(false);
+      if(!sentVoice)animate('idle',0);
+    };
+
     rec.start();
   }
 
@@ -341,7 +390,7 @@ export default function GithubApp(){
         <button className='classic-input-icon' onClick={()=>document.getElementById('github-file')?.click()} aria-label='إرفاق'><Paperclip className='h-5 w-5'/></button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
         <button className='classic-input-icon' aria-pressed={listening} onClick={toggleMic} aria-label='الميكروفون'><Mic className='h-5 w-5'/></button>
-        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder='اكتب لضي…' onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'بسمعك… اتكلم براحتك':'اكتب لضي…'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <button className='classic-send' disabled={loadingData} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
       </div>
       <p className='classic-hint'>المحادثات محفوظة في حسابك على Supabase، والردود بتيجي من الـAI backend.</p>
