@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { KeyRound, LogIn, LogOut, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Download, KeyRound, LogIn, LogOut, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
 
 type Mode = 'login' | 'register';
@@ -23,6 +23,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [accountNotice, setAccountNotice] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [accountBusy, setAccountBusy] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState('');
 
   function getUserName(user:any){
     return String(
@@ -62,8 +64,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       setReady(true);
     });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       applySessionUser(session?.user || null);
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
       setReady(true);
     });
 
@@ -74,7 +77,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, []);
 
   async function submit() {
-    if (!supabase || !email.trim() || password.length < 6 || busy) return;
+    if (!supabase || !email.trim() || password.length < 8 || busy) return;
     if (mode === 'register' && name.trim().length < 2) {
       setNotice('اكتب اسمك الأول عشان ضي تناديك بيه.');
       return;
@@ -117,7 +120,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       const message = error instanceof Error ? error.message : '';
       if (/invalid login/i.test(message)) setNotice('البريد أو كلمة المرور غير صحيحة.');
       else if (/already registered/i.test(message)) setNotice('الحساب موجود بالفعل. جرّب تسجيل الدخول.');
-      else if (/password/i.test(message)) setNotice('كلمة المرور لازم تكون 6 أحرف على الأقل.');
+      else if (/password/i.test(message)) setNotice('كلمة المرور لازم تكون 8 أحرف على الأقل.');
       else setNotice('حصلت مشكلة في تسجيل الدخول. جرّب مرة تانية.');
     } finally {
       setBusy(false);
@@ -139,6 +142,76 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       setNotice('الاسم متحفظش. جرّب تاني.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function sendPasswordReset() {
+    if (!supabase || !email.trim() || busy) {
+      setNotice('اكتب بريدك الإلكتروني الأول.');
+      return;
+    }
+    setBusy(true);
+    setNotice('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + window.location.pathname,
+      });
+      if (error) throw error;
+      setNotice('بعتنا رابط تغيير كلمة المرور لو البريد مسجل عندنا.');
+    } catch {
+      setNotice('تعذر إرسال رابط الاسترجاع دلوقتي. جرّب تاني.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function finishPasswordRecovery() {
+    if (!supabase || recoveryPassword.length < 8 || busy) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+      if (error) throw error;
+      setRecoveryPassword('');
+      setPasswordRecovery(false);
+      setNotice('تم تغيير كلمة المرور.');
+    } catch {
+      setNotice('تعذر تغيير كلمة المرور. جرّب تاني.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function exportMyData() {
+    if (!supabase || accountBusy) return;
+    setAccountBusy(true);
+    setAccountNotice('');
+    try {
+      const [{ data: conversations, error: conversationsError }, { data: messages, error: messagesError }] = await Promise.all([
+        supabase.from('dai_conversations').select('id,title,created_at,updated_at').order('created_at',{ascending:true}),
+        supabase.from('dai_messages').select('id,conversation_id,role,content,created_at').order('created_at',{ascending:true}),
+      ]);
+      if (conversationsError || messagesError) throw conversationsError || messagesError;
+      const payload = {
+        product: 'DAI AI',
+        exportedAt: new Date().toISOString(),
+        account: { email: sessionEmail, displayName: sessionName },
+        conversations: conversations || [],
+        messages: messages || [],
+      };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+      const link = document.createElement('a');
+      link.href=url;
+      link.download='dai-data-'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setAccountNotice('تم تجهيز نسخة من بياناتك.');
+    } catch {
+      setAccountNotice('تعذر تصدير البيانات دلوقتي.');
+    } finally {
+      setAccountBusy(false);
     }
   }
 
@@ -310,14 +383,20 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder='6 أحرف على الأقل'
+              placeholder='8 أحرف على الأقل'
               onKeyDown={e => { if (e.key === 'Enter') submit(); }}
             />
           </label>
 
+          {mode === 'login' && (
+            <button className='auth-text-button' disabled={busy} onClick={sendPasswordReset}>
+              نسيت كلمة المرور؟
+            </button>
+          )}
+
           {notice && <div className='auth-notice'>{notice}</div>}
 
-          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 6 || (mode === 'register' && (name.trim().length < 2 || !gender))} onClick={submit}>
+          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 8 || (mode === 'register' && (name.trim().length < 2 || !gender))} onClick={submit}>
             {mode === 'login' ? <LogIn className='h-5 w-5' /> : <UserPlus className='h-5 w-5' />}
             {busy ? 'جاري التنفيذ…' : mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
           </button>
@@ -326,6 +405,34 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
           <button className='auth-google' disabled={busy} onClick={googleLogin}>
             متابعة باستخدام Google
+          </button>
+        </section>
+      </main>
+    );
+  }
+
+  if (sessionEmail && passwordRecovery) {
+    return (
+      <main className='auth-shell' dir='rtl'>
+        <section className='auth-card'>
+          <img className='auth-logo' src='./dai-logo.svg' alt='DAI AI' />
+          <h1>غيّر كلمة المرور</h1>
+          <p>اختار كلمة مرور جديدة لحسابك.</p>
+          <label className='auth-field'>
+            <span>كلمة المرور الجديدة</span>
+            <input
+              type='password'
+              value={recoveryPassword}
+              onChange={e => setRecoveryPassword(e.target.value)}
+              autoComplete='new-password'
+              placeholder='8 أحرف أو أكثر'
+              onKeyDown={e => { if (e.key === 'Enter') finishPasswordRecovery(); }}
+            />
+          </label>
+          {notice && <div className='auth-notice'>{notice}</div>}
+          <button className='auth-primary' disabled={busy || recoveryPassword.length < 8} onClick={finishPasswordRecovery}>
+            <KeyRound className='h-5 w-5' />
+            {busy ? 'جاري الحفظ…' : 'احفظ كلمة المرور'}
           </button>
         </section>
       </main>
@@ -438,6 +545,9 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             <div className='auth-account-section auth-privacy-section'>
               <h3><ShieldCheck className='h-4 w-4' /> الخصوصية</h3>
               <p>المحادثات مرتبطة بحسابك ومحميّة بسياسات RLS. ضي لا تستخدم ذاكرة طويلة المدى منفصلة حاليًا؛ بيانات المحادثات هي المصدر المحفوظ الأساسي.</p>
+              <button className='auth-account-secondary' disabled={accountBusy} onClick={exportMyData}>
+                <Download className='h-4 w-4' /> تصدير بياناتي
+              </button>
               <button className='auth-account-secondary' disabled={accountBusy} onClick={clearAllChats}>
                 مسح كل المحادثات
               </button>
