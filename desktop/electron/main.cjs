@@ -274,6 +274,23 @@ async function listRunningApps() {
   }
 }
 
+async function applyInstallerPreferences() {
+  const script = [
+    "$path='HKCU:\\Software\\DAI AI'",
+    "if(!(Test-Path $path)){ exit 2 }",
+    "$value=(Get-ItemProperty -Path $path -Name StartWithWindows -ErrorAction SilentlyContinue).StartWithWindows",
+    "if($null -eq $value){ exit 3 }",
+    "Write-Output ([int]$value)",
+    "Remove-ItemProperty -Path $path -Name StartWithWindows -ErrorAction SilentlyContinue"
+  ].join('\n');
+
+  const result = await ps(script);
+  if (!result.ok) return;
+
+  const enabled = String(result.message || '').trim() === '1';
+  app.setLoginItemSettings({ openAtLogin: enabled });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -331,7 +348,8 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await applyInstallerPreferences();
   ipcMain.handle('dai:capabilities', (event) => {
     if (!senderAllowed(event)) return { ok: false };
     const professional = desktopEntitlement.plan === 'professional';
