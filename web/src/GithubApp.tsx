@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
-import { History, Mic, Paperclip, Send, Settings, Trash2, X } from 'lucide-react';
+import { History, Mic, Plus, Send, Settings, Trash2, X } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
@@ -550,11 +550,19 @@ export default function GithubApp(){
       {!!files.length&&<div className='github-files'>{files.map(f=><span key={f}>{f}</span>)}</div>}
 
       <div className='classic-input-bar'>
-        <button className='classic-input-icon' onClick={()=>document.getElementById('github-file')?.click()} aria-label='إرفاق'><Paperclip className='h-5 w-5'/></button>
+        <button className='classic-plus-button' onClick={()=>document.getElementById('github-file')?.click()} aria-label='إضافة ملف' title='إضافة ملف'>
+          <Plus className='h-5 w-5'/>
+        </button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
-        <button className='classic-input-icon' aria-pressed={listening} onClick={toggleMic} aria-label={listening?'إيقاف الاستماع':'بدء الاستماع'} title={listening?'اضغط لإيقاف الاستماع وإرسال كلامك':'اضغط وابدأ الكلام'}><Mic className='h-5 w-5'/></button>
-        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اكتب لضي…'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
-        <button className='classic-send' disabled={loadingData||sending} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
+        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <div className='classic-input-actions'>
+          <button className='classic-mic-button' aria-pressed={listening} onClick={toggleMic} aria-label={listening?'إيقاف الاستماع':'بدء الاستماع'} title={listening?'اضغط لإيقاف الاستماع وإرسال كلامك':'اضغط وابدأ الكلام'}>
+            <Mic className='h-5 w-5'/>
+          </button>
+          <button className='classic-send' disabled={loadingData||sending||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
+            <Send className='h-5 w-5'/>
+          </button>
+        </div>
       </div>
     </section>
 
