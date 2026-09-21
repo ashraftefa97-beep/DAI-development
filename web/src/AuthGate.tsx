@@ -66,6 +66,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       applySessionUser(session?.user || null);
+      if (!session) void (window as any).daiDesktop?.clearSession?.().catch?.(() => false);
       if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
       setReady(true);
     });
@@ -233,6 +234,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   async function logout(scope: 'local' | 'global' = 'local') {
     if (!supabase) return;
+    await (window as any).daiDesktop?.clearSession?.().catch?.(() => false);
     await supabase.auth.signOut({ scope });
     setSessionEmail('');
     setSessionName('');
@@ -306,6 +308,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
         body: { confirm: 'DELETE' },
       });
       if (error || !data?.deleted) throw error || new Error('delete-failed');
+      await (window as any).daiDesktop?.clearSession?.().catch?.(() => false);
       await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       setSessionEmail('');
       setSessionName('');
