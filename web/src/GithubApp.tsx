@@ -2190,7 +2190,7 @@ export default function GithubApp(){
     if(!supabase)return;
     setVoiceNoteProcessing(true);
     setVoiceNotice('ضي بتفهم التسجيل…');
-    animate('thinking',0);
+    animate('search',0);
     try{
       if(blob.size<350)throw new Error('empty-recording');
       if(blob.size>6_500_000)throw new Error('recording-too-large');
