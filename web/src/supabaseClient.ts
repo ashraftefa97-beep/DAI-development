@@ -10,17 +10,17 @@ declare global {
 }
 
 const runtime = window.DAI_AUTH_CONFIG || {};
-const url = runtime.url || import.meta.env.VITE_SUPABASE_URL || '';
-const publishableKey =
+export const supabaseUrl = runtime.url || import.meta.env.VITE_SUPABASE_URL || '';
+export const supabasePublishableKey =
   runtime.publishableKey ||
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   '';
 
-export const authConfigured = Boolean(url && publishableKey);
+export const authConfigured = Boolean(supabaseUrl && supabasePublishableKey);
 
 export const supabase = authConfigured
-  ? createClient(url, publishableKey, {
+  ? createClient(supabaseUrl, supabasePublishableKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
