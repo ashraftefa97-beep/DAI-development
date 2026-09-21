@@ -441,21 +441,31 @@ export default function GithubApp(){
       if(!alive)return;
       setUserId(uid);
       setUserName(displayName);
-      if(!uid){setLoadingData(false);return;}
+      if(!uid){setPlan('standard');setPlanOwner(false);setPlanLoading(false);setLoadingData(false);return;}
 
-      const { data: rows, error }=await supabase
-        .from('dai_conversations')
-        .select('id,title,updated_at')
-        .order('updated_at',{ascending:false});
+      const [conversationsResult,entitlementResult]=await Promise.all([
+        supabase
+          .from('dai_conversations')
+          .select('id,title,updated_at')
+          .order('updated_at',{ascending:false}),
+        supabase.functions.invoke('entitlement',{body:{}})
+      ]);
 
       if(!alive)return;
-      if(error){
+      if(conversationsResult.error){
         setErrorText('قاعدة بيانات المحادثات لسه محتاجة تجهيز في Supabase.');
         setLoadingData(false);
         return;
       }
 
-      const base=(rows||[]).map((r:any)=>({
+      const entitlement=entitlementResult.data;
+      const resolvedPlan:DaiPlan=entitlement?.plan==='professional'?'professional':'standard';
+      setPlan(resolvedPlan);
+      setPlanOwner(Boolean(entitlement?.owner));
+      setPlanLoading(false);
+
+      const rows=conversationsResult.data||[];
+      const base=rows.map((r:any)=>({
         id:r.id,
         title:r.title,
         updatedAt:new Date(r.updated_at).getTime(),
@@ -468,6 +478,29 @@ export default function GithubApp(){
     load();
     return()=>{alive=false;};
   },[]);
+
+  useEffect(()=>{
+    let cancelled=false;
+    async function syncDesktopSession(){
+      if(!desktopMode||!window.daiDesktop||!supabase)return;
+      try{
+        const {data}=await supabase.auth.getSession();
+        const token=data.session?.access_token||'';
+        if(!token){
+          await window.daiDesktop.clearSession().catch(()=>false);
+          return;
+        }
+        const result=await window.daiDesktop.setSession(token);
+        if(cancelled)return;
+        if(result?.ok){
+          setPlan(result.plan==='professional'?'professional':'standard');
+          setPlanOwner(Boolean(result.owner));
+        }
+      }catch{}
+    }
+    void syncDesktopSession();
+    return()=>{cancelled=true;};
+  },[desktopMode,userId]);
 
   useEffect(()=>{
     let alive=true;
