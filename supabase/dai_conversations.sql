@@ -180,3 +180,32 @@ using ((select auth.uid()) = user_id);
 revoke all privileges on table public.dai_entitlements from anon;
 revoke insert, update, delete, truncate, references, trigger on table public.dai_entitlements from authenticated;
 grant select on table public.dai_entitlements to authenticated;
+
+
+-- PayPal subscription records. Client can only read its own records; writes happen server-side.
+create table if not exists public.dai_paypal_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  paypal_subscription_id text not null unique,
+  paypal_plan_id text not null,
+  billing_period text not null check (billing_period in ('monthly','annual')),
+  status text not null default 'APPROVAL_PENDING',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists dai_paypal_subscriptions_user_idx
+  on public.dai_paypal_subscriptions(user_id, updated_at desc);
+
+alter table public.dai_paypal_subscriptions enable row level security;
+
+drop policy if exists "Users can read own PayPal subscriptions" on public.dai_paypal_subscriptions;
+create policy "Users can read own PayPal subscriptions"
+on public.dai_paypal_subscriptions
+for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+revoke all privileges on table public.dai_paypal_subscriptions from anon;
+revoke insert, update, delete, truncate, references, trigger on table public.dai_paypal_subscriptions from authenticated;
+grant select on table public.dai_paypal_subscriptions to authenticated;
