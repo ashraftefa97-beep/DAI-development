@@ -2,11 +2,13 @@
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 
+!ifndef BUILD_UNINSTALLER
 Var DaiOptionsDialog
 Var DaiStartupCheckbox
 Var DaiDesktopCheckbox
 Var DaiStartupState
 Var DaiDesktopState
+!endif
 
 !macro customHeader
   !define MUI_WELCOMEPAGE_TITLE "DAI AI — ضي"
@@ -14,6 +16,8 @@ Var DaiDesktopState
   !define MUI_FINISHPAGE_TITLE "DAI AI is ready — ضي جاهزة"
   !define MUI_FINISHPAGE_TEXT "Installation completed successfully.$\r$\nتم تثبيت ضي بنجاح. افتح البرنامج وسجّل دخولك للبدء."
 !macroend
+
+!ifndef BUILD_UNINSTALLER
 
 !macro customInit
   StrCpy $DaiStartupState ${BST_CHECKED}
@@ -72,6 +76,8 @@ FunctionEnd
     ${EndIf}
   ${endIf}
 !macroend
+
+!endif
 
 !macro customUnInstall
   DeleteRegKey HKCU "Software\DAI AI"
