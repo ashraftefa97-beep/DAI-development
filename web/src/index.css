@@ -1546,3 +1546,52 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .dai-price-card { min-height:auto; }
   .dai-upgrade-panel { padding:17px; border-radius:21px; }
 }
+
+
+/* PayPal checkout controls */
+.dai-paypal-actions {
+  margin-top:auto;
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+}
+.dai-paypal-actions button,
+.dai-plan-refresh {
+  min-height:44px;
+  border-radius:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+.dai-paypal-actions .professional-cta {
+  border:0;
+  background:linear-gradient(135deg,#ffd0df,#f6a9c1 60%,#c7a8e7);
+  color:#2b1d2c;
+}
+.dai-paypal-yearly {
+  border:1px solid rgba(246,169,193,.25);
+  background:rgba(246,169,193,.07);
+  color:#f3dbe5;
+}
+.dai-paypal-actions button:disabled {
+  opacity:.58;
+  cursor:default;
+}
+.dai-paypal-note {
+  display:block;
+  margin-top:9px;
+  color:#787b90;
+  font-size:9px;
+  line-height:1.65;
+}
+.dai-plan-refresh {
+  margin-top:10px;
+  padding:0 13px;
+  border:1px solid #393d52;
+  background:#181c2b;
+  color:#d7d3dd;
+  font-size:10px;
+}
+.dai-plan-refresh:hover {
+  border-color:rgba(246,169,193,.25);
+  color:#ffe1ea;
+}
