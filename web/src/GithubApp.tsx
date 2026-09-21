@@ -20,18 +20,18 @@ async function explainChatError(error:any){
       const payload=await response.json().catch(()=>null);
       const code=String(payload?.code||'');
 
-      if(code==='AI_CONFIG') return 'إعدادات الـAI ناقصة في Supabase Secrets.';
-      if(code==='AI_BASE_URL') return 'قيمة AI_BASE_URL غير صحيحة. حط رابط مزود الـAI الأساسي أو مسار chat/completions كامل.';
-      if(code==='AI_AUTH') return 'مزود الـAI رفض AI_API_KEY. راجع المفتاح في Supabase Secrets.';
-      if(code==='AI_NOT_FOUND') return 'مزود الـAI مش لاقي الـendpoint أو الموديل. راجع AI_BASE_URL و AI_MODEL.';
-      if(code==='AI_CREDITS') return 'رصيد OpenAI API خلص. ضي متوصلة صح، لكن لازم تضيف رصيد للـAPI أو تغيّر مزود الـAI.';
-      if(code==='AI_RATE_LIMIT') return 'مزود الـAI وصل لحد الاستخدام مؤقتًا. جرّب بعد شوية.';
-      if(code==='AI_TIMEOUT') return 'مزود الـAI اتأخر في الرد. جرّب تاني.';
-      if(code==='AI_NETWORK') return 'Supabase مش قادر يوصل لمزود الـAI حاليًا.';
-      if(code==='AI_EMPTY') return 'الـAI اتصل، لكن رجّع رد فاضي.';
+      if(code==='GEMINI_CONFIG') return 'مفتاح Gemini API مش موجود في Supabase Secrets.';
+      if(code==='GEMINI_AUTH') return 'Gemini رفض مفتاح الـAPI أو المشروع. راجع المفتاح من Google AI Studio.';
+      if(code==='GEMINI_MODEL') return 'موديلات Gemini المجانية المحددة مش متاحة للمشروع حاليًا.';
+      if(code==='GEMINI_QUOTA') return 'وصلنا لحد Gemini المجاني الحالي. ضي هتحاول موديل مجاني بديل تلقائيًا، ولو كلهم خلصوا جرّب لاحقًا.';
+      if(code==='GEMINI_RATE_LIMIT') return 'Gemini وصل لحد الطلبات مؤقتًا. جرّب بعد شوية.';
+      if(code==='GEMINI_OVERLOADED') return 'Gemini عليه ضغط مؤقتًا. جرّب بعد شوية.';
+      if(code==='GEMINI_TIMEOUT') return 'Gemini اتأخر في الرد. جرّب تاني.';
+      if(code==='GEMINI_NETWORK') return 'Supabase مش قادر يوصل لـGemini حاليًا.';
+      if(code==='GEMINI_BAD_REQUEST') return 'Gemini رفض صيغة الطلب. الكود محتاج مراجعة.';
       if(status===404) return 'دالة chat مش موجودة على Supabase أو لسه ما اتعملهاش Deploy.';
       if(status===401) return 'جلسة تسجيل الدخول انتهت. سجّل دخول من جديد.';
-      if(status>=500) return 'الـbackend شغال لكن حصل خطأ أثناء الاتصال بالـAI.';
+      if(status>=500) return 'الـbackend شغال لكن حصل خطأ أثناء الاتصال بـGemini.';
     } catch {}
   }
 
