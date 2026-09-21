@@ -849,13 +849,13 @@ export default function GithubApp(){
   },[plan,proAnimations,reduced,sending,voiceSessionActive,daiState]);
 
   useEffect(()=>{
-    if(!professional||!proAnimations||sending||animationAudioBusy())return;
+    if(plan!=='professional'||!proAnimations||sending||animationAudioBusy())return;
     const pending=pendingAutoAnimationRef.current;
     if(!pending||Date.now()<animationCooldownUntilRef.current)return;
     const id=window.setTimeout(()=>executeSelectedAnimation(pending,'auto'),220);
     return()=>window.clearTimeout(id);
   },[
-    professional,
+    plan,
     proAnimations,
     sending,
     voiceSessionActive,
