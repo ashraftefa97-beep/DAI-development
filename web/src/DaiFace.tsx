@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { DaiMotion, clamp } from './motion.mjs';
 import { drawDai, stageScale } from './draw.mjs';
 
-export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'idea' | 'sleep' | 'heart' | 'dance' | 'fishing' | 'stretch';
+export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'idea' | 'sleep' | 'heart' | 'dance' | 'fishing' | 'stretch' | 'curious' | 'celebrate' | 'focus' | 'error';
 export default function DaiFace({state='idle', reduced=false}: {state?:DaiState; reduced?:boolean}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
