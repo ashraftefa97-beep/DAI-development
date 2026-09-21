@@ -20,26 +20,26 @@ async function explainChatError(error:any){
       const payload=await response.json().catch(()=>null);
       const code=String(payload?.code||'');
 
-      if(code==='GEMINI_CONFIG') return 'مفتاح Gemini API مش موجود في Supabase Secrets.';
-      if(code==='GEMINI_AUTH') return 'Gemini رفض مفتاح الـAPI أو المشروع. راجع المفتاح من Google AI Studio.';
-      if(code==='GEMINI_MODEL') return 'موديلات Gemini المجانية المحددة مش متاحة للمشروع حاليًا.';
-      if(code==='GEMINI_QUOTA') return 'وصلنا لحد Gemini المجاني الحالي. ضي هتحاول موديل مجاني بديل تلقائيًا، ولو كلهم خلصوا جرّب لاحقًا.';
-      if(code==='GEMINI_RATE_LIMIT') return 'Gemini وصل لحد الطلبات مؤقتًا. جرّب بعد شوية.';
-      if(code==='GEMINI_OVERLOADED') return 'Gemini عليه ضغط مؤقتًا. جرّب بعد شوية.';
-      if(code==='GEMINI_TIMEOUT') return 'Gemini اتأخر في الرد. جرّب تاني.';
-      if(code==='GEMINI_NETWORK') return 'Supabase مش قادر يوصل لـGemini حاليًا.';
-      if(code==='GEMINI_BAD_REQUEST') return 'Gemini رفض صيغة الطلب. الكود محتاج مراجعة.';
-      if(status===404) return 'دالة chat مش موجودة على Supabase أو لسه ما اتعملهاش Deploy.';
+      if(code==='GEMINI_CONFIG') return 'إعدادات ضي الذكية ناقصة حاليًا.';
+      if(code==='GEMINI_AUTH') return 'ضي مش قادرة تتصل بخدمة الذكاء دلوقتي. راجع إعدادات الاتصال.';
+      if(code==='GEMINI_MODEL') return 'خدمة ضي الذكية مش متاحة حاليًا. جرّب بعد شوية.';
+      if(code==='GEMINI_QUOTA') return 'ضي وصلت لحد الاستخدام الحالي. جرّب تاني بعد شوية.';
+      if(code==='GEMINI_RATE_LIMIT') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
+      if(code==='GEMINI_OVERLOADED') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
+      if(code==='GEMINI_TIMEOUT') return 'ضي اتأخرت في الرد. جرّب تاني.';
+      if(code==='GEMINI_NETWORK') return 'ضي مش قادرة توصل لخدمة الذكاء حاليًا.';
+      if(code==='GEMINI_BAD_REQUEST') return 'ضي واجهت مشكلة في فهم الطلب تقنيًا. جرّب تاني.';
+      if(status===404) return 'خدمة ضي مش متاحة حاليًا.';
       if(status===401) return 'جلسة تسجيل الدخول انتهت. سجّل دخول من جديد.';
-      if(status>=500) return 'الـbackend شغال لكن حصل خطأ أثناء الاتصال بـGemini.';
+      if(status>=500) return 'ضي واجهت خطأ أثناء تجهيز الرد.';
     } catch {}
   }
 
   const message=String(error?.message||'');
   if(/Failed to send|fetch|network/i.test(message)) {
-    return 'تعذر الوصول لـSupabase Edge Function. تأكد إن دالة chat معمولة Deploy.';
+    return 'ضي مش قادرة تتصل بالخدمة حاليًا. جرّب تاني.';
   }
-  return 'حصل خطأ في اتصال ضي بالـAI. افتح Console أو Supabase Functions Logs لمعرفة السبب.';
+  return 'ضي حصل عندها خطأ غير متوقع. جرّب تاني.';
 }
 
 export default function GithubApp(){
@@ -54,12 +54,15 @@ export default function GithubApp(){
   const [activeId,setActiveId]=useState('');
   const [conversations,setConversations]=useState<Conversation[]>([]);
   const [listening,setListening]=useState(false);
+  const [voiceSessionActive,setVoiceSessionActive]=useState(false);
+  const [voiceSessionStatus,setVoiceSessionStatus]=useState<'idle'|'connecting'|'listening'|'speaking'>('idle');
   const [files,setFiles]=useState<string[]>([]);
   const [loadingData,setLoadingData]=useState(true);
   const [sending,setSending]=useState(false);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
+  const [userName,setUserName]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -67,6 +70,22 @@ export default function GithubApp(){
   const recognitionRef=useRef<any>(null);
   const voiceTranscriptRef=useRef('');
   const keepListeningRef=useRef(false);
+  const activeIdRef=useRef('');
+  const voiceSessionActiveRef=useRef(false);
+  const liveSocketRef=useRef<WebSocket|null>(null);
+  const liveInputContextRef=useRef<AudioContext|null>(null);
+  const liveOutputContextRef=useRef<AudioContext|null>(null);
+  const liveStreamRef=useRef<MediaStream|null>(null);
+  const liveProcessorRef=useRef<ScriptProcessorNode|null>(null);
+  const liveInputSourceRef=useRef<MediaStreamAudioSourceNode|null>(null);
+  const liveSilentGainRef=useRef<GainNode|null>(null);
+  const liveOutputSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
+  const liveNextPlayTimeRef=useRef(0);
+  const voiceSessionTurnsRef=useRef<Array<{role:'user'|'assistant';content:string}>>([]);
+  const liveInputTranscriptRef=useRef('');
+  const liveOutputTranscriptRef=useRef('');
+
+  useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
@@ -140,7 +159,7 @@ export default function GithubApp(){
       .trim();
   }
 
-  function speakBrowserFallback(text:string){
+  function speakBrowserFallback(text:string,onStart?:()=>void){
     if(!('speechSynthesis' in window))return false;
     const spoken=cleanForSpeech(text);
     if(!spoken)return false;
@@ -156,7 +175,7 @@ export default function GithubApp(){
     utterance.rate=0.96;
     utterance.pitch=1.08;
     utterance.volume=1;
-    utterance.onstart=()=>{ clearTimeout(timer.current); setDaiState('talk'); };
+    utterance.onstart=()=>{ clearTimeout(timer.current); setDaiState('talk'); onStart?.(); };
     utterance.onend=()=>setDaiState('idle');
     utterance.onerror=()=>setDaiState('idle');
 
@@ -172,7 +191,7 @@ export default function GithubApp(){
     return URL.createObjectURL(new Blob([bytes],{type:mimeType}));
   }
 
-  async function speakReply(text:string){
+  async function speakReply(text:string,onStart?:()=>void){
     if(!voiceEnabled||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
@@ -202,6 +221,7 @@ export default function GithubApp(){
       audio.onplay=()=>{
         clearTimeout(timer.current);
         setDaiState('talk');
+        onStart?.();
       };
       audio.onended=()=>{
         URL.revokeObjectURL(url);
@@ -220,7 +240,7 @@ export default function GithubApp(){
       return true;
     }catch(error){
       console.error('Gemini TTS failed, using browser fallback',error);
-      return speakBrowserFallback(spoken);
+      return speakBrowserFallback(spoken,onStart);
     }
   }
 
@@ -240,8 +260,15 @@ export default function GithubApp(){
     clearTimeout(timer.current);
     clearTimeout(typingTimer.current);
     keepListeningRef.current=false;
+    voiceSessionActiveRef.current=false;
     try{ recognitionRef.current?.stop(); }catch{}
     recognitionRef.current=null;
+    try{ liveSocketRef.current?.close(); }catch{}
+    liveSocketRef.current=null;
+    if(liveProcessorRef.current)liveProcessorRef.current.onaudioprocess=null;
+    liveStreamRef.current?.getTracks().forEach(track=>track.stop());
+    liveStreamRef.current=null;
+    stopLivePlayback();
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
     if(audioRef.current){
       audioRef.current.pause();
@@ -258,8 +285,15 @@ export default function GithubApp(){
       setErrorText('');
       const { data: authData }=await supabase.auth.getUser();
       const uid=authData.user?.id||'';
+      const displayName=String(
+        authData.user?.user_metadata?.display_name ||
+        authData.user?.user_metadata?.full_name ||
+        authData.user?.user_metadata?.name ||
+        ''
+      ).trim();
       if(!alive)return;
       setUserId(uid);
+      setUserName(displayName);
       if(!uid){setLoadingData(false);return;}
 
       const { data: rows, error }=await supabase
@@ -291,7 +325,7 @@ export default function GithubApp(){
   useEffect(()=>{
     let alive=true;
     async function loadMessages(){
-      if(!supabase||!activeId)return;
+      if(!supabase||!activeId||sending||voiceSessionActive)return;
       const { data, error }=await supabase
         .from('dai_messages')
         .select('id,role,content,created_at')
@@ -309,7 +343,7 @@ export default function GithubApp(){
     }
     loadMessages();
     return()=>{alive=false;};
-  },[activeId]);
+  },[activeId,sending,voiceSessionActive]);
 
   const active=conversations.find(c=>c.id===activeId)||null;
 
@@ -379,19 +413,39 @@ export default function GithubApp(){
 
       setPendingUserMessage(null);
       setActiveId(conversationId);
+
+      // Put the user's message in the chat immediately, but reveal DAI's text
+      // only when her voice actually starts.
       setConversations(prev=>{
         const existing=prev.find(c=>c.id===conversationId);
+        const baseMessages=existing?.messages||[];
+        const withoutDuplicate=baseMessages.filter(m=>m.id!==userMessage.id&&m.id!==assistantMessage.id);
         const updated:Conversation=existing
-          ? {...existing,messages:[...existing.messages,userMessage,assistantMessage],updatedAt:Date.now()}
-          : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages:[userMessage,assistantMessage],updatedAt:Date.now()};
+          ? {...existing,messages:[...withoutDuplicate,userMessage],updatedAt:Date.now()}
+          : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages:[userMessage],updatedAt:Date.now()};
         return [updated,...prev.filter(c=>c.id!==conversationId)];
       });
+
+      let revealed=false;
+      const revealAssistant=()=>{
+        if(revealed)return;
+        revealed=true;
+        setConversations(prev=>prev.map(c=>
+          c.id===conversationId && !c.messages.some(m=>m.id===assistantMessage.id)
+            ? {...c,messages:[...c.messages,assistantMessage],updatedAt:Date.now()}
+            : c
+        ));
+      };
 
       const answerState=stateForAssistantText(assistantMessage.content);
       animate(answerState,answerState==='talk'?0:1600);
 
-      const speaking=await speakReply(assistantMessage.content);
-      if(!speaking) animate(answerState,Math.min(5000,Math.max(1500,assistantMessage.content.length*18)));
+      if(voiceEnabled){
+        const speaking=await speakReply(assistantMessage.content,revealAssistant);
+        if(!speaking)revealAssistant();
+      }else{
+        revealAssistant();
+      }
     } catch (error) {
       console.error('DAI chat failed', error);
       setPendingUserMessage(null);
@@ -401,6 +455,345 @@ export default function GithubApp(){
     } finally {
       setSending(false);
     }
+  }
+
+
+  function pcm16ToBase64(samples:Float32Array){
+    const pcm=new Int16Array(samples.length);
+    for(let i=0;i<samples.length;i++){
+      const value=Math.max(-1,Math.min(1,samples[i]));
+      pcm[i]=value<0?value*0x8000:value*0x7fff;
+    }
+    const bytes=new Uint8Array(pcm.buffer);
+    let binary='';
+    const chunk=0x8000;
+    for(let i=0;i<bytes.length;i+=chunk){
+      binary+=String.fromCharCode(...bytes.subarray(i,Math.min(i+chunk,bytes.length)));
+    }
+    return btoa(binary);
+  }
+
+  function base64PcmToFloat32(base64:string){
+    const binary=atob(base64);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const view=new DataView(bytes.buffer);
+    const output=new Float32Array(Math.floor(bytes.byteLength/2));
+    for(let i=0;i<output.length;i++)output[i]=view.getInt16(i*2,true)/32768;
+    return output;
+  }
+
+  function stopLivePlayback(){
+    for(const source of liveOutputSourcesRef.current){
+      try{source.stop();}catch{}
+    }
+    liveOutputSourcesRef.current.clear();
+    liveNextPlayTimeRef.current=0;
+  }
+
+  function playLiveAudio(base64:string){
+    const ctx=liveOutputContextRef.current;
+    if(!ctx)return;
+    const samples=base64PcmToFloat32(base64);
+    if(!samples.length)return;
+
+    const buffer=ctx.createBuffer(1,samples.length,24000);
+    buffer.copyToChannel(samples,0);
+    const source=ctx.createBufferSource();
+    source.buffer=buffer;
+    source.connect(ctx.destination);
+
+    const startAt=Math.max(ctx.currentTime+.025,liveNextPlayTimeRef.current||0);
+    source.start(startAt);
+    liveNextPlayTimeRef.current=startAt+buffer.duration;
+    liveOutputSourcesRef.current.add(source);
+    source.onended=()=>liveOutputSourcesRef.current.delete(source);
+
+    setVoiceSessionStatus('speaking');
+    animate('talk',0);
+  }
+
+  async function startLiveCapture(socket:WebSocket){
+    const stream=await navigator.mediaDevices.getUserMedia({
+      audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    });
+    if(!voiceSessionActiveRef.current){
+      stream.getTracks().forEach(track=>track.stop());
+      return;
+    }
+
+    const ctx=new AudioContext();
+    await ctx.resume();
+    const source=ctx.createMediaStreamSource(stream);
+    const processor=ctx.createScriptProcessor(4096,1,1);
+    const silent=ctx.createGain();
+    silent.gain.value=0;
+
+    source.connect(processor);
+    processor.connect(silent);
+    silent.connect(ctx.destination);
+
+    liveStreamRef.current=stream;
+    liveInputContextRef.current=ctx;
+    liveInputSourceRef.current=source;
+    liveProcessorRef.current=processor;
+    liveSilentGainRef.current=silent;
+
+    processor.onaudioprocess=(event)=>{
+      if(!voiceSessionActiveRef.current||socket.readyState!==WebSocket.OPEN)return;
+      const channel=event.inputBuffer.getChannelData(0);
+      const audioData=pcm16ToBase64(channel);
+      socket.send(JSON.stringify({
+        realtimeInput:{
+          audio:{
+            data:audioData,
+            mimeType:'audio/pcm;rate='+ctx.sampleRate
+          }
+        }
+      }));
+    };
+
+    setListening(true);
+    setVoiceSessionStatus('listening');
+    animate('listen',0);
+  }
+
+  async function persistVoiceTranscript(turns:Array<{role:'user'|'assistant';content:string}>){
+    if(!supabase||!userId)return;
+    const cleaned=turns
+      .map(turn=>({...turn,content:turn.content.trim()}))
+      .filter(turn=>turn.content);
+    if(!cleaned.length)return;
+
+    let conversationId=activeIdRef.current;
+    if(!conversationId){
+      const firstUser=cleaned.find(turn=>turn.role==='user')?.content||'محادثة صوتية';
+      const {data,error}=await supabase
+        .from('dai_conversations')
+        .insert({user_id:userId,title:firstUser.slice(0,48)||'محادثة صوتية'})
+        .select('id,title,updated_at')
+        .single();
+      if(error||!data)throw error||new Error('conversation');
+      conversationId=String(data.id);
+      activeIdRef.current=conversationId;
+      setActiveId(conversationId);
+      setConversations(prev=>[
+        {id:conversationId,title:data.title,updatedAt:new Date(data.updated_at).getTime(),messages:[]},
+        ...prev.filter(c=>c.id!==conversationId)
+      ]);
+    }
+
+    const {data,error}=await supabase
+      .from('dai_messages')
+      .insert(cleaned.map(turn=>({
+        conversation_id:conversationId,
+        user_id:userId,
+        role:turn.role,
+        content:turn.content
+      })))
+      .select('id,role,content,created_at');
+
+    if(error||!data)throw error||new Error('messages');
+
+    const saved:Message[]=data.map((row:any)=>({
+      id:String(row.id),
+      role:row.role as 'user'|'assistant',
+      content:String(row.content),
+      createdAt:new Date(row.created_at).getTime()
+    }));
+
+    await supabase
+      .from('dai_conversations')
+      .update({updated_at:new Date().toISOString()})
+      .eq('id',conversationId);
+
+    setConversations(prev=>{
+      const existing=prev.find(c=>c.id===conversationId);
+      const base=existing?.messages||[];
+      const ids=new Set(base.map(m=>m.id));
+      const merged=[...base,...saved.filter(m=>!ids.has(m.id))].sort((a,b)=>a.createdAt-b.createdAt);
+      const updated:Conversation=existing
+        ? {...existing,messages:merged,updatedAt:Date.now()}
+        : {id:conversationId,title:cleaned[0]?.content.slice(0,48)||'محادثة صوتية',messages:merged,updatedAt:Date.now()};
+      return [updated,...prev.filter(c=>c.id!==conversationId)];
+    });
+  }
+
+  function finishLiveTurn(){
+    const userText=liveInputTranscriptRef.current.trim();
+    const daiText=liveOutputTranscriptRef.current.trim();
+    if(userText)voiceSessionTurnsRef.current.push({role:'user',content:userText});
+    if(daiText)voiceSessionTurnsRef.current.push({role:'assistant',content:daiText});
+    liveInputTranscriptRef.current='';
+    liveOutputTranscriptRef.current='';
+  }
+
+  async function endLiveVoice(){
+    if(!voiceSessionActiveRef.current)return;
+    voiceSessionActiveRef.current=false;
+    setVoiceSessionActive(false);
+    setVoiceSessionStatus('idle');
+    setListening(false);
+
+    finishLiveTurn();
+
+    const socket=liveSocketRef.current;
+    liveSocketRef.current=null;
+    if(socket&&socket.readyState===WebSocket.OPEN){
+      try{socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));}catch{}
+      try{socket.close(1000,'user-ended');}catch{}
+    }
+
+    if(liveProcessorRef.current)liveProcessorRef.current.onaudioprocess=null;
+    try{liveInputSourceRef.current?.disconnect();}catch{}
+    try{liveProcessorRef.current?.disconnect();}catch{}
+    try{liveSilentGainRef.current?.disconnect();}catch{}
+    liveStreamRef.current?.getTracks().forEach(track=>track.stop());
+    liveStreamRef.current=null;
+    liveInputSourceRef.current=null;
+    liveProcessorRef.current=null;
+    liveSilentGainRef.current=null;
+    if(liveInputContextRef.current){
+      try{await liveInputContextRef.current.close();}catch{}
+      liveInputContextRef.current=null;
+    }
+
+    stopLivePlayback();
+    if(liveOutputContextRef.current){
+      try{await liveOutputContextRef.current.close();}catch{}
+      liveOutputContextRef.current=null;
+    }
+
+    const turns=[...voiceSessionTurnsRef.current];
+    voiceSessionTurnsRef.current=[];
+    animate('idle',0);
+
+    if(turns.length){
+      try{
+        await persistVoiceTranscript(turns);
+      }catch(error){
+        console.error('DAI voice transcript save failed',error);
+        setErrorText('ضي خلصت الحوار الصوتي، لكن حصل خطأ وهي بتحفظ نص المحادثة.');
+      }
+    }
+  }
+
+  async function startLiveVoice(){
+    if(!supabase||loadingData||sending||voiceSessionActiveRef.current)return;
+    if(!navigator.mediaDevices?.getUserMedia){
+      setErrorText('المتصفح ده مش بيدعم المحادثة الصوتية.');
+      return;
+    }
+
+    setErrorText('');
+    setVoiceSessionStatus('connecting');
+    setVoiceSessionActive(true);
+    voiceSessionActiveRef.current=true;
+    voiceSessionTurnsRef.current=[];
+    liveInputTranscriptRef.current='';
+    liveOutputTranscriptRef.current='';
+
+    try{
+      const outputCtx=new AudioContext();
+      await outputCtx.resume();
+      liveOutputContextRef.current=outputCtx;
+
+      const {data,error}=await supabase.functions.invoke('live-token',{body:{}});
+      if(error||!data?.token)throw error||new Error('voice-token');
+
+      const token=String(data.token);
+      const model=String(data.model||'gemini-3.8-live');
+      const currentName=String(data.userName||userName||'صاحب الحساب').trim();
+      const socket=new WebSocket(
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
+      );
+      liveSocketRef.current=socket;
+
+      socket.onopen=()=>{
+        const systemText=
+          'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الحالي هو «'+currentName+'». '+
+          'اتكلمي بالعربية المصرية بشكل طبيعي ومختصر. لا تذكري أسماء مستخدمين آخرين. '+
+          'لا تستخدمي لقب «أشروفي» إلا إذا نطق المستخدم كلمة «أشروفي» أو سأل عنها صراحة في نفس الحوار. '+
+          'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
+        socket.send(JSON.stringify({
+          setup:{
+            model:'models/'+model,
+            generationConfig:{
+              responseModalities:['AUDIO'],
+              speechConfig:{
+                voiceConfig:{
+                  prebuiltVoiceConfig:{voiceName:'Aoede'}
+                }
+              }
+            },
+            systemInstruction:{parts:[{text:systemText}]},
+            inputAudioTranscription:{},
+            outputAudioTranscription:{}
+          }
+        }));
+      };
+
+      socket.onmessage=(event)=>{
+        let payload:any;
+        try{payload=JSON.parse(String(event.data||'{}'));}catch{return;}
+
+        if(payload?.setupComplete){
+          void startLiveCapture(socket).catch(error=>{
+            console.error('DAI live mic failed',error);
+            setErrorText('ضي مش قادرة تفتح الميكروفون. راجع إذن الميكروفون.');
+            void endLiveVoice();
+          });
+          return;
+        }
+
+        const server=payload?.serverContent;
+        if(!server)return;
+
+        if(server.interrupted){
+          stopLivePlayback();
+          setVoiceSessionStatus('listening');
+          animate('listen',0);
+        }
+
+        const inputText=String(server?.inputTranscription?.text||'');
+        if(inputText)liveInputTranscriptRef.current+=inputText;
+
+        const outputText=String(server?.outputTranscription?.text||'');
+        if(outputText)liveOutputTranscriptRef.current+=outputText;
+
+        const parts=server?.modelTurn?.parts||[];
+        for(const part of parts){
+          const inline=part?.inlineData;
+          if(inline?.data)playLiveAudio(String(inline.data));
+        }
+
+        if(server.turnComplete){
+          finishLiveTurn();
+          setVoiceSessionStatus('listening');
+          animate('listen',0);
+        }
+      };
+
+      socket.onerror=()=>{
+        if(!voiceSessionActiveRef.current)return;
+        setErrorText('ضي حصل عندها خطأ في المحادثة الصوتية. جرّب تاني.');
+      };
+
+      socket.onclose=(event)=>{
+        if(!voiceSessionActiveRef.current)return;
+        if(event.code!==1000)setErrorText('المحادثة الصوتية اتقفلت بشكل غير متوقع.');
+        void endLiveVoice();
+      };
+    }catch(error){
+      console.error('DAI live voice failed',error);
+      setErrorText('ضي مش قادرة تبدأ المحادثة الصوتية دلوقتي. جرّب تاني.');
+      await endLiveVoice();
+    }
+  }
+
+  function toggleMic(){
+    if(voiceSessionActiveRef.current)void endLiveVoice();
+    else void startLiveVoice();
   }
 
   async function newConversation(){
@@ -417,103 +810,6 @@ export default function GithubApp(){
     if(activeId===id)setActiveId('');
   }
 
-  function toggleMic(){
-    const SR=(window as any).SpeechRecognition||(window as any).webkitSpeechRecognition;
-    if(!SR){
-      setErrorText('المتصفح ده مش بيدعم الاستماع الصوتي. جرّب Chrome أو Edge.');
-      return;
-    }
-
-    if(keepListeningRef.current){
-      keepListeningRef.current=false;
-      setListening(false);
-      animate('idle',0);
-      try{ recognitionRef.current?.stop(); }catch{}
-      return;
-    }
-
-    if('speechSynthesis' in window) window.speechSynthesis.cancel();
-    if(audioRef.current){
-      audioRef.current.pause();
-      audioRef.current.src='';
-      audioRef.current=null;
-    }
-
-    const rec=new SR();
-    recognitionRef.current=rec;
-    rec.lang='ar-EG';
-    rec.interimResults=true;
-    rec.maxAlternatives=1;
-    rec.continuous=true;
-
-    voiceTranscriptRef.current='';
-    keepListeningRef.current=true;
-    setListening(true);
-    setErrorText('');
-    animate('listen',0);
-
-    rec.onresult=(e:any)=>{
-      let finalChunk='';
-
-      for(let i=e.resultIndex;i<e.results.length;i++){
-        const chunk=String(e.results[i][0]?.transcript||'').trim();
-        if(!chunk||!e.results[i].isFinal)continue;
-        finalChunk+=(finalChunk?' ':'')+chunk;
-      }
-
-      if(finalChunk){
-        voiceTranscriptRef.current=(voiceTranscriptRef.current+' '+finalChunk).trim();
-      }
-    };
-
-    rec.onerror=(e:any)=>{
-      if(e?.error==='not-allowed'||e?.error==='service-not-allowed'){
-        keepListeningRef.current=false;
-        setListening(false);
-        setErrorText('اسمح للموقع باستخدام الميكروفون من إعدادات المتصفح.');
-        animate('idle',0);
-        return;
-      }
-
-      if(e?.error!=='no-speech'&&e?.error!=='aborted'){
-        setErrorText('حصلت مشكلة أثناء الاستماع. جرّب تاني.');
-      }
-    };
-
-    rec.onend=()=>{
-      recognitionRef.current=null;
-
-      if(keepListeningRef.current){
-        window.setTimeout(()=>{
-          if(!keepListeningRef.current)return;
-          try{
-            recognitionRef.current=rec;
-            rec.start();
-          }catch{}
-        },120);
-        return;
-      }
-
-      setListening(false);
-      const spoken=voiceTranscriptRef.current.trim();
-      voiceTranscriptRef.current='';
-      animate('idle',0);
-
-      if(spoken){
-        void sendMessage(spoken);
-      }
-    };
-
-    try{
-      rec.start();
-    }catch{
-      keepListeningRef.current=false;
-      setListening(false);
-      recognitionRef.current=null;
-      setErrorText('تعذر تشغيل الميكروفون. جرّب تاني.');
-      animate('idle',0);
-    }
-  }
 
   return <main className='classic-shell' dir='rtl'>
     <div className='classic-bg-grid'/>
@@ -542,22 +838,29 @@ export default function GithubApp(){
         <button onClick={()=>animate('stretch',3800)}>تمدد</button>
       </div>
 
-      <section className='classic-chat-panel' ref={chatScrollRef} aria-label='المحادثة'>
-        {(active?.messages||[]).length===0
+      <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة'>
+        {voiceSessionActive&&
+          <div className='classic-live-voice'>
+            <div className={'classic-live-orb '+voiceSessionStatus}><i/><i/><i/><i/></div>
+            <strong>{voiceSessionStatus==='connecting'?'ضي بتوصل الصوت…':voiceSessionStatus==='speaking'?'ضي بتتكلم':'ضي سامعاك'}</strong>
+            <span>اضغط زر الإيقاف لما تخلص الحوار، وساعتها النص كله هيظهر هنا.</span>
+          </div>
+        }
+        {!voiceSessionActive&&((active?.messages||[]).length===0
           ? <div className='classic-chat-empty'>أنا ضي… قولي اللي في بالك.</div>
           : (active?.messages||[]).map(m=>
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
               <p dir='auto'>{m.content}</p>
             </article>
-          )}
-        {pendingUserMessage&&
+          ))}
+        {!voiceSessionActive&&pendingUserMessage&&
           <article className='classic-chat-message user pending' key={pendingUserMessage.id}>
             <strong>أنت</strong>
             <p dir='auto'>{pendingUserMessage.content}</p>
           </article>
         }
-        {sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
+        {!voiceSessionActive&&sending&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error'>{errorText}</div>}
@@ -569,12 +872,12 @@ export default function GithubApp(){
           <Plus className='h-5 w-5'/>
         </button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
-        <textarea value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <textarea disabled={voiceSessionActive} value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={voiceSessionActive?'محادثة صوتية شغالة…':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <div className='classic-input-actions'>
-          <button className='classic-mic-button' aria-pressed={listening} onClick={toggleMic} aria-label={listening?'إيقاف الاستماع':'بدء الاستماع'} title={listening?'اضغط لإيقاف الاستماع وإرسال كلامك':'اضغط وابدأ الكلام'}>
-            <Mic className='h-5 w-5'/>
+          <button className='classic-mic-button' aria-pressed={voiceSessionActive} onClick={toggleMic} aria-label={voiceSessionActive?'إنهاء المحادثة الصوتية':'بدء محادثة صوتية'} title={voiceSessionActive?'إنهاء الحوار الصوتي وإظهار النص':'ابدأ محادثة صوتية مباشرة مع ضي'}>
+            {voiceSessionActive?<X className='h-5 w-5'/>:<Mic className='h-5 w-5'/>}
           </button>
-          <button className='classic-send' disabled={loadingData||sending||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
+          <button className='classic-send' disabled={loadingData||sending||voiceSessionActive||!input.trim()} onClick={sendMessage} aria-label='إرسال'>
             <Send className='h-5 w-5'/>
           </button>
         </div>
@@ -595,7 +898,7 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل الردود تلقائيًا بصوت ضي من Gemini، مع صوت المتصفح كاحتياطي لو الخدمة تعذرت.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل ردود ضي بصوتها تلقائيًا، مع صوت الجهاز كاحتياطي لو الخدمة تعذرت.</small></span></label>
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
       </section>
     </div>}
