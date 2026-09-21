@@ -639,8 +639,8 @@ export default function GithubApp(){
       setPendingUserMessage(null);
       setActiveId(conversationId);
 
-      // Put the user's message in the chat immediately, but reveal DAI's text
-      // only when her voice actually starts.
+      // Typed turns reveal DAI's text as soon as it is ready.
+      // Voice turns can still reveal it with the start of DAI's voice.
       setConversations(prev=>{
         const existing=prev.find(c=>c.id===conversationId);
         const baseMessages=existing?.messages||[];
@@ -662,14 +662,19 @@ export default function GithubApp(){
         ));
       };
 
-      const answerState=stateForAssistantText(assistantMessage.content);
-      animate(answerState,answerState==='talk'?0:1600);
+      if(fromVoice){
+        const answerState=stateForAssistantText(assistantMessage.content);
+        animate(answerState,answerState==='talk'?0:1600);
 
-      if(fromVoice&&voiceEnabled){
-        const speaking=await speakReply(assistantMessage.content,revealAssistant);
-        if(!speaking)revealAssistant();
+        if(voiceEnabled){
+          const speaking=await speakReply(assistantMessage.content,revealAssistant);
+          if(!speaking)revealAssistant();
+        }else{
+          revealAssistant();
+        }
       }else{
         revealAssistant();
+        animate('reply',1350);
       }
     } catch (error) {
       console.error('DAI chat failed', error);
