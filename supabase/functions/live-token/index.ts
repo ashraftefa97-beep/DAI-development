@@ -80,11 +80,16 @@ Deno.serve(async (req) => {
       user.user_metadata?.name ||
       ''
     ).trim().slice(0, 40);
+    const rawUserGender = String(user.user_metadata?.gender || '').trim().toLowerCase();
+    const userGender = rawUserGender === 'male' || rawUserGender === 'female'
+      ? rawUserGender
+      : 'unspecified';
 
     return json({
       token,
       model: 'gemini-3.8-live',
       userName,
+      userGender,
       expiresAt: expireTime,
     });
   } catch (error) {
