@@ -162,6 +162,7 @@ export default function GithubApp(){
   const liveTurnCompleteRef=useRef(false);
   const liveSpeakingStartedAtRef=useRef(0);
   const liveBargeFramesRef=useRef(0);
+  const liveInputPcmBufferRef=useRef<Float32Array>(new Float32Array(0));
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -1527,6 +1528,7 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
+    liveInputPcmBufferRef.current=new Float32Array(0);
     setVoiceSessionStatus('listening');
     animate('listen',0);
   }
@@ -1644,16 +1646,29 @@ export default function GithubApp(){
 
       const resampled=resampleMono(channel,ctx.sampleRate,16000);
       if(!resampled.length)return;
-      const audioData=pcm16ToBase64(resampled);
 
-      socket.send(JSON.stringify({
-        realtimeInput:{
-          audio:{
-            data:audioData,
-            mimeType:'audio/pcm;rate=16000'
+      const previous=liveInputPcmBufferRef.current;
+      const combined=new Float32Array(previous.length+resampled.length);
+      combined.set(previous,0);
+      combined.set(resampled,previous.length);
+
+      // Gemini Live works best with roughly 100 ms chunks at 16 kHz.
+      const chunkSamples=1600;
+      let offset=0;
+      while(offset+chunkSamples<=combined.length){
+        const packet=combined.slice(offset,offset+chunkSamples);
+        offset+=chunkSamples;
+        const audioData=pcm16ToBase64(packet);
+        socket.send(JSON.stringify({
+          realtimeInput:{
+            audio:{
+              data:audioData,
+              mimeType:'audio/pcm;rate=16000'
+            }
           }
-        }
-      }));
+        }));
+      }
+      liveInputPcmBufferRef.current=combined.slice(offset);
     };
 
     setListening(true);
@@ -1765,6 +1780,7 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
+    liveInputPcmBufferRef.current=new Float32Array(0);
     stopLivePlayback();
     if(liveOutputContextRef.current){
       try{await liveOutputContextRef.current.close();}catch{}
@@ -1886,7 +1902,7 @@ export default function GithubApp(){
       const currentFirstName=currentName.split(/\s+/).filter(Boolean)[0]||'صاحب الحساب';
       const currentGender=String(data.userGender||'unspecified');
       const socket=new WebSocket(
-        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token='+encodeURIComponent(token)
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
       );
       liveSocketRef.current=socket;
 
@@ -2088,14 +2104,20 @@ export default function GithubApp(){
         }
       };
 
-      socket.onerror=()=>{
+      socket.onerror=(event)=>{
+        console.error('DAI live socket error',event);
         if(!voiceSessionActiveRef.current)return;
+        setVoiceNotice('حصل خطأ في اتصال الصوت.');
         setErrorText('ضي حصل عندها خطأ في المحادثة الصوتية. جرّب تاني.');
       };
 
       socket.onclose=(event)=>{
+        console.debug('DAI live socket closed',{code:event.code,reason:event.reason||''});
         if(!voiceSessionActiveRef.current)return;
-        if(event.code!==1000)setErrorText('المحادثة الصوتية اتقفلت بشكل غير متوقع.');
+        if(event.code!==1000){
+          setVoiceNotice('اتصال الصوت اتقفل بشكل غير متوقع.');
+          setErrorText('المحادثة الصوتية اتقفلت بشكل غير متوقع.');
+        }
         void endLiveVoice();
       };
     }catch(error){
