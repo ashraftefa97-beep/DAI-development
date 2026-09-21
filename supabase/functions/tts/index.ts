@@ -1,3 +1,5 @@
+import { createClient } from 'npm:@supabase/supabase-js@2';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://ashraftefa97-beep.github.io',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -60,6 +62,25 @@ Deno.serve(async (req) => {
   const authorization = req.headers.get('Authorization') || '';
   if (!authorization.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
 
+  const publishableKeys = JSON.parse(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS') || '{}');
+  const publicKey = publishableKeys.default || Deno.env.get('SUPABASE_ANON_KEY') || '';
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  if (!publicKey || !supabaseUrl) return json({ error: 'Voice service unavailable' }, 503);
+
+  const supabase = createClient(supabaseUrl, publicKey, {
+    global: { headers: { Authorization: authorization } },
+  });
+  const token = authorization.replace(/^Bearer\s+/i, '');
+  const { data: authData, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !authData.user) return json({ error: 'Unauthorized' }, 401);
+
+  const { data: rateAllowed, error: rateError } = await supabase.rpc('dai_rate_limit_hit', {
+    p_limit: 18,
+    p_window_seconds: 60,
+  });
+  if (rateError) return json({ error: 'صوت ضي مشغول حاليًا. جرّب بعد لحظة.', code: 'TTS_RATE_CHECK' }, 503);
+  if (rateAllowed !== true) return json({ error: 'طلبات صوت كتير بسرعة. استنى شوية وجرب تاني.', code: 'TTS_RATE_LIMIT' }, 429);
+
   const geminiApiKey = (
     Deno.env.get('GEMINI_API_KEY') ||
     Deno.env.get('AI_API_KEY') ||
@@ -74,75 +95,87 @@ Deno.serve(async (req) => {
   if (!text) return json({ error: 'Text is required' }, 400);
   if (text.length > 2800) return json({ error: 'Text is too long for speech', code: 'TTS_TOO_LONG' }, 400);
 
-  const model = 'gemini-3.1-flash-tts-preview';
+  const modelCandidates = [
+    'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-flash-preview-tts',
+  ];
   const voiceName = 'Aoede';
   const prompt =
     `اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية، بسرعة محادثة مريحة ومن غير مبالغة أو نبرة روبوتية:\n\n${text}`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const timeout = setTimeout(() => controller.abort(), 45000);
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: 'POST',
-        signal: controller.signal,
-        headers: {
-          'x-goog-api-key': geminiApiKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseModalities: ['AUDIO'],
-            speechConfig: {
-              voiceConfig: {
-                prebuiltVoiceConfig: {
-                  voiceName,
+    let lastStatus = 0;
+    let lastDetail = '';
+
+    for (const model of modelCandidates) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': geminiApiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName,
+                  },
                 },
               },
             },
-          },
-        }),
-      },
-    );
+          }),
+        },
+      );
 
-    const responseText = await response.text().catch(() => '');
+      lastStatus = response.status;
+      const responseText = await response.text().catch(() => '');
+      lastDetail = responseText.slice(0, 1200);
 
-    if (!response.ok) {
-      console.error('Gemini TTS error', response.status, responseText.slice(0, 1200));
-      if (response.status === 401 || response.status === 403) {
-        return json({ error: 'خدمة صوت ضي غير متاحة حاليًا.', code: 'TTS_AUTH' }, 502);
+      if (response.ok) {
+        const payload = JSON.parse(responseText || '{}');
+        const part = payload?.candidates?.[0]?.content?.parts?.find((item: any) => item?.inlineData?.data);
+        const pcmBase64 = String(part?.inlineData?.data || '');
+        const providerMime = String(part?.inlineData?.mimeType || part?.inlineData?.mime_type || 'audio/pcm;rate=24000');
+        const sampleRateMatch = providerMime.match(/rate=(\d+)/i);
+        const sampleRate = Math.max(8000, Math.min(96000, Number(sampleRateMatch?.[1] || 24000)));
+
+        if (pcmBase64) {
+          const wavBase64 = pcmBase64ToWavBase64(pcmBase64, sampleRate);
+          return json({
+            audioBase64: wavBase64,
+            mimeType: 'audio/wav',
+            voice: voiceName,
+            model,
+            sampleRate,
+          });
+        }
       }
-      if (response.status === 404) {
-        return json({ error: 'صوت ضي غير متاح حاليًا.', code: 'TTS_MODEL' }, 502);
-      }
-      if (response.status === 429) {
-        return json({ error: 'صوت ضي وصل لحد الاستخدام الحالي.', code: 'TTS_QUOTA' }, 502);
-      }
-      return json({ error: 'ضي واجهت مشكلة أثناء تجهيز الصوت.', code: 'TTS_PROVIDER' }, 502);
+
+      if (![404, 429, 503].includes(response.status)) break;
     }
 
-    const payload = JSON.parse(responseText || '{}');
-    const part = payload?.candidates?.[0]?.content?.parts?.find((item: any) => item?.inlineData?.data);
-    const pcmBase64 = String(part?.inlineData?.data || '');
-
-    if (!pcmBase64) {
-      console.error('Gemini TTS returned no audio', responseText.slice(0, 1200));
-      return json({ error: 'ضي مقدرتش تجهز الصوت.', code: 'TTS_EMPTY' }, 502);
+    console.error('DAI TTS provider error', lastStatus, lastDetail);
+    if (lastStatus === 401 || lastStatus === 403) {
+      return json({ error: 'خدمة صوت ضي غير متاحة حاليًا.', code: 'TTS_AUTH' }, 502);
     }
-
-    const wavBase64 = pcmBase64ToWavBase64(pcmBase64);
-
-    return json({
-      audioBase64: wavBase64,
-      mimeType: 'audio/wav',
-      voice: voiceName,
-      model,
-    });
+    if (lastStatus === 404) {
+      return json({ error: 'صوت ضي غير متاح حاليًا.', code: 'TTS_MODEL' }, 502);
+    }
+    if (lastStatus === 429) {
+      return json({ error: 'صوت ضي وصل لحد الاستخدام الحالي.', code: 'TTS_QUOTA' }, 502);
+    }
+    return json({ error: 'ضي واجهت مشكلة أثناء تجهيز الصوت.', code: 'TTS_PROVIDER' }, 502);
   } catch (error) {
-    console.error('Gemini TTS network error', error);
+    console.error('DAI TTS network error', error);
     const code = error instanceof DOMException && error.name === 'AbortError'
       ? 'TTS_TIMEOUT'
       : 'TTS_NETWORK';
