@@ -49,6 +49,24 @@ try{
 }
 
 const animationCatalog=Array.isArray(product.animationCatalog)?product.animationCatalog:[];
+
+const selectorCatalogPath=path.join(root,'..','supabase','functions','animation-select','catalog.ts');
+const selectorCatalogSource=read(selectorCatalogPath);
+const selectorMatch=selectorCatalogSource.match(/export const ANIMATION_CATALOG = (\[[\s\S]*\]) as const;/);
+if(!selectorMatch){
+  failures.push('Could not parse animation-select server allowlist');
+}else{
+  try{
+    const selectorCatalog=JSON.parse(selectorMatch[1]);
+    const webIds=animationCatalog.map(item=>String(item.id));
+    const serverIds=selectorCatalog.map(item=>String(item.id));
+    if(JSON.stringify(webIds)!==JSON.stringify(serverIds)){
+      failures.push('Professional animation IDs differ between web catalog and server allowlist');
+    }
+  }catch{
+    failures.push('animation-select server allowlist is invalid JSON-compatible data');
+  }
+}
 if(animationCatalog.length!==84){
   failures.push(`DAI Professional animation catalog must contain exactly 84 animations, found ${animationCatalog.length}`);
 }
