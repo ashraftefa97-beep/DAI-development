@@ -1337,3 +1337,212 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .classic-settings { width:calc(100vw - 20px); padding:18px; max-height:86vh; overflow:auto; }
   .stage-error { align-items:flex-start; flex-direction:column; }
 }
+
+
+/* DAI plans — Standard / Professional */
+.dai-plan-badge {
+  min-height: 31px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #34384d;
+  background: rgba(24,28,44,.88);
+  color: #c9c7d4;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.dai-plan-badge.professional {
+  border-color: rgba(246,169,193,.28);
+  background: linear-gradient(135deg,rgba(246,169,193,.14),rgba(185,154,222,.10));
+  color: #ffd7e3;
+}
+.dai-plan-setting {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border-radius: 15px;
+  border: 1px solid #32364b;
+  background: rgba(20,24,39,.78);
+  color: #eee7ef;
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+  cursor: pointer;
+}
+.dai-plan-setting.professional {
+  border-color: rgba(246,169,193,.24);
+  background: linear-gradient(135deg,rgba(246,169,193,.08),rgba(185,154,222,.06));
+}
+.dai-plan-setting-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgba(246,169,193,.10);
+  color: #f4b1c6;
+}
+.dai-plan-setting strong,
+.dai-plan-setting small { display:block; }
+.dai-plan-setting small { margin-top:3px; color:#8f91a7; font-size:10px; line-height:1.5; }
+.dai-plan-setting-action {
+  color:#e9b8ca;
+  font-size:10px;
+  font-weight:800;
+}
+.classic-privacy.pro-locked {
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  border-color:rgba(246,169,193,.12);
+}
+.dai-upgrade-overlay {
+  z-index: 120;
+  display:grid;
+  place-items:center;
+  padding:20px;
+}
+.dai-upgrade-panel {
+  width:min(850px,100%);
+  max-height:min(90vh,820px);
+  overflow:auto;
+  padding:22px;
+  border-radius:25px;
+  background:
+    radial-gradient(circle at 84% 0%,rgba(246,169,193,.10),transparent 30%),
+    radial-gradient(circle at 15% 8%,rgba(185,154,222,.08),transparent 27%),
+    #151927;
+  border:1px solid #303449;
+  box-shadow:0 34px 110px rgba(0,0,0,.48);
+}
+.dai-upgrade-intro {
+  margin:10px 0 18px;
+  color:#a8a9b9;
+  font-size:13px;
+  line-height:1.8;
+}
+.dai-plan-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+}
+.dai-price-card {
+  min-height:420px;
+  padding:18px;
+  border-radius:20px;
+  border:1px solid #32364b;
+  background:linear-gradient(180deg,rgba(27,31,48,.96),rgba(18,22,35,.96));
+  display:flex;
+  flex-direction:column;
+}
+.dai-price-card.professional {
+  border-color:rgba(246,169,193,.25);
+  background:
+    linear-gradient(180deg,rgba(48,34,51,.92),rgba(20,23,38,.97));
+}
+.dai-price-card.current {
+  box-shadow:0 0 0 1px rgba(246,169,193,.10),0 18px 46px rgba(0,0,0,.16);
+}
+.dai-price-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:#eae4ec;
+  font-size:13px;
+  font-weight:800;
+}
+.dai-price-head > span { display:inline-flex; align-items:center; gap:6px; }
+.dai-price-head b {
+  padding:4px 8px;
+  border-radius:999px;
+  background:rgba(246,169,193,.10);
+  color:#f4b5ca;
+  font-size:9px;
+}
+.dai-price {
+  margin-top:18px;
+  color:#fff6fa;
+  font-size:31px;
+  line-height:1;
+}
+.dai-price-row {
+  display:flex;
+  align-items:end;
+  gap:6px;
+}
+.dai-price-row > span { margin-bottom:3px; color:#8f91a7; font-size:11px; }
+.dai-year-price {
+  margin-top:7px;
+  color:#c9aebe;
+  font-size:10px;
+}
+.dai-price-card ul {
+  list-style:none;
+  padding:0;
+  margin:18px 0;
+  display:grid;
+  gap:10px;
+  color:#c8c7d3;
+  font-size:12px;
+  line-height:1.55;
+}
+.dai-price-card li {
+  display:flex;
+  align-items:flex-start;
+  gap:7px;
+}
+.dai-price-card li svg {
+  width:15px;
+  height:15px;
+  margin-top:2px;
+  flex:0 0 auto;
+  color:#dca3ba;
+}
+.dai-price-card > button {
+  margin-top:auto;
+  min-height:44px;
+  border-radius:13px;
+  border:1px solid #383c51;
+  background:#191d2d;
+  color:#d7d4de;
+  font-weight:800;
+  cursor:pointer;
+}
+.dai-price-card > button.professional-cta {
+  border:0;
+  background:linear-gradient(135deg,#ffd0df,#f6a9c1 60%,#c7a8e7);
+  color:#2b1d2c;
+}
+.dai-price-card > button:disabled {
+  opacity:.72;
+  cursor:default;
+}
+.dai-upgrade-notice {
+  margin-top:14px;
+  padding:11px 12px;
+  border-radius:12px;
+  border:1px solid rgba(246,169,193,.16);
+  background:rgba(246,169,193,.07);
+  color:#e7c5d1;
+  font-size:11px;
+  line-height:1.7;
+}
+.dai-plan-safety {
+  margin:14px 2px 0;
+  color:#75788d;
+  font-size:10px;
+  line-height:1.7;
+}
+@media(max-width:700px) {
+  .dai-plan-badge span { display:none; }
+  .dai-plan-badge { width:32px; padding:0; justify-content:center; }
+  .dai-plan-grid { grid-template-columns:1fr; }
+  .dai-price-card { min-height:auto; }
+  .dai-upgrade-panel { padding:17px; border-radius:21px; }
+}
