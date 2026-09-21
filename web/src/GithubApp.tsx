@@ -51,6 +51,15 @@ async function explainChatError(error:any){
       if(code==='GEMINI_TIMEOUT') return 'ضي اتأخرت في الرد. جرّب تاني.';
       if(code==='GEMINI_NETWORK') return 'ضي مش قادرة توصل لخدمة الذكاء حاليًا.';
       if(code==='GEMINI_BAD_REQUEST') return 'ضي واجهت مشكلة في فهم الطلب تقنيًا. جرّب تاني.';
+      if(code==='AI_CONFIG') return 'إعدادات ضي الذكية ناقصة حاليًا.';
+      if(code==='AI_AUTH') return 'ضي مش قادرة تتصل بخدمتها الذكية دلوقتي.';
+      if(code==='AI_MODEL') return 'خدمة ضي الذكية مش متاحة حاليًا. جرّب بعد شوية.';
+      if(code==='AI_QUOTA') return 'ضي وصلت لحد الاستخدام الحالي. جرّب تاني بعد شوية.';
+      if(code==='AI_RATE_LIMIT') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
+      if(code==='AI_OVERLOADED') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
+      if(code==='AI_TIMEOUT') return 'ضي اتأخرت في الرد. جرّب تاني.';
+      if(code==='AI_NETWORK') return 'ضي مش قادرة توصل للخدمة حاليًا.';
+      if(code==='AI_BAD_REQUEST') return 'ضي واجهت مشكلة في فهم الطلب تقنيًا. جرّب تاني.';
       if(status===404) return 'خدمة ضي مش متاحة حاليًا.';
       if(status===401) return 'جلسة تسجيل الدخول انتهت. سجّل دخول من جديد.';
       if(status>=500) return 'ضي واجهت خطأ أثناء تجهيز الرد.';
