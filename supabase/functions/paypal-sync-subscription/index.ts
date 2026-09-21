@@ -57,6 +57,22 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const { data: paymentConfig, error: paymentConfigError } = await admin
+    .from('dai_payment_config')
+    .select('mode,monthly_plan_id,annual_plan_id')
+    .eq('provider', 'paypal')
+    .maybeSingle();
+
+  if (paymentConfigError || !paymentConfig) {
+    return json({ error: 'PayPal plan is not configured', code: 'PAYPAL_PLAN_CONFIG' }, 503);
+  }
+
+  const configuredMode = String(paymentConfig.mode || 'sandbox').toLowerCase();
+  const runtimeMode = (Deno.env.get('PAYPAL_MODE') || 'sandbox').toLowerCase();
+  if (configuredMode !== runtimeMode) {
+    return json({ error: 'PayPal environment mismatch', code: 'PAYPAL_ENV_MISMATCH' }, 503);
+  }
+
   const token = authorization.replace(/^Bearer\s+/i, '');
   const { data: authData, error: authError } = await userClient.auth.getUser(token);
   const user = authData.user;
@@ -96,8 +112,8 @@ Deno.serve(async (req) => {
 
   const status = String(details?.status || 'UNKNOWN').toUpperCase();
   const planId = String(details?.plan_id || '');
-  const monthlyPlanId = (Deno.env.get('PAYPAL_MONTHLY_PLAN_ID') || '').trim();
-  const annualPlanId = (Deno.env.get('PAYPAL_YEARLY_PLAN_ID') || '').trim();
+  const monthlyPlanId = String(paymentConfig.monthly_plan_id || '');
+  const annualPlanId = String(paymentConfig.annual_plan_id || '');
   const billingPeriod = planId === annualPlanId
     ? 'annual'
     : planId === monthlyPlanId
