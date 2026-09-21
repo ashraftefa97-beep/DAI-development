@@ -42,7 +42,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='0.9.0';
+const DAI_WEB_VERSION='0.9.1';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -452,7 +452,7 @@ export default function GithubApp(){
     }else{
       utterance.lang='ar-EG';
     }
-    utterance.rate=0.96;
+    utterance.rate=1.06;
     utterance.pitch=1.08;
     utterance.volume=1;
     utterance.onstart=()=>{
@@ -2617,7 +2617,7 @@ export default function GithubApp(){
 
         const systemText=
           'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
-          'اتكلمي بالعربية المصرية بشكل طبيعي ومرن ومختصر، كحوار عادي مش رد خدمة عملاء. '+
+          'اتكلمي بالعربية المصرية بشكل طبيعي ومرن ومختصر، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي مع وضوح النطق، كحوار عادي مش رد خدمة عملاء. '+
           'ما تبدأيش كل رد بتحية أو باسم المستخدم. استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. '+
           'لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية طبيعية قصيرة ومتنوعة بدل جملة محفوظة. '+
           'تجنبي عبارات آلية متكررة زي «أقدر أساعدك بإيه النهارده؟» إلا لو السياق فعلًا محتاج سؤال متابعة. '+
@@ -2644,7 +2644,7 @@ export default function GithubApp(){
               responseModalities:['AUDIO'],
               speechConfig:{
                 voiceConfig:{
-                  prebuiltVoiceConfig:{voiceName:'Aoede'}
+                  prebuiltVoiceConfig:{voiceName:'Leda'}
                 }
               }
             },
