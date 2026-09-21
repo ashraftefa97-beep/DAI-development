@@ -42,7 +42,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='0.8.1';
+const DAI_WEB_VERSION='0.9.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -210,6 +210,10 @@ export default function GithubApp(){
   const voiceRecorderStreamRef=useRef<MediaStream|null>(null);
   const voiceRecorderChunksRef=useRef<Blob[]>([]);
   const voiceRecorderTimerRef=useRef<number|undefined>(undefined);
+  const animationLockUntilRef=useRef(0);
+  const animationCooldownUntilRef=useRef(0);
+  const pendingAutoAnimationRef=useRef('');
+  const lastAnimationRequestRef=useRef('');
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -246,18 +250,106 @@ export default function GithubApp(){
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
+  function animationSpecById(id:string){
+    return PRO_ANIMATIONS.find(item=>item.id===id)||null;
+  }
+
+  function animationAudioBusy(){
+    return (
+      voiceSessionActive ||
+      voiceNoteRecording ||
+      voiceNoteProcessing ||
+      Boolean(speakingMessageId) ||
+      daiState==='talk' ||
+      daiState==='voicewait' ||
+      speechStreamSourcesRef.current.size>0 ||
+      liveOutputSourcesRef.current.size>0
+    );
+  }
+
+  function looksLikeAnimationRequest(text:string){
+    return /(?:اعملي|اعمل|اعمليلي|وريني|وريلي|اتحركي|حركه|حركة|ارقصي|رقصي|صقفي|اضحكي|لوحي|نطي|لفي|انحني|هاي فايف|high five|dance|wave|clap|animate|animation)/i.test(text);
+  }
+
+  function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
+    if(!professional||!proAnimations)return false;
+    const spec=animationSpecById(id);
+    if(!spec)return false;
+
+    if(animationAudioBusy()){
+      if(source==='auto')pendingAutoAnimationRef.current=id;
+      return false;
+    }
+
+    if(source==='auto'&&Date.now()<animationCooldownUntilRef.current){
+      pendingAutoAnimationRef.current='';
+      return false;
+    }
+
+    const duration=Math.max(900,Math.round((spec.duration>0?spec.duration:3.2)*1000));
+    if(source==='explicit'||source==='manual'){
+      animationLockUntilRef.current=Date.now()+duration;
+    }
+    if(source==='auto'){
+      animationCooldownUntilRef.current=Date.now()+8000;
+      pendingAutoAnimationRef.current='';
+    }
+
+    animate(spec.gesture,duration);
+    if(source!=='auto')setProNotice('ضي نفذت حركة: '+spec.labelAr);
+    return true;
+  }
+
+  async function requestAnimationDecision(
+    mode:'request'|'auto',
+    userText:string,
+    assistantText=''
+  ){
+    if(!professional||!proAnimations||!supabase)return null;
+    try{
+      const {data,error}=await supabase.functions.invoke('animation-select',{
+        body:{mode,userText,assistantText}
+      });
+      if(error||!data?.animation)return null;
+      const id=String(data.animation);
+      return animationSpecById(id)?id:null;
+    }catch(error){
+      console.debug('DAI animation selection skipped',error);
+      return null;
+    }
+  }
+
+  async function handleExplicitAnimationRequest(text:string){
+    if(!looksLikeAnimationRequest(text)||!professional||!proAnimations)return false;
+    const requestKey=text.trim().toLowerCase();
+    lastAnimationRequestRef.current=requestKey;
+    const id=await requestAnimationDecision('request',text);
+    if(!id||lastAnimationRequestRef.current!==requestKey)return false;
+    return executeSelectedAnimation(id,'explicit');
+  }
+
+  async function chooseContextAnimation(userText:string,assistantText:string){
+    if(!professional||!proAnimations||looksLikeAnimationRequest(userText))return;
+    if(Date.now()<animationCooldownUntilRef.current)return;
+    const id=await requestAnimationDecision('auto',userText,assistantText);
+    if(!id)return;
+    if(animationAudioBusy()||sending){
+      pendingAutoAnimationRef.current=id;
+      return;
+    }
+    executeSelectedAnimation(id,'auto');
+  }
+
   function playProAnimation(spec:ProAnimationSpec){
     if(!professional){
       setProNotice('مكتبة الحركات الكاملة متاحة في Professional فقط.');
       return;
     }
-    if(sending||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing||Boolean(speakingMessageId)){
+    if(sending||animationAudioBusy()){
       setProNotice('استنى ضي تخلص الصوت أو الرد الحالي الأول.');
       return;
     }
-    const duration=Math.max(900,Math.round((spec.duration>0?spec.duration:3.2)*1000));
-    animate(spec.gesture,duration);
-    setProNotice('بتشغّل: '+spec.labelAr);
+    executeSelectedAnimation(spec.id,'manual');
   }
 
   function handleInputChange(value:string){
@@ -745,7 +837,7 @@ export default function GithubApp(){
 
   useEffect(()=>{
     if(plan!=='professional'||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
-    const actions:DaiState[]=['peek','look_around','cozy_sway','welcome_back','nod_yes','scout','window_peek','relax','stretch','wave','happy','idea','focus'];
+    const actions:DaiState[]=['peek','look_around','cozy_sway','scout','window_peek','relax','sway','wait_patient'];
     const delay=9000+Math.floor(Math.random()*7000);
     const id=window.setTimeout(()=>{
       const next=actions[Math.floor(Math.random()*actions.length)]||'curious';
@@ -753,6 +845,23 @@ export default function GithubApp(){
     },delay);
     return()=>window.clearTimeout(id);
   },[plan,proAnimations,reduced,sending,voiceSessionActive,daiState]);
+
+  useEffect(()=>{
+    if(!professional||!proAnimations||sending||animationAudioBusy())return;
+    const pending=pendingAutoAnimationRef.current;
+    if(!pending||Date.now()<animationCooldownUntilRef.current)return;
+    const id=window.setTimeout(()=>executeSelectedAnimation(pending,'auto'),220);
+    return()=>window.clearTimeout(id);
+  },[
+    professional,
+    proAnimations,
+    sending,
+    voiceSessionActive,
+    voiceNoteRecording,
+    voiceNoteProcessing,
+    speakingMessageId,
+    daiState
+  ]);
 
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
@@ -1592,7 +1701,11 @@ export default function GithubApp(){
         if(!firstDelta){
           firstDelta=true;
           setStreamingText(true);
-          animate(shouldSpeak?'voicewait':'reply',0);
+          if(shouldSpeak){
+            animate('voicewait',0);
+          }else if(Date.now()>=animationLockUntilRef.current){
+            animate('reply',0);
+          }
         }
 
         maybeStartEarlyVoice();
@@ -1674,8 +1787,10 @@ export default function GithubApp(){
           }else if(earlyFinished||earlyFailed){
             void playRemainingVoice();
           }
+          void chooseContextAnimation(text,assistantMessage.content);
         }else{
-          animate('reply',900);
+          if(Date.now()>=animationLockUntilRef.current)animate('reply',900);
+          void chooseContextAnimation(text,assistantMessage.content);
         }
         return;
       }
@@ -1789,6 +1904,9 @@ export default function GithubApp(){
     setErrorText('');
     setSending(true);
     setStreamingText(false);
+    if(professional&&proAnimations&&looksLikeAnimationRequest(text)){
+      void handleExplicitAnimationRequest(text);
+    }
 
     const optimisticMessage:Message={
       id:'pending-'+Date.now(),
@@ -2204,6 +2322,7 @@ export default function GithubApp(){
     const daiText=liveOutputTranscriptRef.current.trim();
     if(userText)voiceSessionTurnsRef.current.push({role:'user',content:userText});
     if(daiText)voiceSessionTurnsRef.current.push({role:'assistant',content:daiText});
+    if(userText&&daiText)void chooseContextAnimation(userText,daiText);
     liveInputTranscriptRef.current='';
     liveOutputTranscriptRef.current='';
   }
@@ -3020,7 +3139,7 @@ export default function GithubApp(){
               <input type='checkbox' checked={companionWander} disabled={!desktopMode} onChange={e=>void setCompanionRoaming(e.target.checked)}/>
             </label>
             <label className='dai-switch-row'>
-              <span><b>ردود فعل ذكية</b><small>فضول، تمدد، تحية، تركيز وحركات عشوائية لطيفة وقت السكون.</small></span>
+              <span><b>وعي حركي ذكي</b><small>ضي تفهم طلبات الحركة وتختار من الـ84 حركة حسب سياق الكلام، مع حركات هادية وقت السكون.</small></span>
               <input type='checkbox' checked={proAnimations} onChange={e=>setProAnimations(e.target.checked)}/>
             </label>
           </article>
