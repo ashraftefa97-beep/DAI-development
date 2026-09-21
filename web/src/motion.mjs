@@ -11,9 +11,10 @@ export const expressions = {
 };
 export const gestures = [...new Set([
   ...product.animations.map(name => name.replace(/^dai_/, '').replace('idle_soft', 'idle')),
-  'typing'
+  'typing',
+  'reply'
 ])];
-const moods = {typing:'thinking',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy'};
+const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy'};
 export class DaiMotion {
   constructor(random = Math.random) {
     this.random = random;
@@ -80,6 +81,24 @@ export class DaiMotion {
         brow:.25
       });
       if(!this.reduced) p.bob+=Math.sin(e*2.1)*.45;
+    } else if(active==='reply') {
+      const sway=this.reduced?0:Math.sin(e*2.8);
+      set({
+        gaze_x:sway*2.8,
+        gaze_y:-1.5,
+        tilt:sway*1.4,
+        left:.92,
+        right:.96,
+        smile:.62,
+        mouth:0,
+        cheek:.22,
+        ra:.68,
+        rx:116+sway*3,
+        ry:30-20*enter,
+        rr:-8+sway*5,
+        brow:.08
+      });
+      if(!this.reduced) p.bob+=Math.sin(e*2.2)*.7;
     } else if(active==='listen') {
       set({ra:1,rx:111,ry:48-98*enter,rr:-16,tilt:6,left:.42,right:.52,smile:.66,listen:1,cheek:.25,gaze_x:3,happy:.32});
       if(!this.reduced) p.bob+=Math.sin(t*3)*this.audio*2.5;
