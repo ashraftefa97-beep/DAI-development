@@ -90,6 +90,7 @@ export default function GithubApp(){
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
+  const speechRunRef=useRef(0);
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
   const voiceTranscriptRef=useRef('');
@@ -231,62 +232,130 @@ export default function GithubApp(){
     return URL.createObjectURL(new Blob([bytes],{type:mimeType}));
   }
 
+  function splitSpeechChunks(text:string){
+    const firstLimit=220;
+    const nextLimit=520;
+    const sentences=(text.match(/[^.!?؟\n]+[.!?؟]?/g)||[text])
+      .map(part=>part.trim())
+      .filter(Boolean);
+    const chunks:string[]=[];
+    let current='';
+
+    for(const sentence of sentences){
+      const limit=chunks.length===0?firstLimit:nextLimit;
+      if(!current){
+        current=sentence;
+        continue;
+      }
+      if((current+' '+sentence).length<=limit){
+        current+=' '+sentence;
+      }else{
+        chunks.push(current);
+        current=sentence;
+      }
+    }
+    if(current)chunks.push(current);
+
+    if(chunks[0]&&chunks[0].length>firstLimit){
+      const first=chunks.shift()!;
+      chunks.unshift(first.slice(firstLimit).trim());
+      chunks.unshift(first.slice(0,firstLimit).trim());
+    }
+
+    return chunks.filter(Boolean);
+  }
+
+  async function requestTtsChunk(text:string){
+    const {data,error}=await supabase!.functions.invoke('tts',{body:{text}});
+    if(error)throw error;
+    if(!data?.audioBase64)throw new Error('Gemini TTS returned no audio');
+    return {
+      audioBase64:String(data.audioBase64),
+      mimeType:String(data.mimeType||'audio/wav')
+    };
+  }
+
   async function speakReply(text:string,onStart?:()=>void){
     if(!voiceEnabled||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
+    const chunks=splitSpeechChunks(spoken);
+    if(!chunks.length)return false;
+
     const responseState=stateForAssistantText(text);
     animate(responseState,responseState==='talk'?0:1800);
 
-    try{
-      if('speechSynthesis' in window)window.speechSynthesis.cancel();
-      if(audioRef.current){
-        audioRef.current.pause();
-        audioRef.current.src='';
-        audioRef.current=null;
-      }
+    const runId=++speechRunRef.current;
 
-      const {data,error}=await supabase.functions.invoke('tts',{
-        body:{text:spoken}
-      });
-
-      if(error)throw error;
-      if(!data?.audioBase64)throw new Error('Gemini TTS returned no audio');
-
-      const url=base64ToAudioUrl(String(data.audioBase64),String(data.mimeType||'audio/wav'));
-      const audio=new Audio(url);
-      audioRef.current=audio;
-
-      audio.onplay=()=>{
-        clearTimeout(timer.current);
-        setDaiState('talk');
-        onStart?.();
-      };
-      audio.onended=()=>{
-        URL.revokeObjectURL(url);
-        if(audioRef.current===audio)audioRef.current=null;
-        const finishState=responseState==='talk'?'idle':responseState;
-        if(finishState==='idle')setDaiState('idle');
-        else animate(finishState,1100);
-      };
-      audio.onerror=()=>{
-        URL.revokeObjectURL(url);
-        if(audioRef.current===audio)audioRef.current=null;
-        setDaiState('idle');
-      };
-
-      await audio.play();
-      return true;
-    }catch(error){
-      console.error('Gemini TTS failed, using browser fallback',error);
-      return speakBrowserFallback(spoken,onStart);
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
+    if(audioRef.current){
+      audioRef.current.pause();
+      audioRef.current.src='';
+      audioRef.current=null;
     }
+
+    const playChunk=async(index:number,prepared?:Promise<{audioBase64:string;mimeType:string}>):Promise<boolean>=>{
+      if(runId!==speechRunRef.current)return false;
+
+      try{
+        const data=await (prepared||requestTtsChunk(chunks[index]));
+        if(runId!==speechRunRef.current)return false;
+
+        const nextPrepared=index+1<chunks.length
+          ? requestTtsChunk(chunks[index+1])
+          : undefined;
+
+        const url=base64ToAudioUrl(data.audioBase64,data.mimeType);
+        const audio=new Audio(url);
+        audioRef.current=audio;
+
+        audio.onplay=()=>{
+          if(runId!==speechRunRef.current)return;
+          clearTimeout(timer.current);
+          setDaiState('talk');
+          if(index===0)onStart?.();
+        };
+
+        audio.onended=()=>{
+          URL.revokeObjectURL(url);
+          if(audioRef.current===audio)audioRef.current=null;
+          if(runId!==speechRunRef.current)return;
+
+          if(index+1<chunks.length){
+            void playChunk(index+1,nextPrepared);
+            return;
+          }
+
+          const finishState=responseState==='talk'?'idle':responseState;
+          if(finishState==='idle')setDaiState('idle');
+          else animate(finishState,1100);
+        };
+
+        audio.onerror=()=>{
+          URL.revokeObjectURL(url);
+          if(audioRef.current===audio)audioRef.current=null;
+          if(runId!==speechRunRef.current)return;
+          const remaining=chunks.slice(index).join(' ');
+          speakBrowserFallback(remaining,index===0?onStart:undefined);
+        };
+
+        await audio.play();
+        return true;
+      }catch(error){
+        if(runId!==speechRunRef.current)return false;
+        console.error('Gemini TTS chunk failed, using browser fallback',error);
+        return speakBrowserFallback(chunks.slice(index).join(' '),index===0?onStart:undefined);
+      }
+    };
+
+    return playChunk(0);
   }
 
   useEffect(()=>{
     try { localStorage.setItem('dai-voice-enabled',voiceEnabled?'1':'0'); } catch {}
     if(!voiceEnabled){
+      speechRunRef.current++;
       if('speechSynthesis' in window)window.speechSynthesis.cancel();
       if(audioRef.current){
         audioRef.current.pause();
@@ -305,6 +374,7 @@ export default function GithubApp(){
     recognitionRef.current=null;
     try{ liveSocketRef.current?.close(); }catch{}
     liveSocketRef.current=null;
+    speechRunRef.current++;
     if(liveProcessorRef.current)liveProcessorRef.current.onaudioprocess=null;
     liveStreamRef.current?.getTracks().forEach(track=>track.stop());
     liveStreamRef.current=null;
