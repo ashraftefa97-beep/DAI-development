@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Check, Crown, History, LockKeyhole, Mic, Plus, RotateCcw, Send, Settings, Sparkles, Square, Trash2, X } from 'lucide-react';
+import { AppWindow, BookOpen, Check, Clapperboard, Crown, Gamepad2, History, LayoutPanelTop, LockKeyhole, Mic, Orbit, Plus, RefreshCw, RotateCcw, Send, Settings, Sparkles, Square, Trash2, WandSparkles, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.5.0';
+const DAI_WEB_VERSION='0.6.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -16,7 +16,8 @@ type DesktopAction =
   | {type:'closeApp';target:string}
   | {type:'media';key:'playPause'|'next'|'previous'|'stop'|'mute'|'volumeUp'|'volumeDown'}
   | {type:'shortcut';key:'space'|'enter'|'escape'|'left'|'right'|'up'|'down'|'pageUp'|'pageDown'|'home'|'end'|'fullscreen'|'find'|'address'}
-  | {type:'openExternal';url:string};
+  | {type:'openExternal';url:string}
+  | {type:'windowLayout';target:string;layout:'left'|'right'|'maximize'|'center'};
 
 declare global {
   interface Window {
@@ -31,6 +32,11 @@ declare global {
       setSession: (accessToken:string) => Promise<{ok:boolean;plan:DaiPlan;owner?:boolean;message?:string}>;
       clearSession: () => Promise<boolean>;
       runningApps: () => Promise<{ok:boolean;apps?:Array<{name:string;title:string}>;message?:string}>;
+      companionState: () => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
+      showCompanion: () => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
+      hideCompanion: () => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
+      setCompanionWander: (enabled:boolean) => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
+      openMainWindow: () => Promise<{ok:boolean;message?:string}>;
     };
   }
 }
@@ -112,6 +118,16 @@ export default function GithubApp(){
   const [upgradeOpen,setUpgradeOpen]=useState(false);
   const [upgradeNotice,setUpgradeNotice]=useState('');
   const [paypalBusy,setPaypalBusy]=useState<''|'monthly'|'annual'>('');
+  const [controlOpen,setControlOpen]=useState(false);
+  const [companionVisible,setCompanionVisible]=useState(false);
+  const [companionWander,setCompanionWander]=useState(false);
+  const [companionBubbleOpen,setCompanionBubbleOpen]=useState(false);
+  const [proAnimations,setProAnimations]=useState(()=>{
+    try { return localStorage.getItem('dai-pro-animations')!=='0'; } catch { return true; }
+  });
+  const [proNotice,setProNotice]=useState('');
+  const [runningApps,setRunningApps]=useState<Array<{name:string;title:string}>>([]);
+  const [appsLoading,setAppsLoading]=useState(false);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
@@ -135,6 +151,7 @@ export default function GithubApp(){
   const voiceSessionTurnsRef=useRef<Array<{role:'user'|'assistant';content:string}>>([]);
   const liveInputTranscriptRef=useRef('');
   const liveOutputTranscriptRef=useRef('');
+  const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
 
@@ -401,6 +418,21 @@ export default function GithubApp(){
     }
   },[voiceEnabled]);
 
+  useEffect(()=>{
+    try { localStorage.setItem('dai-pro-animations',proAnimations?'1':'0'); } catch {}
+  },[proAnimations]);
+
+  useEffect(()=>{
+    if(!professional||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
+    const actions:DaiState[]=['curious','stretch','wave','happy','idea','focus'];
+    const delay=9000+Math.floor(Math.random()*7000);
+    const id=window.setTimeout(()=>{
+      const next=actions[Math.floor(Math.random()*actions.length)]||'curious';
+      animate(next,next==='focus'?1900:2600);
+    },delay);
+    return()=>window.clearTimeout(id);
+  },[professional,proAnimations,reduced,sending,voiceSessionActive,daiState]);
+
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
     clearTimeout(typingTimer.current);
@@ -631,6 +663,10 @@ export default function GithubApp(){
   },[userId]);
 
   useEffect(()=>{
+    if(errorText)animate('error',1500);
+  },[errorText]);
+
+  useEffect(()=>{
     const node=chatScrollRef.current;
     if(!node)return;
     requestAnimationFrame(()=>node.scrollTo({top:node.scrollHeight,behavior:'smooth'}));
@@ -651,6 +687,129 @@ export default function GithubApp(){
   }
 
   const professional=plan==='professional';
+
+  async function refreshRunningApps(){
+    if(!desktopMode||!professional||!window.daiDesktop)return;
+    setAppsLoading(true);
+    setProNotice('');
+    try{
+      const result=await window.daiDesktop.runningApps();
+      if(result?.ok){
+        setRunningApps(result.apps||[]);
+        setProNotice(result.apps?.length?'تم تحديث البرامج المفتوحة.':'مفيش نوافذ ظاهرة دلوقتي.');
+      }else{
+        setProNotice(result?.message||'تعذر قراءة البرامج المفتوحة.');
+      }
+    }catch{
+      setProNotice('تعذر قراءة البرامج المفتوحة.');
+    }finally{
+      setAppsLoading(false);
+    }
+  }
+
+  async function refreshCompanionState(){
+    if(!desktopMode||!professional||!window.daiDesktop)return;
+    try{
+      const result=await window.daiDesktop.companionState();
+      if(result?.ok){
+        setCompanionVisible(Boolean(result.visible));
+        setCompanionWander(Boolean(result.wander));
+      }
+    }catch{}
+  }
+
+  async function setCompanionEnabled(enabled:boolean){
+    if(!desktopMode||!professional||!window.daiDesktop){
+      setProNotice('الرفيقة العائمة متاحة في تطبيق Windows Professional.');
+      return;
+    }
+    try{
+      const result=enabled
+        ? await window.daiDesktop.showCompanion()
+        : await window.daiDesktop.hideCompanion();
+      if(result?.ok){
+        setCompanionVisible(Boolean(result.visible));
+        setCompanionWander(Boolean(result.wander));
+        setProNotice(enabled?'ضي ظهرت كرفيقة عائمة على سطح المكتب.':'تم إخفاء الرفيقة العائمة.');
+        animate(enabled?'celebrate':'wave',1800);
+      }else setProNotice(result?.message||'تعذر تغيير حالة الرفيقة العائمة.');
+    }catch{
+      setProNotice('تعذر تغيير حالة الرفيقة العائمة.');
+    }
+  }
+
+  async function setCompanionRoaming(enabled:boolean){
+    if(!desktopMode||!professional||!window.daiDesktop)return;
+    try{
+      if(enabled&&!companionVisible)await window.daiDesktop.showCompanion();
+      const result=await window.daiDesktop.setCompanionWander(enabled);
+      if(result?.ok){
+        setCompanionVisible(Boolean(result.visible));
+        setCompanionWander(Boolean(result.wander));
+        setProNotice(enabled?'التجوال الهادي اتفعل. ضي هتتحرك كل شوية بسلاسة.':'التجوال اتوقف.');
+        animate(enabled?'curious':'idle',1700);
+      }else setProNotice(result?.message||'تعذر تغيير التجوال.');
+    }catch{
+      setProNotice('تعذر تغيير التجوال.');
+    }
+  }
+
+  async function arrangeRunningApp(target:string,layout:'left'|'right'|'maximize'|'center'){
+    if(!window.daiDesktop||!professional)return;
+    setProNotice('');
+    try{
+      const result=await window.daiDesktop.execute({type:'windowLayout',target,layout});
+      setProNotice(result.ok?(result.message||'تم ترتيب النافذة.'):(result.message||'تعذر ترتيب النافذة.'));
+      animate(result.ok?'celebrate':'error',1500);
+      if(result.ok)void refreshRunningApps();
+    }catch{
+      setProNotice('تعذر ترتيب النافذة.');
+      animate('error',1500);
+    }
+  }
+
+  async function runProRoutine(kind:'study'|'work'|'creator'|'gaming'){
+    if(!desktopMode||!professional||!window.daiDesktop){
+      setProNotice('الـRoutines تحتاج تطبيق Windows Professional.');
+      return;
+    }
+    const bridge=window.daiDesktop;
+    setProNotice('ضي بتجهز الوضع…');
+    animate(kind==='study'||kind==='work'?'focus':'curious',0);
+    try{
+      const results:Array<{ok:boolean;message?:string}>=[];
+      if(kind==='study'){
+        results.push(await bridge.execute({type:'openApp',target:'Notepad'}));
+        results.push(await bridge.execute({type:'openExternal',url:'https://www.google.com/'}));
+      }else if(kind==='work'){
+        results.push(await bridge.execute({type:'openExternal',url:'https://mail.google.com/'}));
+        results.push(await bridge.execute({type:'openApp',target:'Calculator'}));
+      }else if(kind==='creator'){
+        results.push(await bridge.execute({type:'openApp',target:'Visual Studio Code'}));
+        results.push(await bridge.execute({type:'openExternal',url:'https://www.youtube.com/'}));
+      }else{
+        results.push(await bridge.execute({type:'openApp',target:'Discord'}));
+      }
+      const success=results.filter(item=>item?.ok).length;
+      setProNotice(success===results.length
+        ? 'الوضع اتجهز بالكامل.'
+        : success
+          ? 'الوضع اتجهز جزئيًا؛ برنامج من البرامج مش موجود على الجهاز.'
+          : 'ضي ملقتش البرامج المطلوبة للوضع ده على الجهاز.');
+      animate(success?'celebrate':'error',1800);
+      void refreshRunningApps();
+    }catch{
+      setProNotice('حصل خطأ محلي أثناء تجهيز الوضع.');
+      animate('error',1600);
+    }
+  }
+
+  useEffect(()=>{
+    if(controlOpen&&professional&&desktopMode){
+      void refreshCompanionState();
+      void refreshRunningApps();
+    }
+  },[controlOpen,professional,desktopMode]);
 
   function looksLikeDesktopCommand(value:string){
     return /(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|ركز|ركزي|روح|روحي|volume|الصوت|ميديا|الميديا|ملء الشاشة|فل سكرين|fullscreen|ملف من الجهاز|فيديو من الجهاز|يوتيوب|جوجل|جيميل|واتساب ويب|open|launch|close)/i.test(value);
@@ -1665,6 +1824,41 @@ export default function GithubApp(){
   }
 
 
+  if(companionMode){
+    const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
+    return <main className='dai-companion-shell' dir='rtl' data-state={daiState}>
+      <div className='dai-companion-halo'/>
+      <button
+        className='dai-companion-face'
+        onDoubleClick={()=>{setCompanionBubbleOpen(value=>!value);animate('curious',1800)}}
+        onClick={()=>{if(daiState==='idle')animate('happy',1500)}}
+        aria-label='ضي — دبل كليك لفتح البابل'
+        title='دبل كليك للكتابة'
+      >
+        <DaiFaceBoundary><DaiFace state={daiState} reduced={reduced}/></DaiFaceBoundary>
+      </button>
+      {companionBubbleOpen&&<section className='dai-companion-bubble' onDoubleClick={e=>e.stopPropagation()}>
+        <div className='dai-companion-bubble-head'>
+          <strong>ضي</strong>
+          <button onClick={()=>setCompanionBubbleOpen(false)} aria-label='إغلاق'><X className='h-4 w-4'/></button>
+        </div>
+        <p dir='auto'>{lastAssistant?.content?.slice(0,220)||'أنا هنا… اكتبلي اللي محتاجه.'}</p>
+        <div className='dai-companion-composer'>
+          <input
+            value={input}
+            onChange={e=>handleInputChange(e.target.value)}
+            placeholder='اكتب لضـي'
+            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void sendMessage(undefined,'typed')}}}
+          />
+          <button disabled={!input.trim()||sending} onClick={()=>void sendMessage(undefined,'typed')} aria-label='إرسال'>
+            {sending?<Square className='h-4 w-4'/>:<Send className='h-4 w-4'/>}
+          </button>
+        </div>
+        <button className='dai-companion-open-main' onClick={()=>void window.daiDesktop?.openMainWindow()}>فتح ضي كاملة</button>
+      </section>}
+    </main>;
+  }
+
   return <main className='classic-shell' dir='rtl'>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
@@ -1675,6 +1869,7 @@ export default function GithubApp(){
           <span>{planOwner?'Owner Pro':professional?'Professional':'Standard'}</span>
         </button>}
         <span className='classic-status' role='status' aria-live='polite'><i className={sending?'busy':online?'':'offline'}/><span>{!online?'مفيش اتصال':loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
+        {professional&&<button onClick={()=>setControlOpen(true)} className='classic-icon-button dai-control-launch' aria-label='DAI Control Center' title='DAI Control Center'><WandSparkles className='h-5 w-5'/></button>}
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
       </div>
@@ -1694,6 +1889,9 @@ export default function GithubApp(){
         <button onClick={()=>animate('search',3800)}>بحث</button>
         <button onClick={()=>animate('sleep',5400)}>نعاس</button>
         <button onClick={()=>animate('stretch',3800)}>تمدد</button>
+        <button onClick={()=>animate('curious',3200)}>فضول</button>
+        <button onClick={()=>animate('celebrate',4200)}>احتفال</button>
+        <button onClick={()=>animate('focus',3400)}>تركيز</button>
       </div>
 
       <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
@@ -1774,11 +1972,83 @@ export default function GithubApp(){
           <span className='dai-plan-setting-action'>{professional?'مفعلة':'ترقية'}</span>
         </button>
 
+        {professional&&<button className='dai-plan-setting professional dai-control-setting' onClick={()=>{setSettingsOpen(false);setControlOpen(true)}}>
+          <span className='dai-plan-setting-icon'><WandSparkles className='h-5 w-5'/></span>
+          <span><strong>DAI Control Center</strong><small>الرفيقة العائمة، التجوال، الـRoutines، ترتيب النوافذ، والحركات الذكية.</small></span>
+          <span className='dai-plan-setting-action'>فتح</span>
+        </button>}
+
         {desktopMode&&professional&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
         {desktopMode&&professional&&<div className='classic-privacy'>Professional يسمح بفتح وتركيز وإغلاق البرامج، التحكم في الوسائط والصوت، اختصارات التنقل، فتح روابط آمنة وملفات محلية، وتشغيل ضي مع Windows. الأوامر الحساسة تفضل محتاجة تأكيد.</div>}
         {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
         <div className='classic-version'>DAI Web v{DAI_WEB_VERSION}</div>
+      </section>
+    </div>}
+
+    {controlOpen&&<div className='classic-overlay dai-control-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setControlOpen(false)}}>
+      <section className='dai-control-panel' aria-label='DAI Control Center'>
+        <div className='classic-drawer-head'>
+          <div><span>Professional</span><h3>DAI Control Center</h3></div>
+          <button className='classic-icon-button' onClick={()=>setControlOpen(false)} aria-label='إغلاق'><X className='h-5 w-5'/></button>
+        </div>
+        <p className='dai-control-intro'>كل التحكم الاحترافي في مكان واحد. ضي لا تراقب الشاشة أو الملفات في الخلفية؛ كل صلاحية هنا واضحة وتحت تحكمك.</p>
+
+        <div className='dai-control-grid'>
+          <article className='dai-control-card featured'>
+            <div className='dai-control-card-head'><Orbit/><div><strong>Floating Companion</strong><small>ضي كرفيقة عائمة فوق سطح المكتب.</small></div></div>
+            <label className='dai-switch-row'>
+              <span><b>إظهار الرفيقة</b><small>{desktopMode?'نافذة شفافة مستقلة فوق البرامج.':'تحتاج تطبيق Windows.'}</small></span>
+              <input type='checkbox' checked={companionVisible} disabled={!desktopMode} onChange={e=>void setCompanionEnabled(e.target.checked)}/>
+            </label>
+            <label className='dai-switch-row'>
+              <span><b>تجوال هادي</b><small>تتحرك كل شوية بسلاسة داخل مساحة الشاشة.</small></span>
+              <input type='checkbox' checked={companionWander} disabled={!desktopMode} onChange={e=>void setCompanionRoaming(e.target.checked)}/>
+            </label>
+            <label className='dai-switch-row'>
+              <span><b>ردود فعل ذكية</b><small>فضول، تمدد، تحية، تركيز وحركات عشوائية لطيفة وقت السكون.</small></span>
+              <input type='checkbox' checked={proAnimations} onChange={e=>setProAnimations(e.target.checked)}/>
+            </label>
+          </article>
+
+          <article className='dai-control-card'>
+            <div className='dai-control-card-head'><WandSparkles/><div><strong>Smart Routines</strong><small>أوامر جاهزة متعددة الخطوات.</small></div></div>
+            <div className='dai-routine-grid'>
+              <button onClick={()=>void runProRoutine('study')}><BookOpen/> دراسة</button>
+              <button onClick={()=>void runProRoutine('work')}><LayoutPanelTop/> شغل</button>
+              <button onClick={()=>void runProRoutine('creator')}><Clapperboard/> Creator</button>
+              <button onClick={()=>void runProRoutine('gaming')}><Gamepad2/> Gaming</button>
+            </div>
+          </article>
+        </div>
+
+        <article className='dai-control-card dai-apps-card'>
+          <div className='dai-control-card-head'>
+            <AppWindow/>
+            <div><strong>وعي بالبرامج المفتوحة + Window Manager</strong><small>ضي تقرأ النوافذ الظاهرة فقط عند طلبك وتقدر ترتبها.</small></div>
+            <button className='dai-control-refresh' onClick={()=>void refreshRunningApps()} disabled={!desktopMode||appsLoading}><RefreshCw className={appsLoading?'spin':''}/>{appsLoading?'بحدّث':'تحديث'}</button>
+          </div>
+          {!desktopMode
+            ? <div className='dai-control-empty'>الميزة دي تظهر داخل تطبيق Windows.</div>
+            : runningApps.length===0
+              ? <div className='dai-control-empty'>اضغط تحديث عشان تشوف النوافذ المفتوحة.</div>
+              : <div className='dai-running-list'>
+                  {runningApps.slice(0,12).map((app,index)=><div className='dai-running-row' key={app.name+'-'+index}>
+                    <div><strong>{app.name}</strong><small>{app.title||'نافذة مفتوحة'}</small></div>
+                    <div className='dai-layout-actions'>
+                      <button onClick={()=>void arrangeRunningApp(app.name,'left')}>يسار</button>
+                      <button onClick={()=>void arrangeRunningApp(app.name,'right')}>يمين</button>
+                      <button onClick={()=>void arrangeRunningApp(app.name,'center')}>وسط</button>
+                      <button onClick={()=>void arrangeRunningApp(app.name,'maximize')}>تكبير</button>
+                    </div>
+                  </div>)}
+                </div>
+          }
+        </article>
+
+        {desktopMode&&<label className='classic-setting dai-control-startup'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>شغّل ضي تلقائيًا بعد تسجيل الدخول.</small></span></label>}
+        {proNotice&&<div className='dai-upgrade-notice'>{proNotice}</div>}
+        <p className='dai-plan-safety'>التحكم في الجهاز يظل محصورًا في أوامر محددة وآمنة. لا يوجد Shell خام، قراءة كلمات مرور، أو مراقبة شاشة مخفية.</p>
       </section>
     </div>}
 
