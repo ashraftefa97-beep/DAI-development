@@ -10,6 +10,37 @@ function DaiLogo({className=''}:{className?:string}) {
   return <img src='./dai-logo.svg' className={className} alt='لوجو ضي' width={192} height={192}/>;
 }
 
+async function explainChatError(error:any){
+  const context=error?.context;
+
+  if(context && typeof context.clone==='function'){
+    try {
+      const response=context.clone();
+      const status=Number(response.status||0);
+      const payload=await response.json().catch(()=>null);
+      const code=String(payload?.code||'');
+
+      if(code==='AI_CONFIG') return 'إعدادات الـAI ناقصة في Supabase Secrets.';
+      if(code==='AI_BASE_URL') return 'قيمة AI_BASE_URL غير صحيحة. حط رابط مزود الـAI الأساسي أو مسار chat/completions كامل.';
+      if(code==='AI_AUTH') return 'مزود الـAI رفض AI_API_KEY. راجع المفتاح في Supabase Secrets.';
+      if(code==='AI_NOT_FOUND') return 'مزود الـAI مش لاقي الـendpoint أو الموديل. راجع AI_BASE_URL و AI_MODEL.';
+      if(code==='AI_RATE_LIMIT') return 'مزود الـAI وصل لحد الاستخدام مؤقتًا. جرّب بعد شوية.';
+      if(code==='AI_TIMEOUT') return 'مزود الـAI اتأخر في الرد. جرّب تاني.';
+      if(code==='AI_NETWORK') return 'Supabase مش قادر يوصل لمزود الـAI حاليًا.';
+      if(code==='AI_EMPTY') return 'الـAI اتصل، لكن رجّع رد فاضي.';
+      if(status===404) return 'دالة chat مش موجودة على Supabase أو لسه ما اتعملهاش Deploy.';
+      if(status===401) return 'جلسة تسجيل الدخول انتهت. سجّل دخول من جديد.';
+      if(status>=500) return 'الـbackend شغال لكن حصل خطأ أثناء الاتصال بالـAI.';
+    } catch {}
+  }
+
+  const message=String(error?.message||'');
+  if(/Failed to send|fetch|network/i.test(message)) {
+    return 'تعذر الوصول لـSupabase Edge Function. تأكد إن دالة chat معمولة Deploy.';
+  }
+  return 'حصل خطأ في اتصال ضي بالـAI. افتح Console أو Supabase Functions Logs لمعرفة السبب.';
+}
+
 export default function GithubApp(){
   const [daiState,setDaiState]=useState<DaiState>('wave');
   const [reduced,setReduced]=useState(false);
@@ -155,9 +186,10 @@ export default function GithubApp(){
       });
 
       animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
-    } catch {
+    } catch (error) {
+      console.error('DAI chat failed', error);
       setInput(text);
-      setErrorText('الـAI لسه مش متوصل أو حصل خطأ في الـbackend.');
+      setErrorText(await explainChatError(error));
       animate('idle',0);
     }
   }
