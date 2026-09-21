@@ -1,1 +1,44 @@
-# Python\n__pycache__/\n*.py[cod]\n.venv/\nvenv/\n.env\n.env.*\n!.env.example\n.pytest_cache/\n\n# Node\nnode_modules/\ndist/\n.vite/\ncoverage/\n\n# Local runtime\n*.log\n*.tmp\n\n# Models / checkpoints\nmodels/\ncheckpoints/\n*.pt\n*.pth\n*.ckpt\n*.safetensors\n*.onnx\n\n# OS / IDE\n.DS_Store\nThumbs.db\n.vscode/\n.idea/\n\n# Secrets\n*.pem\n*.key\ncredentials.json\nsecrets.json\n
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Local runtime
+*.log
+*.tmp
+desktop/dai_memory.json
+
+# Models / checkpoints
+models/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets
+*.pem
+*.key
+credentials.json
+secrets.json

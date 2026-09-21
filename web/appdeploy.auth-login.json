@@ -1,0 +1,14 @@
+{
+  "headline": "أهلاً بيك عند ضي",
+  "subtitle": "سجّل دخولك عشان ضي تفتكر محادثاتك وتحافظ على مساحتك.",
+  "methods": ["google", "apple", "x"],
+  "style": {
+    "mode": "dark",
+    "accentColor": "#F6A9C1",
+    "backgroundColor": "#101321",
+    "panelColor": "#171B2B",
+    "textColor": "#F5EDF4",
+    "fontFamily": "Segoe UI, Tahoma, sans-serif",
+    "borderRadius": 18
+  }
+}

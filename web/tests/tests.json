@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Private sign-in, chat, and sign-out",
+    "sanity": true,
+    "viewport": "desktop",
+    "covers": [
+      "authentication",
+      "anonymous protected API rejection",
+      "POST /api/chat",
+      "DAI canvas",
+      "Arabic rendering",
+      "logout",
+      "DAI logo and favicon"
+    ],
+    "description": "Sign in, obtain an Arabic reply, and verify sign-out clears private data.",
+    "steps": [
+      "Verify the login screen displays the DAI floating-face SVG logo instead of the large textual ضي placeholder, and its image loads without errors.",
+      "Before sign-in, verify /api/conversations and /api/settings reject anonymous access and display no private data.",
+      "Use the available test authentication provider to sign in.",
+      "Send أهلاً يا ضي and wait for a nonempty Arabic reply. Expand نص المحادثة and verify both turns.",
+      "Verify the character is a floating face without a solid head, ears, or body.",
+      "Sign out and verify chat and transcript disappear."
+    ],
+    "expected": "Protected APIs reject anonymous access; authenticated chat responds and sign-out returns to the logo login screen."
+  },
+  {
+    "name": "Conversation durability, isolation, and deletion",
+    "viewport": "desktop",
+    "covers": [
+      "GET /api/conversations",
+      "POST /api/conversations",
+      "GET /api/conversations/:id/messages",
+      "DELETE /api/conversations/:id",
+      "per-user isolation",
+      "persistence"
+    ],
+    "description": "Create a test conversation, reload it, verify ownership rejection, and remove it.",
+    "setup": [
+      "Sign in as Actor A and create a conversation by sending تجربة حفظ ضي."
+    ],
+    "steps": [
+      "Reload and open the saved conversation. Verify the user message and reply in نص المحادثة.",
+      "As Actor B in a separate authenticated session, attempt to read, chat in, and delete Actor A's conversation ID. All attempts must return 404 and not change Actor A's data.",
+      "As Actor A open المحادثات, delete the test conversation, confirm, and reload."
+    ],
+    "expected": "Messages survive reload; another user cannot access or mutate them; confirmed deletion stays deleted."
+  },
+  {
+    "name": "Mobile settings, character gestures, and upload guardrail",
+    "viewport": "mobile",
+    "covers": [
+      "PUT /api/settings",
+      "GET /api/settings",
+      "POST /api/files",
+      "mobile layout",
+      "motion transitions",
+      "reduced motion",
+      "microphone availability",
+      "empty input",
+      "centered DAI logo",
+      "animated DaiFace"
+    ],
+    "description": "Exercise persistent settings and original character states on a phone.",
+    "steps": [
+      "Sign in and verify the DAI logo is horizontally centered in the main workspace and an empty composer cannot send.",
+      "Verify the DAI logo is centered while the DaiFace animation remains active behind/around it and the composer stays reachable.",
+      "Open الإعدادات, toggle البحث التلقائي, close, reload, and verify the choice persisted.",
+      "Close settings. Select صيد, قلب, رقصة, فكرة, بحث, and نعاس one at a time; verify Canvas changes and the composer remains reachable without horizontal page overflow.",
+      "Toggle حركة هادية and verify large looping movement stops.",
+      "Upload a real text/plain test file named dai-test.txt. Verify its link appears and the UI accurately says content analysis is not yet available.",
+      "Try uploading a file larger than 2MB and verify rejection. If browser speech recognition is unavailable, verify typing still works."
+    ],
+    "expected": "Mobile UI remains usable, settings persist, gestures have no bear shell, valid uploads work, and oversized uploads fail visibly."
+  },
+  {
+    "name": "Chat failure preserves draft",
+    "viewport": "desktop",
+    "covers": [
+      "chat error handling",
+      "draft recovery",
+      "retry"
+    ],
+    "description": "An API failure must leave the user's message recoverable.",
+    "qa_faults": [
+      {
+        "method": "POST",
+        "path": "/api/chat",
+        "status": 500,
+        "body_json": {
+          "error": "simulated_failure"
+        }
+      }
+    ],
+    "steps": [
+      "Sign in and type رسالة اختبار فشل الإرسال.",
+      "Send and wait for the error.",
+      "Verify the same text is restored to the composer and the send button becomes available."
+    ],
+    "expected": "A visible error appears, the draft is restored, and no fabricated assistant answer is shown."
+  },
+  {
+    "name": "Research sources and settings failure",
+    "viewport": "desktop",
+    "covers": [
+      "automatic research",
+      "source links",
+      "PUT /api/settings error"
+    ],
+    "description": "Show real source references when available and keep settings unchanged if saving fails.",
+    "qa_faults": [
+      {
+        "method": "PUT",
+        "path": "/api/settings",
+        "status": 500,
+        "body_json": {
+          "error": "simulated_failure"
+        }
+      }
+    ],
+    "steps": [
+      "Sign in and note the current البحث التلقائي setting. Attempt to toggle it.",
+      "Verify a visible save error and the old checkbox value remains.",
+      "Close settings. If automatic research is enabled, send ابحث عن القمر and wait for the reply.",
+      "Verify links, if supplied, use HTTP or HTTPS. If no sources were found the reply must not claim current live verification."
+    ],
+    "expected": "Failed settings saves are visible without false success; research produces sources or an honest lack-of-sources response."
+  }
+]

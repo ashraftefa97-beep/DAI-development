@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "model": "qwen3:14b",
+  "fallbackModel": "qwen3:8b",
+  "ollamaUrl": "http://localhost:11434/api/chat",
+  "autoResearch": true,
+  "saveSearchHistory": true,
+  "reducedMotion": false,
+  "voiceEnabled": true,
+  "whisperModel": "small",
+  "whisperLanguage": "ar"
+}
