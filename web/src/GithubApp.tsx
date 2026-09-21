@@ -423,7 +423,7 @@ export default function GithubApp(){
   },[proAnimations]);
 
   useEffect(()=>{
-    if(!professional||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
+    if(plan!=='professional'||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
     const actions:DaiState[]=['curious','stretch','wave','happy','idea','focus'];
     const delay=9000+Math.floor(Math.random()*7000);
     const id=window.setTimeout(()=>{
@@ -431,7 +431,7 @@ export default function GithubApp(){
       animate(next,next==='focus'?1900:2600);
     },delay);
     return()=>window.clearTimeout(id);
-  },[professional,proAnimations,reduced,sending,voiceSessionActive,daiState]);
+  },[plan,proAnimations,reduced,sending,voiceSessionActive,daiState]);
 
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
