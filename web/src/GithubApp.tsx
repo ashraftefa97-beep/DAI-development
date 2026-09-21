@@ -42,7 +42,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='0.9.1';
+const DAI_WEB_VERSION='0.9.2';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -411,7 +411,8 @@ export default function GithubApp(){
       })
       .sort((a,b)=>b.score-a.score);
 
-    return preferred[0]?.v||arabic[0]||null;
+    const female=preferred.find(item=>item.score>=100);
+    return female?.v||null;
   }
 
   function cleanForSpeech(text:string){
@@ -446,12 +447,9 @@ export default function GithubApp(){
 
     const utterance=new SpeechSynthesisUtterance(spoken);
     const voice=pickArabicFemaleVoice();
-    if(voice){
-      utterance.voice=voice;
-      utterance.lang=voice.lang||'ar-EG';
-    }else{
-      utterance.lang='ar-EG';
-    }
+    if(!voice)return false;
+    utterance.voice=voice;
+    utterance.lang=voice.lang||'ar-EG';
     utterance.rate=1.06;
     utterance.pitch=1.08;
     utterance.volume=1;
@@ -1575,7 +1573,6 @@ export default function GithubApp(){
     let finalVoiceReady=false;
     let finalVoiceText='';
     let remainingVoiceText='';
-    let remainingPrepared:Promise<{audioBase64:string;mimeType:string}>|null=null;
 
     const playRemainingVoice=async()=>{
       if(!shouldSpeak||!finalVoiceReady)return;
@@ -1585,25 +1582,39 @@ export default function GithubApp(){
 
         if(remainingVoiceText){
           animate('voicewait',0);
-          setVoiceNotice('بجهّز تكملة الرد…');
+          setVoiceNotice('بجهّز تكملة الرد بنفس صوت ضي…');
           try{
-            const data=await (remainingPrepared||requestTtsChunk(remainingVoiceText));
-            if(controller.signal.aborted)return;
             await unlockSpeechAudio();
-            await playSpeechBuffer(
-              data.audioBase64,
-              ()=>{
-                setDaiState('talk');
-                setVoiceNotice('ضي بتتكلم.');
-              },
-              ()=>{
-                setDaiState('idle');
-                setVoiceNotice('الصوت خلص.');
-              }
-            );
+            const continuationChunks=splitSpeechChunks(remainingVoiceText);
+            const continuationRun=++speechRunRef.current;
+            if('speechSynthesis' in window)window.speechSynthesis.cancel();
+            stopSpeechAudio();
+
+            let started=false;
+            for(const chunk of continuationChunks){
+              if(controller.signal.aborted||continuationRun!==speechRunRef.current)return;
+              const ok=await streamSpeech(
+                chunk,
+                continuationRun,
+                ()=>{
+                  if(!started){
+                    started=true;
+                    setDaiState('talk');
+                    setVoiceNotice('ضي بتتكلم.');
+                  }
+                }
+              );
+              if(!ok)throw new Error('streaming-continuation-failed');
+            }
+
+            if(continuationRun===speechRunRef.current){
+              setDaiState('idle');
+              setVoiceNotice('الصوت خلص.');
+            }
           }catch(error){
-            console.error('DAI prepared remainder TTS failed',error);
-            await speakReply(remainingVoiceText);
+            console.error('DAI streaming continuation failed',error);
+            setDaiState('idle');
+            setVoiceNotice('الصوت وقف عشان ضي ما تغيّرش صوتها لنبرة مختلفة.');
           }
         }else{
           setDaiState('idle');
@@ -1778,10 +1789,7 @@ export default function GithubApp(){
             remainingVoiceText=cleanedFinal.startsWith(cleanedEarly)
               ? cleanedFinal.slice(cleanedEarly.length).trim()
               : cleanedFinal;
-            if(remainingVoiceText){
-              remainingPrepared=requestTtsChunk(remainingVoiceText);
-              remainingPrepared.catch(()=>{});
-            }
+
           }
 
           if(!earlyText){
