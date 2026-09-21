@@ -178,6 +178,7 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   box-shadow: 0 0 0 5px rgba(164,216,154,.06);
 }
 .classic-status i.busy { background: var(--sakura); animation: statusPulse 1s ease-in-out infinite; }
+.classic-status i.offline { background:#e9a0aa; box-shadow:0 0 0 5px rgba(233,160,170,.06); }
 .classic-icon-button {
   width: 38px; height: 38px;
   border: 1px solid #2f3246;
@@ -223,6 +224,13 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   position: absolute;
   inset: 0;
   z-index: 1;
+}
+.dai-face-fallback {
+  width:100%; height:100%; min-height:220px; display:grid; place-items:center;
+}
+.dai-face-fallback img {
+  width:clamp(120px,22vw,180px); height:auto; opacity:.95;
+  filter:drop-shadow(0 18px 35px rgba(0,0,0,.22));
 }
 .classic-center-logo {
   position: absolute;
@@ -384,7 +392,12 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   color: #f2adc2;
   font-size: 12px;
 }
-.stage-error { width: min(700px, 100%); margin-top: 10px; }
+.stage-error { width: min(700px, 100%); margin-top: 10px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.stage-error button {
+  flex:0 0 auto; min-height:32px; padding:0 10px; border-radius:9px;
+  border:1px solid rgba(242,173,194,.24); background:rgba(242,173,194,.08);
+  color:#ffd4e0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;
+}
 
 /* Overlay panels */
 .classic-overlay {
@@ -466,6 +479,10 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   color: #aaa2b2;
   font-size: 12px;
 }
+.classic-version {
+  margin-top:12px; text-align:center; color:#666a7f; font-size:10px; letter-spacing:.04em;
+}
+
 
 
 /* Canvas uses the exact desktop coordinate system, independent of screen density. */
@@ -1293,4 +1310,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .auth-session-pill span {
     max-width: 125px;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after {
+    scroll-behavior:auto !important;
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+@media(max-width:480px) {
+  .classic-header { padding-inline:12px; }
+  .classic-brand strong { font-size:18px; }
+  .classic-brand span { display:none; }
+  .classic-status { padding:6px 9px; font-size:10px; }
+  .classic-stage { padding-inline:10px; }
+  .classic-input-bar { border-radius:18px; min-height:58px; }
+  .classic-input-bar textarea { font-size:16px; }
+  .classic-settings { width:calc(100vw - 20px); padding:18px; max-height:86vh; overflow:auto; }
+  .stage-error { align-items:flex-start; flex-direction:column; }
 }
