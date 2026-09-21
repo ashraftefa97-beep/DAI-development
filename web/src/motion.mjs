@@ -16,9 +16,10 @@ export const gestures = [...new Set([
   'curious',
   'celebrate',
   'focus',
+  'voicewait',
   'error'
 ])];
-const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy',curious:'curious',celebrate:'happy',focus:'thinking',error:'confused'};
+const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy',curious:'curious',celebrate:'happy',focus:'thinking',voicewait:'idle',error:'confused'};
 export class DaiMotion {
   constructor(random = Math.random) {
     this.random = random;
@@ -171,6 +172,23 @@ export class DaiMotion {
         cheek:.05
       });
       if(!this.reduced)p.bob+=Math.sin(e*1.4)*.35;
+    } else if(active==='voicewait') {
+      set({
+        left:.92,
+        right:.92,
+        gaze_x:0,
+        gaze_y:-2,
+        tilt:0,
+        smile:.24,
+        mouth:0,
+        cheek:.04,
+        brow:.18,
+        la:0,
+        ra:0,
+        bob:0,
+        sx:1,
+        sy:1
+      });
     } else if(active==='error') {
       const shake=this.reduced?0:Math.sin(e*15)*Math.exp(-e*.45);
       set({
