@@ -2170,7 +2170,11 @@ export default function GithubApp(){
               <li><Check/> اختصارات Windows والتنقل الآمن</li>
               <li><Check/> فتح روابط وملفات محلية بموافقتك</li>
               <li><Check/> تشغيل ضي مع Windows</li>
+              <li><Check/> Floating Companion وتجوال هادي</li>
+              <li><Check/> Smart Routines متعددة الخطوات</li>
+              <li><Check/> ترتيب النوافذ يمين/يسار/وسط/تكبير</li>
               <li><Check/> وعي اختياري بالبرامج المفتوحة</li>
+              <li><Check/> حركات وردود فعل Professional إضافية</li>
             </ul>
             {professional
               ? <button className='professional-cta' disabled>{planOwner?'مفتوحة لك بالكامل':'Professional مفعلة'}</button>
