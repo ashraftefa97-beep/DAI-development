@@ -37,6 +37,17 @@ const publicSecretPatterns=[
 
 const failures=[];
 
+const canonicalProductPath=path.join(root,'..','shared','product.json');
+try{
+  const canonical=JSON.parse(read(canonicalProductPath)||'{}');
+  const generatedComparable=JSON.parse(JSON.stringify(product));
+  if(JSON.stringify(canonical)!==JSON.stringify(generatedComparable)){
+    failures.push('shared/product.json and web/src/product.mjs are out of sync');
+  }
+}catch{
+  failures.push('Could not validate canonical shared/product.json');
+}
+
 const animationCatalog=Array.isArray(product.animationCatalog)?product.animationCatalog:[];
 if(animationCatalog.length!==84){
   failures.push(`DAI Professional animation catalog must contain exactly 84 animations, found ${animationCatalog.length}`);
