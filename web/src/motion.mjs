@@ -28,10 +28,12 @@ export class DaiMotion {
   }
   setGesture(name) {
     name = name.replace(/^dai_/, '').replace('idle_soft', 'idle');
-    this.gesture = gestures.includes(name) ? name : 'idle';
+    const nextGesture = gestures.includes(name) ? name : 'idle';
+    if (this.gesture === nextGesture) return;
+    this.gesture = nextGesture;
     this.state = moods[this.gesture] || 'idle';
     this.gestureTime = 0; this.idleUntil = 0; this.caught = false;
-    if (['happy','found','idea'].includes(this.gesture)) this.burst(0,-65,this.gesture === 'found' ? 22 : 12);
+    if (['happy','found','idea'].includes(this.gesture)) this.burst(0,-65,this.gesture === 'found' ? 18 : 10);
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
@@ -60,7 +62,7 @@ export class DaiMotion {
     if(this.mouseInside&&!this.dragging) set({gaze_x:clamp(this.pointer.x/22,-10,10),gaze_y:clamp(this.pointer.y/32,-5,5)});
     if(!this.reduced) p.bob=Math.sin(t*1.7)*2.2;
     const enter=e<.62?back(e/.62,.8):1;
-    if(e<.16 && active!=='idle') set({sx:1.035,sy:.96});
+    if(e<.14 && active!=='idle') set({sx:1.018,sy:.985});
     if(active==='listen') {
       set({ra:1,rx:111,ry:48-98*enter,rr:-16,tilt:6,left:.42,right:.52,smile:.66,listen:1,cheek:.25,gaze_x:3,happy:.32});
       if(!this.reduced) p.bob+=Math.sin(t*3)*this.audio*2.5;
@@ -125,7 +127,7 @@ export class DaiMotion {
     this.voice=mix(this.voice,this.voiceTarget,18); this.audio=mix(this.audio,this.audioTarget,12);
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
-    for(const key of Object.keys(this.pose)) this.pose[key]=mix(this.pose[key],target[key],this.reduced?24:['mouth','left','right','gaze_x','gaze_y'].includes(key)?11:7);
+    for(const key of Object.keys(this.pose)) this.pose[key]=mix(this.pose[key],target[key],this.reduced?22:['mouth','left','right','gaze_x','gaze_y'].includes(key)?10:6.2);
     for(const axis of ['x','y']) {
       if(!this.dragging) this.offsetTarget[axis]*=Math.exp(-dt*2.3);
       this.offset[axis]=mix(this.offset[axis],this.offsetTarget[axis],9);
