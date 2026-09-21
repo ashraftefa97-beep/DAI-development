@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { DaiMotion, clamp } from './motion.mjs';
 import { drawDai, stageScale } from './draw.mjs';
 
-export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'idea' | 'sleep' | 'heart' | 'dance' | 'fishing' | 'stretch' | 'curious' | 'celebrate' | 'focus' | 'voicewait' | 'error';
+export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'stretch' | 'fishing' | 'heart' | 'dance' | 'idea' | 'sleep' | 'blush' | 'wow' | 'approve' | 'focus' | 'relax' | 'working' | 'response_ready' | 'peek' | 'nod_yes' | 'shake_no' | 'celebrate' | 'shy' | 'alert' | 'look_around' | 'recharge' | 'success' | 'error' | 'music_groove' | 'wake_up' | 'roam_walk' | 'bounce' | 'bow' | 'double_wave' | 'side_stretch' | 'startled' | 'scout' | 'window_peek' | 'tip_toe' | 'thought_orbit' | 'cozy_sway' | 'welcome_back' | 'curious' | 'voicewait';
 export default function DaiFace({state='idle', reduced=false}: {state?:DaiState; reduced?:boolean}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
