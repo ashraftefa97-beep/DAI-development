@@ -10,16 +10,19 @@ export const expressions = {
   confused: [.65,1,1,1,-.18,0,-7,0], sleepy: [.28,.32,1,1,.22,0,-5,.1]
 };
 export const gestures = [...new Set([
-  ...product.animations.map(name => name.replace(/^dai_/, '').replace('idle_soft', 'idle')),
+  ...product.animationCatalog.map(item => item.gesture.replace('idle_soft','idle')),
   'typing',
   'reply',
   'curious',
-  'celebrate',
-  'focus',
-  'voicewait',
-  'error'
+  'voicewait'
 ])];
-const moods = {typing:'thinking',reply:'idle',listen:'curious',search:'thinking',found:'happy',talk:'talking',happy:'happy',fishing:'curious',heart:'happy',dance:'happy',idea:'surprised',sleep:'sleepy',curious:'curious',celebrate:'happy',focus:'thinking',voicewait:'idle',error:'confused'};
+const moods = {
+  ...Object.fromEntries(product.animationCatalog.map(item => [item.gesture.replace('idle_soft','idle'),item.state])),
+  typing:'thinking',
+  reply:'idle',
+  curious:'curious',
+  voicewait:'idle'
+};
 export class DaiMotion {
   constructor(random = Math.random) {
     this.random = random;
@@ -42,7 +45,9 @@ export class DaiMotion {
     this.gesture = nextGesture;
     this.state = moods[this.gesture] || 'idle';
     this.gestureTime = 0; this.idleUntil = 0; this.caught = false;
-    if (['happy','found','idea','celebrate'].includes(this.gesture)) this.burst(0,-65,this.gesture === 'found' || this.gesture === 'celebrate' ? 18 : 10);
+    if (['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(this.gesture)) {
+      this.burst(0,-65,['found','celebrate','success'].includes(this.gesture)?18:10);
+    }
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
@@ -225,6 +230,92 @@ export class DaiMotion {
     } else if(active==='sleep') {
       const yawn=Math.sin(clamp(e/1.7,0,1)*Math.PI);
       set({left:.10,right:.10,mouth:.72*yawn,smile:.2,tilt:-9,gaze_y:3,sleep:clamp((e-1.2)/.7,0,1),ra:1-clamp((e-1)/.8,0,1),rx:33,ry:69,rr:-35,bob:1});
+    } else if(active==='blush') {
+      const pulse=this.reduced?0:Math.sin(e*4.2)*.08;
+      set({left:.58,right:.58,smile:.78,cheek:1,happy:.86,la:.72,ra:.72,lx:-86,rx:86,ly:22,ry:22,lr:-38,rr:38,tilt:-4,sx:1+pulse,sy:1-pulse*.5});
+    } else if(active==='wow') {
+      const settle=e<.55?back(e/.55,.7):1;
+      set({left:1.28,right:1.28,lw:.94,rw:.94,mouth:.82,smile:.02,cheek:.18,gaze_y:-4,tilt:-5,sx:.96+.04*settle,sy:1.06-.06*settle});
+    } else if(active==='approve') {
+      const nod=this.reduced?0:Math.sin(Math.min(e,1.8)*5.2)*Math.exp(-e*.9);
+      set({ra:1,rx:126,ry:-28,rr:12,smile:.92,cheek:.55,happy:.82,mouth:.12,tilt:nod*7,gaze_x:4});
+    } else if(active==='relax') {
+      const sway=this.reduced?0:Math.sin(e*1.35);
+      set({left:.36,right:.40,smile:.62,cheek:.22,happy:.35,tilt:-6+sway*2.5,bob:3+sway*1.2,la:.45,ra:.45,lx:-118,rx:118,ly:82,ry:82});
+    } else if(active==='working') {
+      const scan=this.reduced?0:Math.sin(e*2.4);
+      set({left:.72,right:.78,smile:.18,brow:.75,gaze_x:scan*7,gaze_y:-5,tilt:scan*2,la:.62,ra:.62,lx:-100-scan*4,rx:100+scan*4,ly:56,ry:56});
+    } else if(active==='response_ready') {
+      const pop=e<.55?back(e/.55,.9):1;
+      set({left:.78,right:.78,smile:1,cheek:.72,happy:1,mouth:.18,tilt:-4,bob:-5*pop,sx:.96+.04*pop,sy:.96+.04*pop,ra:1,rx:126,ry:-16,rr:18});
+    } else if(active==='peek') {
+      const side=Math.sin(e*2)<0?-1:1;
+      set({left:1.08,right:.74,smile:.46,cheek:.18,gaze_x:side*9,gaze_y:-2,tilt:side*7,sx:.99,sy:1.01});
+    } else if(active==='nod_yes') {
+      const nod=this.reduced?0:Math.sin(e*7)*Math.exp(-e*.45);
+      set({smile:.82,cheek:.38,happy:.72,tilt:nod*8,mouth:.10,gaze_y:2*nod});
+    } else if(active==='shake_no') {
+      const shake=this.reduced?0:Math.sin(e*8.2)*Math.exp(-e*.38);
+      set({left:.72,right:.86,smile:-.10,brow:.75,gaze_x:shake*5,tilt:shake*9,mouth:.06});
+    } else if(active==='shy') {
+      const sway=this.reduced?0:Math.sin(e*2.3);
+      set({left:.46,right:.50,smile:.72,cheek:1,happy:.78,la:.62,ra:.62,lx:-72,rx:72,ly:25,ry:25,lr:-42,rr:42,tilt:-5+sway*3,gaze_y:4});
+    } else if(active==='alert') {
+      const pop=e<.45?back(e/.45,.8):1;
+      set({left:1.30,right:1.30,mouth:.55,smile:.02,gaze_y:-5,tilt:-3,sx:.95+.05*pop,sy:1.08-.08*pop});
+    } else if(active==='look_around') {
+      const scan=this.reduced?0:Math.sin(e*2.1);
+      set({gaze_x:scan*10,gaze_y:-2+Math.cos(e*1.5)*2,tilt:scan*5,left:.94+.08*scan,right:.94-.08*scan,smile:.32});
+    } else if(active==='recharge') {
+      const breathe=this.reduced?0:Math.sin(e*1.5);
+      set({left:.18,right:.20,smile:.30,cheek:.12,tilt:-7,bob:2+breathe*1.5,sx:1-breathe*.008,sy:1+breathe*.012,sleep:.45});
+    } else if(active==='success') {
+      const pop=e<.5?back(e/.5,.9):1;
+      set({ra:1,rx:128,ry:-30,rr:12,smile:1,mouth:.20,cheek:.70,happy:1,bob:-5*pop,tilt:-4,sx:.97+.03*pop,sy:.97+.03*pop});
+    } else if(active==='music_groove') {
+      const beat=this.reduced?0:Math.sin(e*6.2);
+      set({la:.82,ra:.82,lx:-119,rx:119,ly:34+beat*22,ry:34-beat*22,lr:-15+beat*16,rr:15+beat*16,smile:.92,mouth:.22,cheek:.45,happy:.82,tilt:beat*7,bob:-Math.abs(beat)*4,notes:.85});
+    } else if(active==='wake_up') {
+      const pop=e<.7?back(e/.7,.8):1;
+      set({left:.18+pop,right:.18+pop,smile:.52*pop,mouth:.35*(1-pop),gaze_y:-4*pop,tilt:-8+8*pop,sy:.94+.06*pop,sx:1.05-.05*pop});
+    } else if(active==='roam_walk') {
+      const step=this.reduced?0:Math.sin(e*6);
+      set({left:.86,right:.92,smile:.48,cheek:.15,la:.72,ra:.72,lx:-118+step*7,rx:118+step*7,ly:58-step*9,ry:58+step*9,lr:-12+step*10,rr:12+step*10,tilt:step*3.5,bob:-Math.abs(step)*5,sx:1+Math.abs(step)*.012,sy:1-Math.abs(step)*.01});
+    } else if(active==='bounce') {
+      const jump=this.reduced?0:Math.abs(Math.sin(Math.min(e,1.7)*5.4))*Math.exp(-e*.38);
+      set({happy:.95,smile:1,cheek:.72,mouth:.22,bob:-jump*16,la:1,ra:1,lx:-128,rx:128,ly:-18-jump*8,ry:-18-jump*8,lr:-18,rr:18,sx:1+jump*.035,sy:1-jump*.025});
+    } else if(active==='bow') {
+      const bend=Math.sin(clamp(e/1.8,0,1)*Math.PI);
+      set({left:.62,right:.62,smile:.9,cheek:.4,tilt:10*bend,gaze_y:5*bend,sy:1-.05*bend,sx:1+.025*bend,la:.55,ra:.55,lx:-104,rx:104,ly:70,ry:70});
+    } else if(active==='double_wave') {
+      const wave=this.reduced?0:Math.sin(e*9.5);
+      set({la:1,ra:1,lx:-130-wave*8,rx:130+wave*8,ly:-28,ry:-28,lr:-wave*24,rr:wave*24,smile:1,cheek:.68,happy:.92,mouth:.22,tilt:wave*3});
+    } else if(active==='side_stretch') {
+      const sway=this.reduced?0:Math.sin(clamp(e/2.4,0,1)*Math.PI);
+      const side=Math.sin(e*.9)>=0?1:-1;
+      set({la:1,ra:.65,lx:-146,ly:-34,lr:-34,rx:112,ry:64,rr:20,left:.42,right:.48,smile:.7,tilt:side*9*sway,sx:1-.025*sway,sy:1+.045*sway});
+    } else if(active==='startled') {
+      const shock=Math.exp(-e*2.2)*(this.reduced?0:Math.cos(e*13));
+      set({left:1.25,right:1.25,mouth:.66,smile:.02,tilt:shock*8,bob:-Math.abs(shock)*7,sx:.98,sy:1.04,la:.65,ra:.65,lx:-112,rx:112,ly:42,ry:42});
+    } else if(active==='scout') {
+      const scan=this.reduced?0:Math.sin(e*1.6);
+      set({ra:.85,rx:58,ry:-85,rr:-16,gaze_x:scan*10,gaze_y:-4,tilt:scan*4,left:1.10,right:.84,smile:.48});
+    } else if(active==='window_peek') {
+      const lean=Math.sin(clamp(e/3.2,0,1)*Math.PI);
+      const side=this.pointer.x<0?-1:1;
+      set({tilt:side*11*lean,gaze_x:side*10,left:1.16,right:.82,smile:.6,la:.6,ra:.6,lx:-101,rx:101,ly:48-lean*10,ry:48-lean*10,sy:1+lean*.025});
+    } else if(active==='tip_toe') {
+      const lift=Math.sin(clamp(e/2.8,0,1)*Math.PI);
+      set({bob:-9*lift,sy:1+.045*lift,sx:1-.02*lift,la:.75,ra:.75,lx:-138,rx:138,ly:45,ry:45,gaze_y:-5,smile:.42,left:1.08,right:1.08});
+    } else if(active==='thought_orbit') {
+      const orbit=this.reduced?0:e*2.1;
+      set({gaze_x:Math.cos(orbit)*8,gaze_y:Math.sin(orbit)*4,tilt:Math.sin(orbit)*4,ra:.85,rx:42,ry:83,rr:-32,brow:.5,bulb:.4+.3*Math.sin(orbit),smile:.35});
+    } else if(active==='cozy_sway') {
+      const sway=this.reduced?0:Math.sin(e*1.4);
+      set({left:.26,right:.30,smile:.48,cheek:.28,tilt:sway*5,bob:2,la:.45,ra:.45,lx:-81,rx:81,ly:83,ry:83,sleep:.25});
+    } else if(active==='welcome_back') {
+      const greet=this.reduced?0:Math.sin(e*6)*Math.exp(-e*.55);
+      set({ra:1,rx:128,ry:-38,rr:20+greet*24,la:.55,lx:-130,ly:42,smile:1,cheek:.75,happy:.9,tilt:greet*4,mouth:.16});
     } else if(this.state==='thinking') set({gaze_x:-7,gaze_y:-6,tilt:-5,brow:1});
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
     if(this.reduced) set({bob:0,sx:1,sy:1});
