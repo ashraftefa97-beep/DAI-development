@@ -1,4 +1,4 @@
-name: Deploy DAI launcher to GitHub Pages
+name: Deploy DAI to GitHub Pages
 
 on:
   push:
@@ -29,17 +29,25 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare static site
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package.json
+
+      - name: Build standalone GitHub app
+        working-directory: web
         run: |
-          mkdir -p _site
-          cp pages/index.html _site/index.html
-          cp web/public/dai-logo.svg _site/dai-logo.svg
-          touch _site/.nojekyll
+          npm install --no-audit --no-fund
+          cp github.html index.html
+          npm run build
+          touch dist/.nojekyll
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: _site
+          path: web/dist
 
       - name: Deploy to GitHub Pages
         id: deployment
