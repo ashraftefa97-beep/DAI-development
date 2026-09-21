@@ -25,6 +25,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [accountBusy, setAccountBusy] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [recoveryPassword, setRecoveryPassword] = useState('');
+  const companionMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('companion') === '1';
 
   function getUserName(user:any){
     return String(
@@ -485,17 +486,17 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className='auth-session-pill' dir='rtl'>
+      {!companionMode && <div className='auth-session-pill' dir='rtl'>
         <button className='auth-account-open' onClick={() => { setAccountOpen(true); setAccountNotice(''); }} aria-label='إدارة الحساب'>
           <UserCog className='h-4 w-4' />
           <span>{sessionName || sessionEmail}</span>
         </button>
         <button onClick={() => logout('local')} aria-label='تسجيل الخروج'><LogOut className='h-4 w-4' /></button>
-      </div>
+      </div>}
 
       {children}
 
-      {accountOpen && (
+      {!companionMode && accountOpen && (
         <div className='auth-account-overlay' onMouseDown={e => { if (e.target === e.currentTarget) setAccountOpen(false); }}>
           <section className='auth-account-panel' dir='rtl' role='dialog' aria-modal='true' aria-label='إدارة الحساب'>
             <header className='auth-account-head'>
