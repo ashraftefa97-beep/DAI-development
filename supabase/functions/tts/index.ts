@@ -97,11 +97,10 @@ Deno.serve(async (req) => {
 
   const modelCandidates = [
     'gemini-3.1-flash-tts-preview',
-    'gemini-2.5-flash-preview-tts',
   ];
   const voiceName = 'Leda';
   const prompt =
-    `اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي، مع وضوح الكلمات ومن غير مبالغة أو نبرة روبوتية:\n\n${text}`;
+    `اقرئي بالمصري الطبيعي بصوت أنثوي شاب وخفيف، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي مع وضوح الكلام، النص فقط من غير أي إضافة:\n${text}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
