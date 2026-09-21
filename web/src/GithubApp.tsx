@@ -547,6 +547,12 @@ export default function GithubApp(){
     return c.id;
   }
 
+  const professional=plan==='professional';
+
+  function looksLikeDesktopCommand(value:string){
+    return /(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|ركز|ركزي|روح|روحي|volume|الصوت|ميديا|الميديا|ملء الشاشة|فل سكرين|fullscreen|ملف من الجهاز|فيديو من الجهاز|يوتيوب|جوجل|جيميل|واتساب ويب|open|launch|close)/i.test(value);
+  }
+
   function cleanDesktopTarget(value:string){
     return value
       .replace(/[؟?!.,،]+$/g,'')
@@ -560,6 +566,11 @@ export default function GithubApp(){
     if(!bridge?.isDesktop)return '';
 
     const normalized=text.trim();
+    if(!professional){
+      return looksLikeDesktopCommand(normalized)
+        ? 'الأمر ده من صلاحيات DAI Professional، لذلك لم يتم تنفيذ أي تحكم على الجهاز.'
+        : '';
+    }
     const lower=normalized.toLowerCase();
 
     try{
@@ -1266,6 +1277,7 @@ export default function GithubApp(){
   async function executeLiveDesktopTool(name:string,args:any){
     const bridge=window.daiDesktop;
     if(!bridge?.isDesktop)return {ok:false,message:'نسخة الويب لا تملك تحكمًا محليًا في الكمبيوتر.'};
+    if(!professional)return {ok:false,message:'الأمر ده متاح في DAI Professional فقط.'};
 
     try{
       if(name==='open_program'){
@@ -1345,7 +1357,7 @@ export default function GithubApp(){
       liveSocketRef.current=socket;
 
       socket.onopen=()=>{
-        const desktopToolDeclarations=desktopMode ? [{
+        const desktopToolDeclarations=desktopMode&&professional ? [{
           functionDeclarations:[
             {
               name:'open_program',
@@ -1419,9 +1431,11 @@ export default function GithubApp(){
           genderRule+
           'لا تذكري أسماء مستخدمين آخرين. '+
           'لا تستخدمي لقب «أشروفي» إلا إذا نطق المستخدم كلمة «أشروفي» أو سأل عنها صراحة في نفس الحوار. '+
-          (desktopMode
-            ? 'أنتِ داخل برنامج ضي على Windows وعندك أدوات محلية لفتح البرامج والتحكم في الوسائط والتنقل. استخدمي الأداة المناسبة فورًا لما المستخدم يطلب تحكمًا في الكمبيوتر، ولا تقولي إن التنفيذ نجح إلا بعد نتيجة الأداة. '
-            : '')+
+          (desktopMode&&professional
+            ? 'أنتِ داخل برنامج ضي Professional على Windows وعندك أدوات محلية آمنة لفتح البرامج والتحكم في الوسائط والتنقل. استخدمي الأداة المناسبة فورًا لما المستخدم يطلب تحكمًا في الكمبيوتر، ولا تقولي إن التنفيذ نجح إلا بعد نتيجة الأداة. '
+            : desktopMode
+              ? 'المستخدم على DAI Standard؛ المحادثة والصوت متاحين لكن أدوات التحكم في الجهاز غير متاحة. '
+              : '')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
@@ -1553,6 +1567,10 @@ export default function GithubApp(){
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
       <div className='classic-header-actions'>
+        {!planLoading&&<button className={'dai-plan-badge '+plan} onClick={()=>setUpgradeOpen(true)} title='الخطة الحالية'>
+          {professional?<Crown className='h-3.5 w-3.5'/>:<Sparkles className='h-3.5 w-3.5'/>}
+          <span>{planOwner?'Owner Pro':professional?'Professional':'Standard'}</span>
+        </button>}
         <span className='classic-status' role='status' aria-live='polite'><i className={sending?'busy':online?'':'offline'}/><span>{!online?'مفيش اتصال':loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
@@ -1646,10 +1664,64 @@ export default function GithubApp(){
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
         <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت الردود الصوتية</strong><small>ضي تتكلم بصوتها فقط لما أنت تكلمها بالصوت. الرسائل المكتوبة تفضل كتابة فقط.</small></span></label>
-        {desktopMode&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
-        {desktopMode&&<div className='classic-privacy'>نسخة الكمبيوتر مفعّل فيها فتح البرامج والتحكم في تشغيل الوسائط والصوت واختصارات التنقل المسموح بها.</div>}
+
+        <button className={'dai-plan-setting '+plan} onClick={()=>setUpgradeOpen(true)}>
+          <span className='dai-plan-setting-icon'>{professional?<Crown className='h-5 w-5'/>:<LockKeyhole className='h-5 w-5'/>}</span>
+          <span><strong>{planOwner?'Professional · Owner':professional?'DAI Professional':'DAI Standard'}</strong><small>{professional?'صلاحيات الكمبيوتر الاحترافية مفعلة.':'الشات والصوت متاحين. صلاحيات الكمبيوتر تحتاج Professional.'}</small></span>
+          <span className='dai-plan-setting-action'>{professional?'مفعلة':'ترقية'}</span>
+        </button>
+
+        {desktopMode&&professional&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
+        {desktopMode&&professional&&<div className='classic-privacy'>Professional يسمح بفتح وتركيز وإغلاق البرامج، التحكم في الوسائط والصوت، اختصارات التنقل، فتح روابط آمنة وملفات محلية، وتشغيل ضي مع Windows. الأوامر الحساسة تفضل محتاجة تأكيد.</div>}
+        {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
         <div className='classic-version'>DAI Web v{DAI_WEB_VERSION}</div>
+      </section>
+    </div>}
+
+    {upgradeOpen&&<div className='classic-overlay dai-upgrade-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setUpgradeOpen(false)}}>
+      <section className='dai-upgrade-panel' aria-label='خطط DAI AI'>
+        <div className='classic-drawer-head'>
+          <div><span>DAI AI</span><h3>اختار تجربة ضي المناسبة</h3></div>
+          <button className='classic-icon-button' onClick={()=>setUpgradeOpen(false)} aria-label='إغلاق'><X className='h-5 w-5'/></button>
+        </div>
+        <p className='dai-upgrade-intro'>Standard للمحادثة اليومية. Professional يحوّل ضي لمساعد Windows بصلاحيات محلية آمنة ومحددة.</p>
+
+        <div className='dai-plan-grid'>
+          <article className={'dai-price-card '+(plan==='standard'?'current':'')}>
+            <div className='dai-price-head'><span>Standard</span>{plan==='standard'&&<b>خطتك الحالية</b>}</div>
+            <strong className='dai-price'>مجاني</strong>
+            <ul>
+              <li><Check/> شات ضي والـStreaming</li>
+              <li><Check/> المحادثة الصوتية</li>
+              <li><Check/> سجل المحادثات والحساب</li>
+              <li><Check/> Stop وRegenerate</li>
+            </ul>
+            <button disabled={plan==='standard'}>{plan==='standard'?'مفعلة':'الخطة الأساسية'}</button>
+          </article>
+
+          <article className={'dai-price-card professional '+(professional?'current':'')}>
+            <div className='dai-price-head'><span><Crown/> Professional</span>{professional&&<b>{planOwner?'نسخة المالك':'خطتك الحالية'}</b>}</div>
+            <div className='dai-price-row'><strong className='dai-price'>29 ر.س</strong><span>/ شهر</span></div>
+            <small className='dai-year-price'>249 ر.س سنويًا · وفّر حوالي شهرين</small>
+            <ul>
+              <li><Check/> كل مزايا Standard</li>
+              <li><Check/> فتح وتركيز وإغلاق البرامج</li>
+              <li><Check/> تحكم في الوسائط والصوت</li>
+              <li><Check/> اختصارات Windows والتنقل الآمن</li>
+              <li><Check/> فتح روابط وملفات محلية بموافقتك</li>
+              <li><Check/> تشغيل ضي مع Windows</li>
+              <li><Check/> وعي اختياري بالبرامج المفتوحة</li>
+            </ul>
+            <button
+              className='professional-cta'
+              disabled={professional}
+              onClick={()=>setUpgradeNotice('التسعير والخطة جاهزين. ربط الدفع الإلكتروني هيكون الخطوة التجارية الأخيرة قبل الإطلاق.')}
+            >{planOwner?'مفتوحة لك بالكامل':professional?'Professional مفعلة':'الترقية إلى Professional'}</button>
+          </article>
+        </div>
+        {upgradeNotice&&<div className='dai-upgrade-notice'>{upgradeNotice}</div>}
+        <p className='dai-plan-safety'>Professional لا يفتح Shell خام، ولا يقرأ كلمات المرور، ولا يعمل مراقبة مخفية. الأوامر الحساسة تظل بطلب تأكيد واضح.</p>
       </section>
     </div>}
   </main>;
