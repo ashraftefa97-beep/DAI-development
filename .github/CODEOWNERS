@@ -1,0 +1,7 @@
+# DAI AI — all repository code is owned by the project owner.
+# Pair this with the main-branch ruleset so changes require owner approval.
+* @ashraftefa97-beep
+/.github/ @ashraftefa97-beep
+/web/ @ashraftefa97-beep
+/desktop/ @ashraftefa97-beep
+/supabase/ @ashraftefa97-beep
