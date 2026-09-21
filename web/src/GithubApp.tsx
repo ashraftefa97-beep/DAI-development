@@ -45,6 +45,9 @@ async function explainChatError(error:any){
 export default function GithubApp(){
   const [daiState,setDaiState]=useState<DaiState>('wave');
   const [reduced,setReduced]=useState(false);
+  const [voiceEnabled,setVoiceEnabled]=useState(()=>{
+    try { return localStorage.getItem('dai-voice-enabled')!=='0'; } catch { return true; }
+  });
   const [input,setInput]=useState('');
   const [historyOpen,setHistoryOpen]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
@@ -63,7 +66,77 @@ export default function GithubApp(){
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
-  useEffect(()=>{ animate('wave',2600); return()=>clearTimeout(timer.current); },[]);
+  function pickArabicFemaleVoice(){
+    if(!('speechSynthesis' in window)) return null;
+    const voices=window.speechSynthesis.getVoices();
+    const arabic=voices.filter(v=>/^ar\b/i.test(v.lang||''));
+    if(!arabic.length)return null;
+
+    const femaleHints=[
+      'zariyah','hoda','salma','laila','layla','amira','female',
+      'زريه','هدى','سلمى','ليلى','أميرة'
+    ];
+
+    const preferred=arabic
+      .map(v=>{
+        const name=(v.name||'').toLowerCase();
+        const lang=(v.lang||'').toLowerCase();
+        let score=0;
+        if(femaleHints.some(h=>name.includes(h))) score+=100;
+        if(name.includes('natural')||name.includes('online')) score+=30;
+        if(lang==='ar-eg') score+=20;
+        if(lang==='ar-sa') score+=15;
+        return {v,score};
+      })
+      .sort((a,b)=>b.score-a.score);
+
+    return preferred[0]?.v||arabic[0]||null;
+  }
+
+  function cleanForSpeech(text:string){
+    return text
+      .replace(/```[\s\S]*?```/g,' ')
+      .replace(/[([^]]+)]([^)]+)/g,'$1')
+      .replace(/https?:\/\/\S+/g,' ')
+      .replace(/[*_#>|~]/g,' ')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  function speakReply(text:string){
+    if(!voiceEnabled||!('speechSynthesis' in window))return false;
+    const spoken=cleanForSpeech(text);
+    if(!spoken)return false;
+
+    const utterance=new SpeechSynthesisUtterance(spoken);
+    const voice=pickArabicFemaleVoice();
+    if(voice){
+      utterance.voice=voice;
+      utterance.lang=voice.lang||'ar-EG';
+    }else{
+      utterance.lang='ar-EG';
+    }
+    utterance.rate=0.96;
+    utterance.pitch=1.08;
+    utterance.volume=1;
+    utterance.onstart=()=>{ clearTimeout(timer.current); setDaiState('talk'); };
+    utterance.onend=()=>setDaiState('idle');
+    utterance.onerror=()=>setDaiState('idle');
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    return true;
+  }
+
+  useEffect(()=>{
+    try { localStorage.setItem('dai-voice-enabled',voiceEnabled?'1':'0'); } catch {}
+    if(!voiceEnabled&&'speechSynthesis' in window) window.speechSynthesis.cancel();
+  },[voiceEnabled]);
+
+  useEffect(()=>{ animate('wave',2600); return()=>{
+    clearTimeout(timer.current);
+    if('speechSynthesis' in window) window.speechSynthesis.cancel();
+  }; },[]);
 
   useEffect(()=>{
     let alive=true;
@@ -186,7 +259,8 @@ export default function GithubApp(){
         return [updated,...prev.filter(c=>c.id!==conversationId)];
       });
 
-      animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
+      const speaking=speakReply(assistantMessage.content);
+      if(!speaking) animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
     } catch (error) {
       console.error('DAI chat failed', error);
       setInput(text);
@@ -287,6 +361,7 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل الردود تلقائيًا بصوت عربي أنثوي متاح على جهازك.</small></span></label>
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
       </section>
     </div>}
