@@ -97,6 +97,28 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
   color: #77798e;
   font-size: 11px;
 }
+.gender-onboarding-card p { line-height: 1.8; }
+.gender-onboarding-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.gender-choice { min-height: 50px; font-size: 15px; }
+.gender-choice:nth-child(2) {
+  background: linear-gradient(135deg, var(--lilac-light), var(--lilac));
+}
+.gender-signout {
+  margin-top: 14px;
+  border: 0;
+  background: transparent;
+  color: #8d8fa3;
+  cursor: pointer;
+  font-size: 12px;
+}
+.gender-signout:hover { color: #ffd4e1; }
+@media (max-width: 480px) {
+  .gender-onboarding-options { grid-template-columns: 1fr; }
+}
 
 /* Logged-in studio */
 .classic-shell {
