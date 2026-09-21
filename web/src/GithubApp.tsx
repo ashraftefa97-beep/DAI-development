@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Eye, Gamepad2, History, LayoutPanelTop, LockKeyhole, Mic, Orbit, Plus, RefreshCw, RotateCcw, Send, Settings, Sparkles, Square, Trash2, WandSparkles, X } from 'lucide-react';
+import { AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Eye, Gamepad2, History, LayoutPanelTop, LockKeyhole, Mic, Orbit, Plus, RefreshCw, RotateCcw, Send, Settings, Sparkles, Square, Trash2, Volume2, WandSparkles, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.7.0';
+const DAI_WEB_VERSION='0.7.1';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -139,9 +139,13 @@ export default function GithubApp(){
   const [voiceNoteRecording,setVoiceNoteRecording]=useState(false);
   const [voiceNoteProcessing,setVoiceNoteProcessing]=useState(false);
   const [voiceNoteSeconds,setVoiceNoteSeconds]=useState(0);
+  const [speakingMessageId,setSpeakingMessageId]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
+  const speechAudioContextRef=useRef<AudioContext|null>(null);
+  const speechAudioSourceRef=useRef<AudioBufferSourceNode|null>(null);
+  const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
   const streamMessageIdRef=useRef('');
@@ -276,7 +280,7 @@ export default function GithubApp(){
       .trim();
   }
 
-  function speakBrowserFallback(text:string,onStart?:()=>void){
+  function speakBrowserFallback(text:string,onStart?:()=>void,onEnd?:()=>void){
     if(!('speechSynthesis' in window))return false;
     const spoken=cleanForSpeech(text);
     if(!spoken)return false;
@@ -298,10 +302,14 @@ export default function GithubApp(){
       setVoiceNotice('الصوت شغال.');
       onStart?.();
     };
-    utterance.onend=()=>setDaiState('idle');
+    utterance.onend=()=>{
+      setDaiState('idle');
+      onEnd?.();
+    };
     utterance.onerror=()=>{
       setDaiState('idle');
       setVoiceNotice('المتصفح مقدرش يشغّل الصوت الاحتياطي.');
+      onEnd?.();
     };
 
     window.speechSynthesis.cancel();
@@ -310,11 +318,81 @@ export default function GithubApp(){
     return true;
   }
 
-  function base64ToAudioUrl(base64:string,mimeType='audio/wav'){
+  function base64ToArrayBuffer(base64:string){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
     for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-    return URL.createObjectURL(new Blob([bytes],{type:mimeType}));
+    return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
+  }
+
+  function ensureSpeechAudioContext(){
+    if(speechAudioContextRef.current)return speechAudioContextRef.current;
+    const Ctor=window.AudioContext||(window as any).webkitAudioContext;
+    if(!Ctor)return null;
+    const ctx=new Ctor() as AudioContext;
+    speechAudioContextRef.current=ctx;
+    return ctx;
+  }
+
+  async function unlockSpeechAudio(){
+    const ctx=ensureSpeechAudioContext();
+    if(!ctx)return false;
+    try{
+      if(ctx.state==='suspended')await ctx.resume();
+      if(!speechAudioUnlockedRef.current&&ctx.state==='running'){
+        const buffer=ctx.createBuffer(1,1,22050);
+        const source=ctx.createBufferSource();
+        const gain=ctx.createGain();
+        gain.gain.value=0;
+        source.buffer=buffer;
+        source.connect(gain);
+        gain.connect(ctx.destination);
+        source.start(0);
+        speechAudioUnlockedRef.current=true;
+      }
+      return ctx.state==='running';
+    }catch{
+      return false;
+    }
+  }
+
+  function stopSpeechAudio(){
+    try{speechAudioSourceRef.current?.stop();}catch{}
+    speechAudioSourceRef.current=null;
+    if(audioRef.current){
+      try{audioRef.current.pause();}catch{}
+      audioRef.current.src='';
+      audioRef.current=null;
+    }
+  }
+
+  async function playSpeechBuffer(
+    base64:string,
+    onStart?:()=>void,
+    onEnd?:()=>void
+  ){
+    const ctx=ensureSpeechAudioContext();
+    if(!ctx)throw new Error('webaudio-unavailable');
+    if(ctx.state==='suspended'){
+      try{await ctx.resume();}catch{}
+    }
+    if(ctx.state!=='running')throw new Error('webaudio-locked');
+
+    const bytes=base64ToArrayBuffer(base64);
+    const decoded=await ctx.decodeAudioData(bytes.slice(0));
+    stopSpeechAudio();
+
+    const source=ctx.createBufferSource();
+    source.buffer=decoded;
+    source.connect(ctx.destination);
+    speechAudioSourceRef.current=source;
+    source.onended=()=>{
+      if(speechAudioSourceRef.current===source)speechAudioSourceRef.current=null;
+      onEnd?.();
+    };
+    source.start(0);
+    onStart?.();
+    return true;
   }
 
   function splitSpeechChunks(text:string){
@@ -360,7 +438,7 @@ export default function GithubApp(){
     };
   }
 
-  async function speakReply(text:string,onStart?:()=>void){
+  async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void){
     if(!voiceEnabled||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
@@ -374,11 +452,7 @@ export default function GithubApp(){
     const runId=++speechRunRef.current;
 
     if('speechSynthesis' in window)window.speechSynthesis.cancel();
-    if(audioRef.current){
-      audioRef.current.pause();
-      audioRef.current.src='';
-      audioRef.current=null;
-    }
+    stopSpeechAudio();
 
     const playChunk=async(index:number,prepared?:Promise<{audioBase64:string;mimeType:string}>):Promise<boolean>=>{
       if(runId!==speechRunRef.current)return false;
@@ -391,46 +465,34 @@ export default function GithubApp(){
           ? requestTtsChunk(chunks[index+1])
           : undefined;
 
-        const url=base64ToAudioUrl(data.audioBase64,data.mimeType);
-        const audio=new Audio(url);
-        audioRef.current=audio;
+        await playSpeechBuffer(
+          data.audioBase64,
+          ()=>{
+            if(runId!==speechRunRef.current)return;
+            clearTimeout(timer.current);
+            setDaiState('talk');
+            setVoiceNotice('الصوت شغال.');
+            if(index===0)onStart?.();
+          },
+          ()=>{
+            if(runId!==speechRunRef.current)return;
 
-        audio.onplay=()=>{
-          if(runId!==speechRunRef.current)return;
-          clearTimeout(timer.current);
-          setDaiState('talk');
-          if(index===0)onStart?.();
-        };
+            if(index+1<chunks.length){
+              void playChunk(index+1,nextPrepared);
+              return;
+            }
 
-        audio.onended=()=>{
-          URL.revokeObjectURL(url);
-          if(audioRef.current===audio)audioRef.current=null;
-          if(runId!==speechRunRef.current)return;
-
-          if(index+1<chunks.length){
-            void playChunk(index+1,nextPrepared);
-            return;
+            const finishState=responseState==='talk'?'idle':responseState;
+            if(finishState==='idle')setDaiState('idle');
+            else animate(finishState,1100);
+            onEnd?.();
           }
-
-          const finishState=responseState==='talk'?'idle':responseState;
-          if(finishState==='idle')setDaiState('idle');
-          else animate(finishState,1100);
-        };
-
-        audio.onerror=()=>{
-          URL.revokeObjectURL(url);
-          if(audioRef.current===audio)audioRef.current=null;
-          if(runId!==speechRunRef.current)return;
-          const remaining=chunks.slice(index).join(' ');
-          speakBrowserFallback(remaining,index===0?onStart:undefined);
-        };
-
-        await audio.play();
+        );
         return true;
       }catch(error){
         if(runId!==speechRunRef.current)return false;
         console.error('Gemini TTS chunk failed, using browser fallback',error);
-        return speakBrowserFallback(chunks.slice(index).join(' '),index===0?onStart:undefined);
+        return speakBrowserFallback(chunks.slice(index).join(' '),index===0?onStart:undefined,onEnd);
       }
     };
 
@@ -438,15 +500,23 @@ export default function GithubApp(){
   }
 
   useEffect(()=>{
+    const unlock=()=>{ void unlockSpeechAudio(); };
+    window.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+    window.addEventListener('touchend',unlock,{capture:true,passive:true});
+    window.addEventListener('keydown',unlock,{capture:true});
+    return()=>{
+      window.removeEventListener('pointerdown',unlock,true);
+      window.removeEventListener('touchend',unlock,true);
+      window.removeEventListener('keydown',unlock,true);
+    };
+  },[]);
+
+  useEffect(()=>{
     try { localStorage.setItem('dai-voice-enabled',voiceEnabled?'1':'0'); } catch {}
     if(!voiceEnabled){
       speechRunRef.current++;
       if('speechSynthesis' in window)window.speechSynthesis.cancel();
-      if(audioRef.current){
-        audioRef.current.pause();
-        audioRef.current.src='';
-        audioRef.current=null;
-      }
+      stopSpeechAudio();
     }
   },[voiceEnabled]);
 
@@ -482,11 +552,9 @@ export default function GithubApp(){
     liveStreamRef.current=null;
     stopLivePlayback();
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
-    if(audioRef.current){
-      audioRef.current.pause();
-      audioRef.current.src='';
-      audioRef.current=null;
-    }
+    stopSpeechAudio();
+    try{speechAudioContextRef.current?.close();}catch{}
+    speechAudioContextRef.current=null;
     try{
       if(voiceRecorderRef.current?.state==='recording')voiceRecorderRef.current.stop();
     }catch{}
@@ -1295,6 +1363,7 @@ export default function GithubApp(){
     }
 
     if(doneReceived&&finalAssistantText&&wantsSpokenReply(text)&&voiceEnabled){
+      await unlockSpeechAudio();
       const spoken=await speakReply(finalAssistantText);
       setVoiceNotice(spoken?'ضي بترد بصوتها.':'تعذر تشغيل الصوت، والرد ظاهر كتابة.');
     }
@@ -2150,6 +2219,29 @@ export default function GithubApp(){
     }
   }
 
+  async function playAssistantMessageVoice(message:Message){
+    if(message.role!=='assistant'||!message.content.trim()||speakingMessageId)return;
+    setErrorText('');
+    setVoiceNotice('بجهّز صوت ضي…');
+    setSpeakingMessageId(message.id);
+    try{
+      await unlockSpeechAudio();
+      const played=await speakReply(
+        message.content,
+        ()=>setVoiceNotice('الصوت شغال.'),
+        ()=>setSpeakingMessageId('')
+      );
+      if(!played){
+        setSpeakingMessageId('');
+        setErrorText('الصوت ما اشتغلش. افتح إعدادات الموقع واسمح بتشغيل الصوت، وبعدها جرّب زر السماعة تاني.');
+      }
+    }catch(error){
+      console.error('DAI manual voice playback failed',error);
+      setSpeakingMessageId('');
+      setErrorText('ضي مقدرتش تشغّل الصوت دلوقتي. جرّب زر السماعة تاني.');
+    }
+  }
+
   function preferredRecorderMime(){
     if(typeof MediaRecorder==='undefined')return '';
     const candidates=[
@@ -2224,6 +2316,7 @@ export default function GithubApp(){
 
   async function startVoiceNote(){
     if(voiceNoteRecording||voiceNoteProcessing||sending||voiceSessionActiveRef.current)return;
+    await unlockSpeechAudio();
     if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'){
       setErrorText('المتصفح ده مش بيدعم تسجيل الصوت بالطريقة المطلوبة.');
       return;
@@ -2306,6 +2399,7 @@ export default function GithubApp(){
     setVoiceTestBusy(true);
     setVoiceNotice('بجهّز صوت ضي…');
     try{
+      await unlockSpeechAudio();
       const played=await speakReply('أهلًا، أنا ضي. الصوت شغال دلوقتي.');
       setVoiceNotice(played?'الصوت بدأ.':'تعذر تشغيل الصوت.');
       if(!played)setErrorText('ضي مقدرتش تشغّل الصوت. جرّب السماح بالصوت في المتصفح.');
@@ -2421,10 +2515,23 @@ export default function GithubApp(){
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
               <p dir='auto'>{m.content}</p>
-              {m.role==='assistant'&&m.id===(active?.messages||[]).at(-1)?.id&&!sending&&
-                <button className='classic-regenerate' onClick={regenerateLastReply} title='إعادة الرد'>
-                  <RotateCcw className='h-3.5 w-3.5'/> إعادة الرد
-                </button>
+              {m.role==='assistant'&&
+                <div className='dai-message-actions'>
+                  <button
+                    className='classic-regenerate dai-speak-message'
+                    disabled={Boolean(speakingMessageId)}
+                    onClick={()=>void playAssistantMessageVoice(m)}
+                    title='اسمع رد ضي'
+                    aria-label='تشغيل الرد بصوت ضي'
+                  >
+                    <Volume2 className='h-3.5 w-3.5'/> {speakingMessageId===m.id?'بتتكلم…':'اسمع الرد'}
+                  </button>
+                  {m.id===(active?.messages||[]).at(-1)?.id&&!sending&&
+                    <button className='classic-regenerate' onClick={regenerateLastReply} title='إعادة الرد'>
+                      <RotateCcw className='h-3.5 w-3.5'/> إعادة الرد
+                    </button>
+                  }
+                </div>
               }
             </article>
           ))}
