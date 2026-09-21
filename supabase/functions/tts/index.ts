@@ -72,24 +72,12 @@ Deno.serve(async (req) => {
   const text = String(body?.text || '').trim();
 
   if (!text) return json({ error: 'Text is required' }, 400);
-  if (text.length > 3500) return json({ error: 'Text is too long for speech', code: 'TTS_TOO_LONG' }, 400);
+  if (text.length > 2800) return json({ error: 'Text is too long for speech', code: 'TTS_TOO_LONG' }, 400);
 
   const model = 'gemini-3.1-flash-tts-preview';
   const voiceName = 'Aoede';
-  const prompt = `Synthesize speech only. Do not read these instructions aloud.
-
-# AUDIO PROFILE
-DAI (ضي) is a young feminine AI companion with a warm, friendly, natural voice.
-
-# DIRECTOR'S NOTES
-Language: Arabic.
-Accent: Natural Egyptian Arabic.
-Style: Warm, gentle, expressive, conversational, and confident.
-Pacing: Medium and relaxed. Avoid sounding robotic or overly dramatic.
-Delivery: Sound like a helpful friend speaking naturally.
-
-# TRANSCRIPT
-${text}`;
+  const prompt =
+    `اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية، بسرعة محادثة مريحة ومن غير مبالغة أو نبرة روبوتية:\n\n${text}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
