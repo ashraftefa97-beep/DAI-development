@@ -285,12 +285,16 @@ export default function GithubApp(){
   function earlySpeechChunk(text:string){
     const spoken=cleanForSpeech(text);
     if(spoken.length<8)return '';
-    const sentence=spoken.match(/^(.{8,120}?[.!?؟])/);
+    const sentence=spoken.match(/^(.{8,96}?[.!?؟،؛:])/);
     if(sentence?.[1])return sentence[1].trim();
-    if(spoken.length<62)return '';
-    const soft=spoken.slice(0,78);
-    const cut=Math.max(soft.lastIndexOf(' '),soft.lastIndexOf('،'));
-    return soft.slice(0,cut>=42?cut:62).trim();
+    if(spoken.length<38)return '';
+    const soft=spoken.slice(0,52);
+    const cut=Math.max(
+      soft.lastIndexOf(' '),
+      soft.lastIndexOf('،'),
+      soft.lastIndexOf('؛')
+    );
+    return soft.slice(0,cut>=26?cut:38).trim();
   }
 
   function speakBrowserFallback(text:string,onStart?:()=>void,onEnd?:()=>void){
