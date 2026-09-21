@@ -76,10 +76,13 @@ Deno.serve(async (req) => {
     const parsed = new URL(rawBaseUrl);
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Unsupported protocol');
 
-    const clean = rawBaseUrl.replace(/\\/+$/, '');
-    if (/\\/chat\\/completions$/i.test(clean)) {
+    let clean = rawBaseUrl;
+    while (clean.endsWith('/')) clean = clean.slice(0, -1);
+
+    const lower = clean.toLowerCase();
+    if (lower.endsWith('/chat/completions')) {
       aiUrl = clean;
-    } else if (/\\/v1$/i.test(clean)) {
+    } else if (lower.endsWith('/v1')) {
       aiUrl = `${clean}/chat/completions`;
     } else {
       aiUrl = `${clean}/v1/chat/completions`;
