@@ -59,6 +59,7 @@ export default function GithubApp(){
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
   const timer=useRef<number|undefined>(undefined);
+  const audioRef=useRef<HTMLAudioElement|null>(null);
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
@@ -103,8 +104,8 @@ export default function GithubApp(){
       .trim();
   }
 
-  function speakReply(text:string){
-    if(!voiceEnabled||!('speechSynthesis' in window))return false;
+  function speakBrowserFallback(text:string){
+    if(!('speechSynthesis' in window))return false;
     const spoken=cleanForSpeech(text);
     if(!spoken)return false;
 
@@ -128,6 +129,60 @@ export default function GithubApp(){
     return true;
   }
 
+  function base64ToAudioUrl(base64:string,mimeType='audio/wav'){
+    const binary=atob(base64);
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    return URL.createObjectURL(new Blob([bytes],{type:mimeType}));
+  }
+
+  async function speakReply(text:string){
+    if(!voiceEnabled||!supabase)return false;
+    const spoken=cleanForSpeech(text).slice(0,3500);
+    if(!spoken)return false;
+
+    try{
+      if('speechSynthesis' in window)window.speechSynthesis.cancel();
+      if(audioRef.current){
+        audioRef.current.pause();
+        audioRef.current.src='';
+        audioRef.current=null;
+      }
+
+      const {data,error}=await supabase.functions.invoke('tts',{
+        body:{text:spoken}
+      });
+
+      if(error)throw error;
+      if(!data?.audioBase64)throw new Error('Gemini TTS returned no audio');
+
+      const url=base64ToAudioUrl(String(data.audioBase64),String(data.mimeType||'audio/wav'));
+      const audio=new Audio(url);
+      audioRef.current=audio;
+
+      audio.onplay=()=>{
+        clearTimeout(timer.current);
+        setDaiState('talk');
+      };
+      audio.onended=()=>{
+        URL.revokeObjectURL(url);
+        if(audioRef.current===audio)audioRef.current=null;
+        setDaiState('idle');
+      };
+      audio.onerror=()=>{
+        URL.revokeObjectURL(url);
+        if(audioRef.current===audio)audioRef.current=null;
+        setDaiState('idle');
+      };
+
+      await audio.play();
+      return true;
+    }catch(error){
+      console.error('Gemini TTS failed, using browser fallback',error);
+      return speakBrowserFallback(spoken);
+    }
+  }
+
   useEffect(()=>{
     try { localStorage.setItem('dai-voice-enabled',voiceEnabled?'1':'0'); } catch {}
     if(!voiceEnabled&&'speechSynthesis' in window) window.speechSynthesis.cancel();
@@ -136,6 +191,11 @@ export default function GithubApp(){
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if(audioRef.current){
+      audioRef.current.pause();
+      audioRef.current.src='';
+      audioRef.current=null;
+    }
   }; },[]);
 
   useEffect(()=>{
@@ -259,7 +319,7 @@ export default function GithubApp(){
         return [updated,...prev.filter(c=>c.id!==conversationId)];
       });
 
-      const speaking=speakReply(assistantMessage.content);
+      const speaking=await speakReply(assistantMessage.content);
       if(!speaking) animate('talk',Math.min(7000,Math.max(1800,assistantMessage.content.length*28)));
     } catch (error) {
       console.error('DAI chat failed', error);
@@ -292,6 +352,11 @@ export default function GithubApp(){
     if(listening)return;
 
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if(audioRef.current){
+      audioRef.current.pause();
+      audioRef.current.src='';
+      audioRef.current=null;
+    }
 
     const rec=new SR();
     rec.lang='ar-EG';
@@ -410,7 +475,7 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل الردود تلقائيًا بصوت عربي أنثوي متاح على جهازك.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل الردود تلقائيًا بصوت ضي من Gemini، مع صوت المتصفح كاحتياطي لو الخدمة تعذرت.</small></span></label>
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
       </section>
     </div>}
