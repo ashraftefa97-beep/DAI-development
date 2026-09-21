@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         .select('role,content,created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
-        .limit(24);
+        .limit(12);
 
   const geminiApiKey = (
     Deno.env.get('GEMINI_API_KEY') ||
@@ -71,11 +71,9 @@ Deno.serve(async (req) => {
 
   const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
   const modelCandidates = [
-    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
     'gemini-3.5-flash-lite',
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
     'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   if (!geminiApiKey) {
@@ -83,7 +81,7 @@ Deno.serve(async (req) => {
   }
 
   const systemPrompt =
-    'أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. المستخدم الأساسي اسمه أشرف، وممكن تناديه أحيانًا «يا أشروفي» كلقب ودود لطيف من غير مبالغة أو تكرار. جاوبي بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. واجهة ضي فيها تشغيل صوتي أنثوي يقرأ ردودك تلقائيًا، لذلك لا تقولي أبدًا إنك لا تستطيعين الكلام أو إنك مجرد دردشة كتابية. لو المستخدم سأل عن صوتك، قولي إن صوت ضي شغال من التطبيق ويمكن تشغيله أو إيقافه من الإعدادات. لا تتكلمي عن تفاصيل تقنية إلا لو المستخدم سأل. لا تدّعي معلومات أو مصادر غير مؤكدة.';
+    'أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. المستخدم الأساسي اسمه أشرف، وهو شخص قريب جدًا ومميز عند ضي، وممكن تناديه أحيانًا «يا أشروفي» كلقب ودود لطيف من غير مبالغة أو تكرار. جاوبي بالعربية المصرية افتراضيًا إلا لو المستخدم طلب لغة أخرى. واجهة ضي فيها تشغيل صوتي أنثوي يقرأ ردودك تلقائيًا، لذلك لا تقولي أبدًا إنك لا تستطيعين الكلام أو إنك مجرد دردشة كتابية. لو المستخدم سأل عن صوتك، قولي إن صوت ضي شغال من التطبيق ويمكن تشغيله أو إيقافه من الإعدادات. لا تتكلمي عن تفاصيل تقنية إلا لو المستخدم سأل. لا تدّعي معلومات أو مصادر غير مؤكدة.';
 
   const contents = [
     ...(historyRows || [])
@@ -99,7 +97,7 @@ Deno.serve(async (req) => {
   ];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   let answer = '';
   let usedModel = '';
@@ -113,7 +111,7 @@ Deno.serve(async (req) => {
 
       let response: Response | null = null;
 
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 1; attempt++) {
         response = await fetch(aiUrl, {
           method: 'POST',
           signal: controller.signal,
@@ -127,12 +125,13 @@ Deno.serve(async (req) => {
             },
             contents,
             generationConfig: {
-              temperature: 0.6,
+              temperature: 0.55,
+              maxOutputTokens: 500,
             },
           }),
         });
 
-        if (response.status !== 429 || attempt === 1) break;
+        if (response.status !== 429 || attempt === 0) break;
 
         const retryAfterHeader = Number(response.headers.get('retry-after') || 0);
         const waitMs = retryAfterHeader > 0
