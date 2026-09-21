@@ -21,8 +21,9 @@ type User = { userId: string; email?: string; name?: string; picture?: string };
 type Source = { title: string; url: string; snippet?: string };
 type Conversation = { id: string; title: string; createdAt: number; updatedAt: number };
 type Message = { id: string; role: 'user' | 'assistant'; content: string; createdAt: number; sources?: Source[] };
-type Preferences = { autoResearch: boolean; saveSearchHistory: boolean };
-const defaultPrefs: Preferences = product.preferences;
+type UserGender = 'male' | 'female' | null;
+type Preferences = { autoResearch: boolean; saveSearchHistory: boolean; gender: UserGender };
+const defaultPrefs: Preferences = { ...product.preferences, gender: null };
 
 function DaiLogo({className=''}: {className?:string}) {
   return <img src='./dai-logo.svg' className={className} alt='لوجو ضي' width={192} height={192} />;
@@ -257,6 +258,10 @@ function App() {
     }
   }
 
+  async function saveGender(gender: Exclude<UserGender, null>) {
+    await savePreferences({ ...prefs, gender });
+  }
+
   async function savePreferences(next: Preferences) {
     if(savingPrefs) return;
     const epoch = session.current;
@@ -322,6 +327,33 @@ function App() {
             <span>تسجيل دخول آمن</span>
           </div>
           {errorText && <div className='classic-error'>{errorText}</div>}
+        </section>
+      </main>
+    );
+  }
+
+  if (dataReady && !prefs.gender) {
+    return (
+      <main className='outside-shell' dir='rtl'>
+        <div className='outside-stars' />
+        <section className='outside-login-card gender-onboarding-card'>
+          <DaiLogo className='outside-logo' />
+          <h1>أهلاً بيك عند ضي</h1>
+          <p>اختار نوعك عشان ضي تعرف تخاطبك بالطريقة المناسبة.</p>
+          <div className='gender-onboarding-options' role='group' aria-label='اختيار النوع'>
+            <button disabled={savingPrefs} onClick={() => saveGender('male')} className='outside-login-button gender-choice'>
+              ذكر
+            </button>
+            <button disabled={savingPrefs} onClick={() => saveGender('female')} className='outside-login-button gender-choice'>
+              أنثى
+            </button>
+          </div>
+          <div className='outside-security'>
+            <ShieldCheck className='h-4 w-4' />
+            <span>الاختيار بيتحفظ على حسابك عشان ضي تستخدم الصيغة المناسبة.</span>
+          </div>
+          {errorText && <div className='classic-error'>{errorText}</div>}
+          <button disabled={savingPrefs} onClick={signOut} className='gender-signout'>تسجيل الخروج</button>
         </section>
       </main>
     );
