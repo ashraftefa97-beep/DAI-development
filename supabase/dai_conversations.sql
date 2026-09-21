@@ -9,8 +9,17 @@ create table if not exists public.dai_conversations (
   updated_at timestamptz not null default now()
 );
 
-create unique index if not exists dai_conversations_id_user_uidx
-  on public.dai_conversations(id, user_id);
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='dai_conversations_id_user_key'
+      and conrelid='public.dai_conversations'::regclass
+  ) then
+    alter table public.dai_conversations
+      add constraint dai_conversations_id_user_key unique (id,user_id);
+  end if;
+end $$;
 
 create table if not exists public.dai_messages (
   id uuid primary key default gen_random_uuid(),
@@ -20,6 +29,21 @@ create table if not exists public.dai_messages (
   content text not null,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='dai_messages_conversation_user_fkey'
+      and conrelid='public.dai_messages'::regclass
+  ) then
+    alter table public.dai_messages
+      add constraint dai_messages_conversation_user_fkey
+      foreign key (conversation_id,user_id)
+      references public.dai_conversations(id,user_id)
+      on delete cascade;
+  end if;
+end $$;
 
 create index if not exists dai_conversations_user_updated_idx
   on public.dai_conversations(user_id, updated_at desc);
@@ -35,23 +59,8 @@ create policy "Users manage own DAI conversations"
 on public.dai_conversations
 for all
 to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
-
-do $
-begin
-  if not exists (
-    select 1 from pg_constraint
-    where conname='dai_messages_conversation_user_fkey'
-      and conrelid='public.dai_messages'::regclass
-  ) then
-    alter table public.dai_messages
-      add constraint dai_messages_conversation_user_fkey
-      foreign key (conversation_id,user_id)
-      references public.dai_conversations(id,user_id)
-      on delete cascade;
-  end if;
-end $;
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
 
 drop policy if exists "Users manage own DAI messages" on public.dai_messages;
 create policy "Users manage own DAI messages"
@@ -59,21 +68,21 @@ on public.dai_messages
 for all
 to authenticated
 using (
-  auth.uid() = user_id
+  (select auth.uid()) = user_id
   and exists (
     select 1
     from public.dai_conversations c
     where c.id = dai_messages.conversation_id
-      and c.user_id = auth.uid()
+      and c.user_id = (select auth.uid())
   )
 )
 with check (
-  auth.uid() = user_id
+  (select auth.uid()) = user_id
   and exists (
     select 1
     from public.dai_conversations c
     where c.id = dai_messages.conversation_id
-      and c.user_id = auth.uid()
+      and c.user_id = (select auth.uid())
   )
 );
 
@@ -85,3 +94,66 @@ revoke truncate, references, trigger on table public.dai_messages from authentic
 
 grant select, insert, update, delete on table public.dai_conversations to authenticated;
 grant select, insert, update, delete on table public.dai_messages to authenticated;
+
+create table if not exists public.dai_rate_limits (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0 check (request_count >= 0)
+);
+
+alter table public.dai_rate_limits enable row level security;
+
+drop policy if exists "Users manage own DAI rate limit" on public.dai_rate_limits;
+create policy "Users manage own DAI rate limit"
+on public.dai_rate_limits
+for all
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+revoke all privileges on table public.dai_rate_limits from anon;
+grant select, insert, update on table public.dai_rate_limits to authenticated;
+
+create or replace function public.dai_rate_limit_hit(
+  p_limit integer,
+  p_window_seconds integer
+)
+returns boolean
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_allowed boolean := false;
+begin
+  if v_uid is null then
+    return false;
+  end if;
+
+  if p_limit < 1 or p_limit > 120 or p_window_seconds < 1 or p_window_seconds > 3600 then
+    return false;
+  end if;
+
+  insert into public.dai_rate_limits(user_id, window_start, request_count)
+  values (v_uid, now(), 1)
+  on conflict (user_id) do update
+  set
+    request_count = case
+      when public.dai_rate_limits.window_start <= now() - make_interval(secs => p_window_seconds)
+        then 1
+      else public.dai_rate_limits.request_count + 1
+    end,
+    window_start = case
+      when public.dai_rate_limits.window_start <= now() - make_interval(secs => p_window_seconds)
+        then now()
+      else public.dai_rate_limits.window_start
+    end
+  returning request_count <= p_limit into v_allowed;
+
+  return coalesce(v_allowed, false);
+end;
+$$;
+
+revoke execute on function public.dai_rate_limit_hit(integer, integer) from public, anon;
+grant execute on function public.dai_rate_limit_hit(integer, integer) to authenticated;
