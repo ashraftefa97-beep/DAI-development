@@ -36,12 +36,14 @@ jobs:
           cache: npm
           cache-dependency-path: web/package.json
 
-      - name: Build standalone GitHub app
+      - name: Validate and build standalone GitHub app
         working-directory: web
         run: |
           npm install --no-audit --no-fund
+          npm run typecheck
           cp github.html index.html
           npm run build
+          npm run security-check
           touch dist/.nojekyll
 
       - name: Upload Pages artifact
