@@ -62,6 +62,9 @@ export default function GithubApp(){
   const timer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const chatScrollRef=useRef<HTMLElement|null>(null);
+  const recognitionRef=useRef<any>(null);
+  const voiceTranscriptRef=useRef('');
+  const keepListeningRef=useRef(false);
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
@@ -221,6 +224,9 @@ export default function GithubApp(){
 
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
+    keepListeningRef.current=false;
+    try{ recognitionRef.current?.stop(); }catch{}
+    recognitionRef.current=null;
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
     if(audioRef.current){
       audioRef.current.pause();
@@ -313,9 +319,10 @@ export default function GithubApp(){
   }
 
   async function sendMessage(messageOverride?:unknown){
-    const text=(typeof messageOverride==='string'?messageOverride:input).trim();
+    const fromVoice=typeof messageOverride==='string';
+    const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
-    setInput('');
+    if(!fromVoice)setInput('');
     setErrorText('');
     setSending(true);
     animate(stateForUserText(text),0);
@@ -391,7 +398,14 @@ export default function GithubApp(){
       setErrorText('المتصفح ده مش بيدعم الاستماع الصوتي. جرّب Chrome أو Edge.');
       return;
     }
-    if(listening)return;
+
+    if(keepListeningRef.current){
+      keepListeningRef.current=false;
+      setListening(false);
+      animate('idle',0);
+      try{ recognitionRef.current?.stop(); }catch{}
+      return;
+    }
 
     if('speechSynthesis' in window) window.speechSynthesis.cancel();
     if(audioRef.current){
@@ -401,55 +415,79 @@ export default function GithubApp(){
     }
 
     const rec=new SR();
+    recognitionRef.current=rec;
     rec.lang='ar-EG';
     rec.interimResults=true;
     rec.maxAlternatives=1;
-    rec.continuous=false;
+    rec.continuous=true;
 
-    let sentVoice=false;
+    voiceTranscriptRef.current='';
+    keepListeningRef.current=true;
     setListening(true);
     setErrorText('');
-    setInput('');
     animate('listen',0);
 
     rec.onresult=(e:any)=>{
-      let finalText='';
-      let interimText='';
+      let finalChunk='';
 
       for(let i=e.resultIndex;i<e.results.length;i++){
         const chunk=String(e.results[i][0]?.transcript||'').trim();
-        if(!chunk)continue;
-        if(e.results[i].isFinal) finalText+=(finalText?' ':'')+chunk;
-        else interimText+=(interimText?' ':'')+chunk;
+        if(!chunk||!e.results[i].isFinal)continue;
+        finalChunk+=(finalChunk?' ':'')+chunk;
       }
 
-      const visible=(finalText||interimText).trim();
-      if(visible)setInput(visible);
-
-      if(finalText&&!sentVoice){
-        sentVoice=true;
-        setListening(false);
-        void sendMessage(finalText);
-        try{ rec.stop(); }catch{}
+      if(finalChunk){
+        voiceTranscriptRef.current=(voiceTranscriptRef.current+' '+finalChunk).trim();
       }
     };
 
     rec.onerror=(e:any)=>{
-      setListening(false);
       if(e?.error==='not-allowed'||e?.error==='service-not-allowed'){
+        keepListeningRef.current=false;
+        setListening(false);
         setErrorText('اسمح للموقع باستخدام الميكروفون من إعدادات المتصفح.');
-      }else if(e?.error!=='no-speech'&&e?.error!=='aborted'){
+        animate('idle',0);
+        return;
+      }
+
+      if(e?.error!=='no-speech'&&e?.error!=='aborted'){
         setErrorText('حصلت مشكلة أثناء الاستماع. جرّب تاني.');
       }
-      if(!sentVoice)animate('idle',0);
     };
 
     rec.onend=()=>{
+      recognitionRef.current=null;
+
+      if(keepListeningRef.current){
+        window.setTimeout(()=>{
+          if(!keepListeningRef.current)return;
+          try{
+            recognitionRef.current=rec;
+            rec.start();
+          }catch{}
+        },120);
+        return;
+      }
+
       setListening(false);
-      if(!sentVoice)animate('idle',0);
+      const spoken=voiceTranscriptRef.current.trim();
+      voiceTranscriptRef.current='';
+      animate('idle',0);
+
+      if(spoken){
+        void sendMessage(spoken);
+      }
     };
 
-    rec.start();
+    try{
+      rec.start();
+    }catch{
+      keepListeningRef.current=false;
+      setListening(false);
+      recognitionRef.current=null;
+      setErrorText('تعذر تشغيل الميكروفون. جرّب تاني.');
+      animate('idle',0);
+    }
   }
 
   return <main className='classic-shell' dir='rtl'>
@@ -498,8 +536,8 @@ export default function GithubApp(){
       <div className='classic-input-bar'>
         <button className='classic-input-icon' onClick={()=>document.getElementById('github-file')?.click()} aria-label='إرفاق'><Paperclip className='h-5 w-5'/></button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
-        <button className='classic-input-icon' aria-pressed={listening} onClick={toggleMic} aria-label='الميكروفون'><Mic className='h-5 w-5'/></button>
-        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'بسمعك… اتكلم براحتك':'اكتب لضي…'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <button className='classic-input-icon' aria-pressed={listening} onClick={toggleMic} aria-label={listening?'إيقاف الاستماع':'بدء الاستماع'} title={listening?'اضغط لإيقاف الاستماع وإرسال كلامك':'اضغط وابدأ الكلام'}><Mic className='h-5 w-5'/></button>
+        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اكتب لضي…'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <button className='classic-send' disabled={loadingData||sending} onClick={sendMessage} aria-label='إرسال'><Send className='h-5 w-5'/></button>
       </div>
     </section>
