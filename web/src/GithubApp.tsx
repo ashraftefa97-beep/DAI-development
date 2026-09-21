@@ -8,7 +8,7 @@ type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:n
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 
-const DAI_WEB_VERSION='0.7.1';
+const DAI_WEB_VERSION='0.7.2';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -280,6 +280,17 @@ export default function GithubApp(){
       .trim();
   }
 
+  function earlySpeechChunk(text:string){
+    const spoken=cleanForSpeech(text);
+    if(spoken.length<24)return '';
+    const sentence=spoken.match(/^(.{24,150}?[.!?؟])/);
+    if(sentence?.[1])return sentence[1].trim();
+    if(spoken.length<105)return '';
+    const soft=spoken.slice(0,120);
+    const cut=Math.max(soft.lastIndexOf(' '),soft.lastIndexOf('،'));
+    return soft.slice(0,cut>=70?cut:105).trim();
+  }
+
   function speakBrowserFallback(text:string,onStart?:()=>void,onEnd?:()=>void){
     if(!('speechSynthesis' in window))return false;
     const spoken=cleanForSpeech(text);
@@ -447,7 +458,9 @@ export default function GithubApp(){
     if(!chunks.length)return false;
 
     const responseState=stateForAssistantText(text);
-    animate(responseState,responseState==='talk'?0:1800);
+    // Preparing audio is not speaking. Keep DAI calm until WebAudio actually starts.
+    animate('focus',0);
+    setVoiceNotice('بجهّز صوت ضي…');
 
     const runId=++speechRunRef.current;
 
@@ -1176,6 +1189,9 @@ export default function GithubApp(){
     }
     streamMessageIdRef.current='';
     setPendingUserMessage(null);
+    speechRunRef.current++;
+    stopSpeechAudio();
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
     setStreamingText(false);
     setSending(false);
     animate('idle',0);
@@ -1184,7 +1200,8 @@ export default function GithubApp(){
   async function streamTypedReply(
     text:string,
     desktopActionResult='',
-    regenerateAssistantId=''
+    regenerateAssistantId='',
+    speechMode:'auto'|'always'|'none'='auto'
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)throw new Error('stream-config');
 
@@ -1230,6 +1247,85 @@ export default function GithubApp(){
     let doneReceived=false;
     let firstDelta=false;
     let finalAssistantText='';
+    let streamedAssistantText='';
+    const shouldSpeak=voiceEnabled && (
+      speechMode==='always' ||
+      (speechMode==='auto' && wantsSpokenReply(text))
+    );
+    let earlyText='';
+    let earlyStarted=false;
+    let earlyFinished=false;
+    let earlyFailed=false;
+    let finalVoiceReady=false;
+    let finalVoiceText='';
+
+    const playRemainingVoice=async()=>{
+      if(!shouldSpeak||!finalVoiceReady)return;
+
+      if(earlyText&&!earlyFailed){
+        if(!earlyFinished)return;
+        const cleanedFinal=cleanForSpeech(finalVoiceText);
+        const cleanedEarly=cleanForSpeech(earlyText);
+        const remaining=cleanedFinal.startsWith(cleanedEarly)
+          ? cleanedFinal.slice(cleanedEarly.length).trim()
+          : cleanedFinal;
+
+        if(remaining){
+          await speakReply(remaining);
+        }else{
+          setDaiState('idle');
+          setVoiceNotice('الصوت خلص.');
+        }
+        return;
+      }
+
+      if(finalVoiceText){
+        await unlockSpeechAudio();
+        const spoken=await speakReply(finalVoiceText);
+        setVoiceNotice(spoken?'ضي بترد بصوتها.':'تعذر تشغيل الصوت، والرد ظاهر كتابة.');
+      }
+    };
+
+    const maybeStartEarlyVoice=()=>{
+      if(!shouldSpeak||earlyText||controller.signal.aborted)return;
+      const candidate=earlySpeechChunk(streamedAssistantText);
+      if(!candidate)return;
+
+      earlyText=candidate;
+      animate('focus',0);
+      setVoiceNotice('بجهّز أول جزء من صوت ضي…');
+      const earlyRun=++speechRunRef.current;
+      if('speechSynthesis' in window)window.speechSynthesis.cancel();
+      stopSpeechAudio();
+
+      void requestTtsChunk(candidate)
+        .then(async data=>{
+          if(controller.signal.aborted||earlyRun!==speechRunRef.current)return;
+          await unlockSpeechAudio();
+          earlyStarted=true;
+          await playSpeechBuffer(
+            data.audioBase64,
+            ()=>{
+              if(earlyRun!==speechRunRef.current)return;
+              clearTimeout(timer.current);
+              setDaiState('talk');
+              setVoiceNotice('ضي بتتكلم.');
+            },
+            ()=>{
+              if(earlyRun!==speechRunRef.current)return;
+              earlyFinished=true;
+              setDaiState('focus');
+              void playRemainingVoice();
+            }
+          );
+        })
+        .catch(error=>{
+          console.error('DAI early TTS failed',error);
+          earlyFailed=true;
+          earlyFinished=true;
+          if(finalVoiceReady)void playRemainingVoice();
+        });
+    };
 
     const handleEvent=(eventName:string,payload:any)=>{
       if(eventName==='start'){
@@ -1267,11 +1363,15 @@ export default function GithubApp(){
         const delta=String(payload?.text||'');
         if(!delta||!conversationId)return;
 
+        streamedAssistantText+=delta;
+
         if(!firstDelta){
           firstDelta=true;
           setStreamingText(true);
-          animate('reply',0);
+          animate(shouldSpeak?'focus':'reply',0);
         }
+
+        maybeStartEarlyVoice();
 
         setConversations(prev=>{
           const existing=prev.find(item=>item.id===conversationId);
@@ -1328,7 +1428,19 @@ export default function GithubApp(){
 
         streamMessageIdRef.current='';
         setStreamingText(false);
-        animate('reply',900);
+
+        if(shouldSpeak){
+          finalVoiceText=assistantMessage.content;
+          finalVoiceReady=true;
+          if(!earlyText){
+            animate('focus',0);
+            void playRemainingVoice();
+          }else if(earlyFinished||earlyFailed){
+            void playRemainingVoice();
+          }
+        }else{
+          animate('reply',900);
+        }
         return;
       }
 
@@ -1362,11 +1474,7 @@ export default function GithubApp(){
       throw new Error('الرد اتوقف قبل ما يكتمل.');
     }
 
-    if(doneReceived&&finalAssistantText&&wantsSpokenReply(text)&&voiceEnabled){
-      await unlockSpeechAudio();
-      const spoken=await speakReply(finalAssistantText);
-      setVoiceNotice(spoken?'ضي بترد بصوتها.':'تعذر تشغيل الصوت، والرد ظاهر كتابة.');
-    }
+    // Spoken replies are queued while the stream is arriving so audio can start earlier.
   }
 
   async function regenerateLastReply(){
@@ -1462,7 +1570,7 @@ export default function GithubApp(){
 
     if(!fromVoice){
       try{
-        await streamTypedReply(text,desktopActionResult);
+        await streamTypedReply(text,desktopActionResult,'','auto');
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         const tempId=streamMessageIdRef.current;
@@ -1476,6 +1584,33 @@ export default function GithubApp(){
           setInput(text);
           setLastFailedText(text);
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
+        }
+        animate('idle',0);
+      }finally{
+        textRequestAbortRef.current=null;
+        streamMessageIdRef.current='';
+        setPendingUserMessage(null);
+        setStreamingText(false);
+        setSending(false);
+      }
+      return;
+    }
+
+    if(fromVoice){
+      try{
+        await unlockSpeechAudio();
+        await streamTypedReply(text,desktopActionResult,'','always');
+      }catch(error){
+        const aborted=(error as Error)?.name==='AbortError';
+        const tempId=streamMessageIdRef.current;
+        if(tempId){
+          setConversations(prev=>prev.map(item=>({
+            ...item,
+            messages:item.messages.filter(message=>message.id!==tempId)
+          })));
+        }
+        if(!aborted){
+          setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد الصوتي.'));
         }
         animate('idle',0);
       }finally{
@@ -1541,9 +1676,8 @@ export default function GithubApp(){
       };
 
       const answerState=stateForAssistantText(assistantMessage.content);
-      animate(answerState,answerState==='talk'?0:1600);
-
       if(voiceEnabled){
+        animate('focus',0);
         const speaking=await speakReply(assistantMessage.content,revealAssistant);
         if(!speaking)revealAssistant();
       }else{
