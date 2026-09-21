@@ -833,6 +833,54 @@ export default function GithubApp(){
     }
   }
 
+  async function executeLiveDesktopTool(name:string,args:any){
+    const bridge=window.daiDesktop;
+    if(!bridge?.isDesktop)return {ok:false,message:'نسخة الويب لا تملك تحكمًا محليًا في الكمبيوتر.'};
+
+    try{
+      if(name==='open_program'){
+        const target=cleanDesktopTarget(String(args?.name||''));
+        return target ? await bridge.execute({type:'openApp',target}) : {ok:false,message:'اسم البرنامج ناقص.'};
+      }
+      if(name==='focus_program'){
+        const target=cleanDesktopTarget(String(args?.name||''));
+        return target ? await bridge.execute({type:'focusApp',target}) : {ok:false,message:'اسم البرنامج ناقص.'};
+      }
+      if(name==='close_program'){
+        const target=cleanDesktopTarget(String(args?.name||''));
+        if(!target)return {ok:false,message:'اسم البرنامج ناقص.'};
+        if(!window.confirm('تقفل '+target+'؟'))return {ok:false,message:'المستخدم ألغى إغلاق البرنامج.'};
+        return await bridge.execute({type:'closeApp',target});
+      }
+      if(name==='media_control'){
+        const key=String(args?.command||'') as 'playPause'|'next'|'previous'|'stop'|'mute'|'volumeUp'|'volumeDown';
+        if(!['playPause','next','previous','stop','mute','volumeUp','volumeDown'].includes(key)){
+          return {ok:false,message:'أمر الميديا غير معروف.'};
+        }
+        return await bridge.execute({type:'media',key});
+      }
+      if(name==='press_key'){
+        const key=String(args?.key||'') as DesktopAction extends {type:'shortcut';key:infer K}?K:never;
+        const allowed=['space','enter','escape','left','right','up','down','pageUp','pageDown','home','end','fullscreen','find','address'];
+        if(!allowed.includes(String(key)))return {ok:false,message:'الاختصار غير مسموح.'};
+        return await bridge.execute({type:'shortcut',key:key as any});
+      }
+      if(name==='open_website'){
+        const url=String(args?.url||'').trim();
+        if(!/^https?:\/\//i.test(url))return {ok:false,message:'الرابط غير صحيح.'};
+        return await bridge.execute({type:'openExternal',url});
+      }
+      if(name==='open_local_file'){
+        return await bridge.pickAndOpenFile();
+      }
+    }catch(error){
+      console.error('DAI live desktop tool failed',error);
+      return {ok:false,message:'حصل خطأ محلي أثناء تنفيذ الأمر.'};
+    }
+
+    return {ok:false,message:'الأمر المحلي غير معروف.'};
+  }
+
   async function startLiveVoice(){
     if(!supabase||loadingData||sending||voiceSessionActiveRef.current)return;
     if(!navigator.mediaDevices?.getUserMedia){
@@ -860,16 +908,79 @@ export default function GithubApp(){
       const model=String(data.model||'gemini-3.8-live');
       const currentName=String(data.userName||userName||'صاحب الحساب').trim();
       const socket=new WebSocket(
-        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?access_token='+encodeURIComponent(token)
       );
       liveSocketRef.current=socket;
 
       socket.onopen=()=>{
+        const desktopToolDeclarations=desktopMode ? [{
+          functionDeclarations:[
+            {
+              name:'open_program',
+              description:'افتح برنامج مثبت على Windows عندما يطلب المستخدم ذلك.',
+              parameters:{type:'OBJECT',properties:{name:{type:'STRING',description:'اسم البرنامج'}},required:['name']}
+            },
+            {
+              name:'focus_program',
+              description:'حوّل التركيز إلى نافذة برنامج مفتوحة.',
+              parameters:{type:'OBJECT',properties:{name:{type:'STRING',description:'اسم البرنامج أو النافذة'}},required:['name']}
+            },
+            {
+              name:'close_program',
+              description:'اطلب إغلاق برنامج مفتوح إغلاقًا عاديًا. يحتاج تأكيد المستخدم محليًا.',
+              parameters:{type:'OBJECT',properties:{name:{type:'STRING',description:'اسم البرنامج'}},required:['name']}
+            },
+            {
+              name:'media_control',
+              description:'تحكم في تشغيل الوسائط أو صوت Windows.',
+              parameters:{
+                type:'OBJECT',
+                properties:{
+                  command:{
+                    type:'STRING',
+                    enum:['playPause','next','previous','stop','mute','volumeUp','volumeDown'],
+                    description:'أمر التحكم في الوسائط'
+                  }
+                },
+                required:['command']
+              }
+            },
+            {
+              name:'press_key',
+              description:'نفّذ اختصار تنقل آمن في البرنامج النشط، مثل تقديم الفيديو أو ملء الشاشة.',
+              parameters:{
+                type:'OBJECT',
+                properties:{
+                  key:{
+                    type:'STRING',
+                    enum:['space','enter','escape','left','right','up','down','pageUp','pageDown','home','end','fullscreen','find','address']
+                  }
+                },
+                required:['key']
+              }
+            },
+            {
+              name:'open_website',
+              description:'افتح رابط http أو https في المتصفح الافتراضي.',
+              parameters:{type:'OBJECT',properties:{url:{type:'STRING'}},required:['url']}
+            },
+            {
+              name:'open_local_file',
+              description:'افتح نافذة اختيار ملف محلي ليختار المستخدم فيديو أو صوت أو ملفًا آخر.',
+              parameters:{type:'OBJECT',properties:{}}
+            }
+          ]
+        }] : undefined;
+
         const systemText=
           'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الحالي هو «'+currentName+'». '+
           'اتكلمي بالعربية المصرية بشكل طبيعي ومختصر. لا تذكري أسماء مستخدمين آخرين. '+
           'لا تستخدمي لقب «أشروفي» إلا إذا نطق المستخدم كلمة «أشروفي» أو سأل عنها صراحة في نفس الحوار. '+
+          (desktopMode
+            ? 'أنتِ داخل برنامج ضي على Windows وعندك أدوات محلية لفتح البرامج والتحكم في الوسائط والتنقل. استخدمي الأداة المناسبة فورًا لما المستخدم يطلب تحكمًا في الكمبيوتر، ولا تقولي إن التنفيذ نجح إلا بعد نتيجة الأداة. '
+            : '')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
+
         socket.send(JSON.stringify({
           setup:{
             model:'models/'+model,
@@ -882,15 +993,36 @@ export default function GithubApp(){
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
+            ...(desktopToolDeclarations?{tools:desktopToolDeclarations}:{}),
             inputAudioTranscription:{},
             outputAudioTranscription:{}
           }
         }));
       };
 
-      socket.onmessage=(event)=>{
+      socket.onmessage=async (event)=>{
         let payload:any;
         try{payload=JSON.parse(String(event.data||'{}'));}catch{return;}
+
+        if(payload?.toolCall?.functionCalls?.length){
+          const functionResponses=[];
+          for(const call of payload.toolCall.functionCalls){
+            const result=await executeLiveDesktopTool(String(call?.name||''),call?.args||{});
+            functionResponses.push({
+              id:call?.id,
+              name:call?.name,
+              response:{
+                ok:Boolean(result?.ok),
+                result:String(result?.message||'')
+              }
+            });
+          }
+          if(socket.readyState===WebSocket.OPEN){
+            socket.send(JSON.stringify({
+              toolResponse:{functionResponses}
+            }));
+          }
+        }
 
         if(payload?.setupComplete){
           void startLiveCapture(socket).catch(error=>{
