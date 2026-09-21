@@ -99,9 +99,9 @@ Deno.serve(async (req) => {
     'gemini-3.1-flash-tts-preview',
     'gemini-2.5-flash-preview-tts',
   ];
-  const voiceName = 'Aoede';
+  const voiceName = 'Leda';
   const prompt =
-    `اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية، بسرعة محادثة مريحة ومن غير مبالغة أو نبرة روبوتية:\n\n${text}`;
+    `اقرئي النص التالي فقط بصوت أنثوي دافئ وطبيعي، باللهجة المصرية، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي، مع وضوح الكلمات ومن غير مبالغة أو نبرة روبوتية:\n\n${text}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
