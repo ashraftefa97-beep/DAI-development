@@ -7,11 +7,33 @@ type Mode = 'login' | 'register';
 export default function AuthGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [sessionEmail, setSessionEmail] = useState('');
+  const [sessionName, setSessionName] = useState('');
+  const [needsName, setNeedsName] = useState(false);
   const [mode, setMode] = useState<Mode>('login');
+  const [name, setName] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+
+  function getUserName(user:any){
+    return String(
+      user?.user_metadata?.display_name ||
+      user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      ''
+    ).trim();
+  }
+
+  function applySessionUser(user:any){
+    const emailValue=String(user?.email||'');
+    const nameValue=getUserName(user);
+    setSessionEmail(emailValue);
+    setSessionName(nameValue);
+    setProfileName(nameValue);
+    setNeedsName(Boolean(user&&emailValue&&!nameValue));
+  }
 
   useEffect(() => {
     if (!supabase) {
@@ -22,12 +44,12 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setSessionEmail(data.session?.user.email || '');
+      applySessionUser(data.session?.user || null);
       setReady(true);
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSessionEmail(session?.user.email || '');
+      applySessionUser(session?.user || null);
       setReady(true);
     });
 
@@ -39,6 +61,10 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   async function submit() {
     if (!supabase || !email.trim() || password.length < 6 || busy) return;
+    if (mode === 'register' && name.trim().length < 2) {
+      setNotice('اكتب اسمك الأول عشان ضي تناديك بيه.');
+      return;
+    }
     setBusy(true);
     setNotice('');
     try {
@@ -48,11 +74,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           password,
           options: {
             emailRedirectTo: window.location.origin + window.location.pathname,
+            data: {
+              display_name: name.trim(),
+            },
           },
         });
         if (error) throw error;
         if (data.session) {
-          setSessionEmail(data.session.user.email || email.trim());
+          applySessionUser(data.session.user);
         } else {
           setNotice('تم إنشاء الحساب. افتح رسالة التأكيد في بريدك الإلكتروني ثم ارجع سجّل الدخول.');
           setMode('login');
@@ -63,7 +92,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           password,
         });
         if (error) throw error;
-        setSessionEmail(data.user.email || email.trim());
+        applySessionUser(data.user);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
@@ -71,6 +100,24 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       else if (/already registered/i.test(message)) setNotice('الحساب موجود بالفعل. جرّب تسجيل الدخول.');
       else if (/password/i.test(message)) setNotice('كلمة المرور لازم تكون 6 أحرف على الأقل.');
       else setNotice('حصلت مشكلة في تسجيل الدخول. جرّب مرة تانية.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveProfileName() {
+    if (!supabase || profileName.trim().length < 2 || busy) return;
+    setBusy(true);
+    setNotice('');
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: { display_name: profileName.trim() },
+      });
+      if (error) throw error;
+      applySessionUser(data.user);
+      setNeedsName(false);
+    } catch {
+      setNotice('الاسم متحفظش. جرّب تاني.');
     } finally {
       setBusy(false);
     }
@@ -96,6 +143,8 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     if (!supabase) return;
     await supabase.auth.signOut();
     setSessionEmail('');
+    setSessionName('');
+    setNeedsName(false);
   }
 
   if (!ready) {
@@ -134,6 +183,13 @@ export default function AuthGate({ children }: { children: ReactNode }) {
             <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setNotice(''); }}>إنشاء حساب</button>
           </div>
 
+          {mode === 'register' && (
+            <label className='auth-field'>
+              <span>اسمك</span>
+              <input type='text' value={name} onChange={e => setName(e.target.value)} autoComplete='name' placeholder='مثال: أحمد' maxLength={40} />
+            </label>
+          )}
+
           <label className='auth-field'>
             <span>البريد الإلكتروني</span>
             <input type='email' value={email} onChange={e => setEmail(e.target.value)} autoComplete='email' placeholder='name@example.com' />
@@ -153,7 +209,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
           {notice && <div className='auth-notice'>{notice}</div>}
 
-          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 6} onClick={submit}>
+          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 6 || (mode === 'register' && name.trim().length < 2)} onClick={submit}>
             {mode === 'login' ? <LogIn className='h-5 w-5' /> : <UserPlus className='h-5 w-5' />}
             {busy ? 'جاري التنفيذ…' : mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
           </button>
@@ -168,10 +224,42 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     );
   }
 
+  if (sessionEmail && needsName) {
+    return (
+      <main className='auth-shell' dir='rtl'>
+        <section className='auth-card'>
+          <img className='auth-logo' src='./dai-logo.svg' alt='DAI AI' />
+          <h1>اسمك عند ضي</h1>
+          <p>اكتب الاسم اللي تحب ضي تناديك بيه. الاسم بيتحفظ على حسابك أنت بس.</p>
+
+          <label className='auth-field'>
+            <span>الاسم</span>
+            <input
+              type='text'
+              value={profileName}
+              onChange={e => setProfileName(e.target.value)}
+              autoComplete='name'
+              placeholder='مثال: أحمد'
+              maxLength={40}
+              onKeyDown={e => { if (e.key === 'Enter') saveProfileName(); }}
+            />
+          </label>
+
+          {notice && <div className='auth-notice'>{notice}</div>}
+
+          <button className='auth-primary' disabled={busy || profileName.trim().length < 2} onClick={saveProfileName}>
+            <UserPlus className='h-5 w-5' />
+            {busy ? 'جاري الحفظ…' : 'احفظ الاسم وكمل'}
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <>
       <div className='auth-session-pill' dir='rtl'>
-        <span>{sessionEmail}</span>
+        <span>{sessionName || sessionEmail}</span>
         <button onClick={logout} aria-label='تسجيل الخروج'><LogOut className='h-4 w-4' /></button>
       </div>
       {children}
