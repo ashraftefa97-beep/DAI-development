@@ -545,11 +545,11 @@ button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visib
 .auth-tabs button.active { background: #2d2435; color: #ffd4e1; }
 .auth-field { display: grid; gap: 7px; text-align: right; margin-top: 13px; }
 .auth-field span { color: #bfb8cc; font-size: 12px; }
-.auth-field input {
+.auth-field input, .auth-field select {
   width: 100%; border: 1px solid #34384d; border-radius: 13px; background: #121625; color: #fff7fa;
   padding: 12px 13px; outline: 0;
 }
-.auth-field input:focus { border-color: #d77fa3; }
+.auth-field input:focus, .auth-field select:focus { border-color: #d77fa3; }
 .auth-primary, .auth-google {
   width: 100%; min-height: 46px; margin-top: 16px; border-radius: 14px; cursor: pointer;
   display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 800;
