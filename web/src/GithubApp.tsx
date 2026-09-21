@@ -256,7 +256,7 @@ export default function GithubApp(){
 
   function animationAudioBusy(){
     return (
-      voiceSessionActive ||
+      voiceSessionStatus==='speaking' ||
       voiceNoteRecording ||
       voiceNoteProcessing ||
       Boolean(speakingMessageId) ||
@@ -325,7 +325,9 @@ export default function GithubApp(){
     lastAnimationRequestRef.current=requestKey;
     const id=await requestAnimationDecision('request',text);
     if(!id||lastAnimationRequestRef.current!==requestKey)return false;
-    return executeSelectedAnimation(id,'explicit');
+    const played=executeSelectedAnimation(id,'explicit');
+    if(!played&&animationAudioBusy())pendingAutoAnimationRef.current=id;
+    return played;
   }
 
   async function chooseContextAnimation(userText:string,assistantText:string){
@@ -857,6 +859,7 @@ export default function GithubApp(){
     proAnimations,
     sending,
     voiceSessionActive,
+    voiceSessionStatus,
     voiceNoteRecording,
     voiceNoteProcessing,
     speakingMessageId,
@@ -2322,7 +2325,11 @@ export default function GithubApp(){
     const daiText=liveOutputTranscriptRef.current.trim();
     if(userText)voiceSessionTurnsRef.current.push({role:'user',content:userText});
     if(daiText)voiceSessionTurnsRef.current.push({role:'assistant',content:daiText});
-    if(userText&&daiText)void chooseContextAnimation(userText,daiText);
+    if(userText&&looksLikeAnimationRequest(userText)){
+      void handleExplicitAnimationRequest(userText);
+    }else if(userText&&daiText){
+      void chooseContextAnimation(userText,daiText);
+    }
     liveInputTranscriptRef.current='';
     liveOutputTranscriptRef.current='';
   }
@@ -2382,6 +2389,21 @@ export default function GithubApp(){
   }
 
   async function executeLiveDesktopTool(name:string,args:any){
+    if(name==='perform_animation'){
+      if(!professional||!proAnimations)return {ok:false,message:'مكتبة الحركات الكاملة تحتاج Professional.'};
+      const id=String(args?.id||'');
+      const spec=animationSpecById(id);
+      if(!spec)return {ok:false,message:'الحركة المطلوبة مش موجودة في مكتبة ضي.'};
+      const played=executeSelectedAnimation(id,'explicit');
+      if(!played&&animationAudioBusy()){
+        pendingAutoAnimationRef.current=id;
+        return {ok:true,message:'الحركة اتجدولت بعد ما الصوت الحالي يخلص.'};
+      }
+      return played
+        ? {ok:true,message:'ضي نفذت حركة '+spec.labelAr+'.'}
+        : {ok:false,message:'ضي مقدرتش تنفذ الحركة دلوقتي.'};
+    }
+
     const bridge=window.daiDesktop;
     if(!bridge?.isDesktop)return {ok:false,message:'نسخة الويب لا تملك تحكمًا محليًا في الكمبيوتر.'};
     if(!professional)return {ok:false,message:'الأمر ده متاح في DAI Professional فقط.'};
@@ -2487,6 +2509,24 @@ export default function GithubApp(){
       liveSocketRef.current=socket;
 
       socket.onopen=()=>{
+        const animationToolDeclarations=professional&&proAnimations ? [{
+          functionDeclarations:[{
+            name:'perform_animation',
+            description:'نفّذ حركة جسدية/تعبيرية فعلية لشخصية ضي. استخدمها لما المستخدم يطلب حركة صراحة، وممكن تستخدمها تلقائيًا بشكل خفيف فقط لما تضيف تعبيرًا طبيعيًا للسياق. لا تستخدمها في سياق جاد أو حساس.',
+            parameters:{
+              type:'OBJECT',
+              properties:{
+                id:{
+                  type:'STRING',
+                  enum:PRO_ANIMATIONS.map(item=>item.id),
+                  description:'ID حركة موجودة فعلًا في مكتبة ضي Professional'
+                }
+              },
+              required:['id']
+            }
+          }]
+        }] : undefined;
+
         const desktopToolDeclarations=desktopMode&&professional ? [{
           functionDeclarations:[
             {
@@ -2592,6 +2632,9 @@ export default function GithubApp(){
             : desktopMode
               ? 'المستخدم على DAI Standard؛ المحادثة والصوت متاحين لكن أدوات التحكم في الجهاز غير متاحة. '
               : '')+
+          (professional&&proAnimations
+            ? 'عندك أداة perform_animation مرتبطة بمكتبة ضي الفعلية المكونة من 84 حركة. لو المستخدم طلب حركة استخدمي الأداة بدل ما تقولي إنك مش قادرة تتحرك. وممكن تختاري حركة من نفسك أحيانًا لما تكون مناسبة جدًا للسياق، لكن بشكل خفيف ومش مع كل رد، ومن غير حركات احتفالية في المواقف الجادة أو الحساسة. '
+            : '')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
@@ -2606,7 +2649,9 @@ export default function GithubApp(){
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
-            ...(desktopToolDeclarations?{tools:desktopToolDeclarations}:{}),
+            ...((animationToolDeclarations||desktopToolDeclarations)
+              ? {tools:[...(animationToolDeclarations||[]),...(desktopToolDeclarations||[])]}
+              : {}),
             inputAudioTranscription:{},
             outputAudioTranscription:{}
           }
