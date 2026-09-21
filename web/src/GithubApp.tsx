@@ -61,6 +61,7 @@ export default function GithubApp(){
   const [errorText,setErrorText]=useState('');
   const [userId,setUserId]=useState('');
   const timer=useRef<number|undefined>(undefined);
+  const typingTimer=useRef<number|undefined>(undefined);
   const audioRef=useRef<HTMLAudioElement|null>(null);
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
@@ -73,13 +74,25 @@ export default function GithubApp(){
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
+  function handleInputChange(value:string){
+    setInput(value);
+    if(listening||sending)return;
+    clearTimeout(typingTimer.current);
+    if(value.trim()){
+      setDaiState('typing');
+      typingTimer.current=window.setTimeout(()=>setDaiState('idle'),850);
+    }else if(daiState==='typing'){
+      setDaiState('idle');
+    }
+  }
+
   function stateForUserText(text:string):DaiState{
     if(/شكرا|شكرًا|تسلم|حلو|جميل|ممتاز|فرح|مبسوط/i.test(text))return 'happy';
     if(/بحب|حب|قلب|وحشت/i.test(text))return 'heart';
     if(/نعسان|نوم|نامي|تصبحي|تصبح/i.test(text))return 'sleep';
     if(/فكرة|اقتراح|صمم|اعمل|نخطط|خطة|ابداع/i.test(text))return 'idea';
     if(/بحث|دور|ابحث|مين|امتى|متى|فين|أين|اين|كام|كم|آخر|احدث|أحدث|search|latest/i.test(text))return 'search';
-    return 'listen';
+    return 'typing';
   }
 
   function stateForAssistantText(text:string):DaiState{
@@ -225,6 +238,7 @@ export default function GithubApp(){
 
   useEffect(()=>{ animate('wave',2600); return()=>{
     clearTimeout(timer.current);
+    clearTimeout(typingTimer.current);
     keepListeningRef.current=false;
     try{ recognitionRef.current?.stop(); }catch{}
     recognitionRef.current=null;
@@ -324,6 +338,7 @@ export default function GithubApp(){
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
     if(!fromVoice)setInput('');
+    clearTimeout(typingTimer.current);
     setErrorText('');
     setSending(true);
     const optimisticMessage:Message={
@@ -554,7 +569,7 @@ export default function GithubApp(){
           <Plus className='h-5 w-5'/>
         </button>
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
-        <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
+        <textarea value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={listening?'ضي سامعاك… اضغط الميكروفون تاني لما تخلص':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <div className='classic-input-actions'>
           <button className='classic-mic-button' aria-pressed={listening} onClick={toggleMic} aria-label={listening?'إيقاف الاستماع':'بدء الاستماع'} title={listening?'اضغط لإيقاف الاستماع وإرسال كلامك':'اضغط وابدأ الكلام'}>
             <Mic className='h-5 w-5'/>
