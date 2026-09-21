@@ -109,7 +109,6 @@ export default function GithubApp(){
     <section className='classic-stage'>
       <div className='classic-face-wrap classic-logo-stage'>
         <DaiFace state={daiState} reduced={reduced}/>
-        <DaiLogo className='classic-center-logo'/>
       </div>
 
       <div className='classic-motion-controls'>
