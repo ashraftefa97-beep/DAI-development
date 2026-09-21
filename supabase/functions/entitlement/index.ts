@@ -57,6 +57,10 @@ Deno.serve(async (req) => {
         'desktop.files.open',
         'desktop.startup',
         'desktop.runningApps.read',
+        'desktop.windowLayout',
+        'desktop.floatingCompanion',
+        'desktop.screenAwareness.manual',
+        'pro.memory',
       ]
     : [];
 
