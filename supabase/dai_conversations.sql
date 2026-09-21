@@ -9,6 +9,9 @@ create table if not exists public.dai_conversations (
   updated_at timestamptz not null default now()
 );
 
+create unique index if not exists dai_conversations_id_user_uidx
+  on public.dai_conversations(id, user_id);
+
 create table if not exists public.dai_messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.dai_conversations(id) on delete cascade,
@@ -35,10 +38,50 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='dai_messages_conversation_user_fkey'
+      and conrelid='public.dai_messages'::regclass
+  ) then
+    alter table public.dai_messages
+      add constraint dai_messages_conversation_user_fkey
+      foreign key (conversation_id,user_id)
+      references public.dai_conversations(id,user_id)
+      on delete cascade;
+  end if;
+end $;
+
 drop policy if exists "Users manage own DAI messages" on public.dai_messages;
 create policy "Users manage own DAI messages"
 on public.dai_messages
 for all
 to authenticated
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+using (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.dai_conversations c
+    where c.id = dai_messages.conversation_id
+      and c.user_id = auth.uid()
+  )
+)
+with check (
+  auth.uid() = user_id
+  and exists (
+    select 1
+    from public.dai_conversations c
+    where c.id = dai_messages.conversation_id
+      and c.user_id = auth.uid()
+  )
+);
+
+revoke all privileges on table public.dai_conversations from anon;
+revoke all privileges on table public.dai_messages from anon;
+
+revoke truncate, references, trigger on table public.dai_conversations from authenticated;
+revoke truncate, references, trigger on table public.dai_messages from authenticated;
+
+grant select, insert, update, delete on table public.dai_conversations to authenticated;
+grant select, insert, update, delete on table public.dai_messages to authenticated;
