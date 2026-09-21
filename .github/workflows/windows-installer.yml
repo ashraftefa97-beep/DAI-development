@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: dai-windows-installer
+  cancel-in-progress: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
