@@ -72,8 +72,9 @@ Deno.serve(async (req) => {
   const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
   const modelCandidates = [
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-3.5-flash',
     'gemini-3.6-flash',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
