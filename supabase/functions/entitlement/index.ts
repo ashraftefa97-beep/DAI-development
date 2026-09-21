@@ -61,6 +61,7 @@ Deno.serve(async (req) => {
         'desktop.floatingCompanion',
         'desktop.screenAwareness.manual',
         'pro.memory',
+        'pro.animations.full',
       ]
     : [];
 
