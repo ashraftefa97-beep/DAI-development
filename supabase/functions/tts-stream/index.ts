@@ -58,7 +58,9 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_STREAM_CONFIG' }, 503);
 
   const prompt =
-    'اقرئي بالمصري الطبيعي بصوت Leda الأنثوي نفسه من أول حرف لآخر حرف. ثبّتي طبقة الصوت والنبرة والشخصية طوال الرد، وما تخفضيش طبقة الصوت أو تغيّريها في آخر الجمل. سرعة محادثة نشيطة وواضحة، والنص فقط من غير أي إضافة:\n' + text;
+    'اقرئي بالمصري الطبيعي بصوت أنثوي شاب وخفيف وواضح، بسرعة محادثة نشيطة. ' +
+    'حافظي على نفس المتكلمة ونفس طبقة الصوت من البداية للنهاية، وممنوع يتحول الصوت لغليظ في آخر الكلام. ' +
+    'النص فقط من غير أي إضافة:\n' + text;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45000);
@@ -82,7 +84,7 @@ Deno.serve(async (req) => {
           type: 'audio',
         },
         generation_config: {
-          speech_config: [{ voice: 'Leda' }],
+          speech_config: [{ voice: 'Zephyr' }],
         },
         stream: true,
         store: false,
