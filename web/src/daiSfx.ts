@@ -31,6 +31,20 @@ import arcadePlayUrl from 'uisfx/sounds/arcade/play.ogg?url';
 import arcadeStepUrl from 'uisfx/sounds/arcade/progress-step.ogg?url';
 import arcadeRewardUrl from 'uisfx/sounds/arcade/reward.ogg?url';
 
+const foleyAsset=(name:string)=>new URL('./sfx/foley/'+name,document.baseURI).href;
+const foleySwishUrl=foleyAsset('gentle-swish.wav');
+const foleyFabricUrl=foleyAsset('fabric-soft.wav');
+const foleyStep1Url=foleyAsset('footstep-1.ogg');
+const foleyStep2Url=foleyAsset('footstep-2.ogg');
+const foleyKey1Url=foleyAsset('key-1.wav');
+const foleyKey2Url=foleyAsset('key-2.wav');
+const foleyPageUrl=foleyAsset('page-turn.wav');
+const foleyWaterUrl=foleyAsset('water-plop.ogg');
+const foleyMechClickUrl=foleyAsset('mech-click.wav');
+const foleyRatchetUrl=foleyAsset('ratchet.wav');
+const foleyBreathUrl=foleyAsset('breath.ogg');
+const foleyClapUrl=foleyAsset('clap.wav');
+
 export type DaiSfxMode = 'soft' | 'normal' | 'silent';
 
 type PlayOptions = {
@@ -67,7 +81,19 @@ type Cue =
   | 'error'
   | 'play'
   | 'beat'
-  | 'reward';
+  | 'reward'
+  | 'foleySwish'
+  | 'foleyFabric'
+  | 'foleyStep1'
+  | 'foleyStep2'
+  | 'foleyKey1'
+  | 'foleyKey2'
+  | 'foleyPage'
+  | 'foleyWater'
+  | 'foleyMechClick'
+  | 'foleyRatchet'
+  | 'foleyBreath'
+  | 'foleyClap';
 
 type Marker = {
   at:number;
@@ -107,7 +133,19 @@ const CUE_URLS:Record<Cue,string>={
   error:cinematicErrorUrl,
   play:arcadePlayUrl,
   beat:arcadeStepUrl,
-  reward:arcadeRewardUrl
+  reward:arcadeRewardUrl,
+  foleySwish:foleySwishUrl,
+  foleyFabric:foleyFabricUrl,
+  foleyStep1:foleyStep1Url,
+  foleyStep2:foleyStep2Url,
+  foleyKey1:foleyKey1Url,
+  foleyKey2:foleyKey2Url,
+  foleyPage:foleyPageUrl,
+  foleyWater:foleyWaterUrl,
+  foleyMechClick:foleyMechClickUrl,
+  foleyRatchet:foleyRatchetUrl,
+  foleyBreath:foleyBreathUrl,
+  foleyClap:foleyClapUrl
 };
 
 function marker(at:number,cue:Cue,volume=1,rate=1,pan=0):Marker{
@@ -126,29 +164,29 @@ function repeatCue(cue:Cue,count:number,start:number,end:number,volume=.62,rate=
 
 const BASE_PROFILES:Record<string,Marker[]>={
   wave:[
-    marker(.06,'swipe',.62,1.04,-.22),
-    marker(.22,'softReceive',.48,1.03,.16)
+    marker(.08,'foleySwish',.72,1.00,-.18),
+    marker(.24,'foleyFabric',.34,.98,.12)
   ],
   double_wave:[
-    marker(.05,'swipe',.56,1.06,-.28),
-    marker(.18,'swipe',.54,.98,.28),
-    marker(.34,'receive',.40,1.04,0)
+    marker(.06,'foleySwish',.60,1.03,-.26),
+    marker(.22,'foleySwish',.56,.96,.26),
+    marker(.34,'foleyFabric',.30,1.00,0)
   ],
   welcome_back:[
     marker(.04,'receive',.55,1.01,0),
     marker(.23,'dreamReward',.44,1.04,.10)
   ],
   hello_shy:[
-    marker(.07,'swipe',.36,.94,-.18),
-    marker(.26,'dreamInfo',.32,1.02,.15)
+    marker(.08,'foleySwish',.38,.92,-.16),
+    marker(.28,'foleyFabric',.26,.96,.12)
   ],
   goodbye:[
-    marker(.06,'swipe',.48,.98,.22),
-    marker(.34,'softReceive',.32,.94,-.08)
+    marker(.07,'foleySwish',.52,.96,.20),
+    marker(.34,'foleyFabric',.24,.94,-.08)
   ],
   bow:[
-    marker(.09,'swipe',.56,.90,0),
-    marker(.42,'reaction',.28,.98,0)
+    marker(.10,'foleyFabric',.48,.92,0),
+    marker(.40,'foleySwish',.28,.90,0)
   ],
   salute:[
     marker(.10,'snap',.46,1.04,0),
@@ -214,9 +252,9 @@ const BASE_PROFILES:Record<string,Marker[]>={
     marker(.72,'complete',.38,1.06,0)
   ],
   clap:[
-    marker(.18,'drop',.62,1.04,-.12),
-    marker(.47,'drop',.66,.98,.12),
-    marker(.74,'drop',.60,1.06,-.06)
+    marker(.18,'foleyClap',.78,1.00,-.08),
+    marker(.47,'foleyClap',.82,.97,.08),
+    marker(.74,'foleyClap',.76,1.03,-.04)
   ],
   high_five:[
     marker(.38,'rubberDrop',.78,1.02,0),
@@ -268,40 +306,40 @@ const BASE_PROFILES:Record<string,Marker[]>={
   ],
 
   stretch:[
-    marker(.08,'swipe',.50,.88,0),
-    marker(.46,'softReceive',.24,.94,0)
+    marker(.08,'foleyFabric',.58,.92,0),
+    marker(.46,'foleySwish',.30,.90,0)
   ],
   side_stretch:[
-    marker(.08,'swipe',.48,.90,-.12),
-    marker(.46,'softReceive',.22,.94,.12)
+    marker(.08,'foleyFabric',.56,.93,-.10),
+    marker(.46,'foleySwish',.28,.91,.10)
   ],
   relax:[
-    marker(.08,'sleep',.30,.92,0),
-    marker(.46,'dreamInfo',.18,.90,0)
+    marker(.08,'foleyBreath',.28,.94,0),
+    marker(.46,'foleyFabric',.18,.92,0)
   ],
   cozy_sway:[
-    marker(.10,'sleep',.24,.94,-.10),
-    marker(.55,'dreamInfo',.18,.96,.10)
+    marker(.10,'foleyFabric',.22,.94,-.10),
+    marker(.55,'foleyFabric',.20,.97,.10)
   ],
   sleep:[
-    marker(.08,'sleep',.42,.88,0),
-    marker(.52,'dreamInfo',.18,.90,0)
+    marker(.10,'foleyBreath',.44,.96,0),
+    marker(.56,'foleyBreath',.34,.92,0)
   ],
   yawn:[
-    marker(.10,'sleep',.34,.82,0),
-    marker(.46,'softReceive',.18,.88,0)
+    marker(.10,'foleyBreath',.42,.86,0),
+    marker(.48,'foleyFabric',.18,.92,0)
   ],
   dream:[
     marker(.08,'dreamInfo',.30,.90,-.08),
     marker(.43,'dreamReward',.22,.94,.08)
   ],
   meditate:[
-    marker(.08,'sleep',.22,.88,0),
-    marker(.61,'dreamInfo',.16,.90,0)
+    marker(.08,'foleyBreath',.28,.92,0),
+    marker(.61,'foleyBreath',.24,.88,0)
   ],
   breathe:[
-    marker(.08,'sleep',.20,.86,0),
-    marker(.55,'softReceive',.16,.90,0)
+    marker(.08,'foleyBreath',.30,.94,0),
+    marker(.55,'foleyBreath',.26,.90,0)
   ],
   recharge:[
     marker(.06,'scan',.26,.88,0),
@@ -330,53 +368,58 @@ const BASE_PROFILES:Record<string,Marker[]>={
     marker(.67,'beat',.30,.98,.10)
   ],
   spin:[
-    marker(.08,'swipe',.52,1.10,-.26),
-    marker(.48,'scan',.30,1.12,.22),
-    marker(.76,'snap',.36,1.08,0)
+    marker(.08,'foleySwish',.68,1.08,-.28),
+    marker(.42,'foleySwish',.52,1.02,.24),
+    marker(.76,'foleyFabric',.28,.96,0)
   ],
   bounce:[
-    marker(.12,'rubberLift',.48,.98,0),
-    marker(.58,'rubberDrop',.62,1.04,0)
+    marker(.12,'foleySwish',.34,1.04,0),
+    marker(.58,'foleyStep1',.62,1.00,0)
   ],
   hop_left:[
-    marker(.10,'rubberLift',.46,.98,-.18),
-    marker(.60,'rubberDrop',.58,1.05,-.12)
+    marker(.10,'foleySwish',.30,1.02,-.18),
+    marker(.60,'foleyStep1',.58,1.00,-.12)
   ],
   hop_right:[
-    marker(.10,'rubberLift',.46,.98,.18),
-    marker(.60,'rubberDrop',.58,1.05,.12)
+    marker(.10,'foleySwish',.30,1.02,.18),
+    marker(.60,'foleyStep2',.58,1.00,.12)
   ],
   roam_walk:[
-    ...repeatCue('drop',4,.08,.82,.28,1.02)
+    marker(.10,'foleyStep1',.44,1.00,-.12),
+    marker(.32,'foleyStep2',.42,.98,.12),
+    marker(.56,'foleyStep1',.43,1.02,-.12),
+    marker(.80,'foleyStep2',.41,1.00,.12)
   ],
   tip_toe:[
-    ...repeatCue('drop',3,.12,.76,.20,.92)
+    marker(.14,'foleyStep1',.24,.90,-.10),
+    marker(.44,'foleyStep2',.22,.88,.10),
+    marker(.74,'foleyStep1',.23,.92,-.08)
   ],
   sneak:[
-    ...repeatCue('drop',3,.12,.76,.18,.90)
+    marker(.14,'foleyStep1',.22,.88,-.10),
+    marker(.44,'foleyStep2',.20,.87,.10),
+    marker(.74,'foleyStep1',.21,.90,-.08)
   ],
   sway:[
-    marker(.12,'swipe',.24,.92,-.18),
-    marker(.56,'swipe',.22,.96,.18)
+    marker(.12,'foleyFabric',.22,.92,-.18),
+    marker(.56,'foleyFabric',.20,.96,.18)
   ],
 
   fishing:[
-    marker(.05,'swipe',.56,1.04,-.22),
-    marker(.15,'drop',.36,.94,.22),
-    marker(.34,'press',.28,1.03,-.08),
-    marker(.40,'press',.26,.98,.08),
-    marker(.46,'press',.25,1.06,-.05),
-    marker(.70,'drop',.46,.96,.18),
-    marker(.78,'complete',.48,1.06,0)
+    marker(.05,'foleySwish',.70,1.02,-.22),
+    marker(.15,'foleyWater',.58,1.00,.18),
+    marker(.34,'foleyRatchet',.36,1.02,-.08),
+    marker(.40,'foleyRatchet',.32,.98,.08),
+    marker(.46,'foleyRatchet',.30,1.04,-.05),
+    marker(.70,'foleyWater',.52,.96,.16),
+    marker(.80,'complete',.28,1.04,0)
   ],
 
   read:[
-    marker(.10,'softReceive',.28,.94,-.10),
-    marker(.58,'softReceive',.26,.98,.10)
+    marker(.14,'foleyPage',.46,.98,0)
   ],
   camera_pose:[
-    marker(.48,'camera',.72,.98,0),
-    marker(.62,'bonus',.28,1.10,0)
+    marker(.48,'foleyMechClick',.72,1.00,0)
   ],
   pose_star:[
     marker(.12,'bonus',.48,1.12,0),
@@ -443,14 +486,23 @@ function dynamicProfile(state:string,durationMs:number):Marker[]{
 
   if(state==='write'||state==='working'){
     const count=state==='write'?6:4;
-    return repeatCue('typing',count,.08,.72,.28,1+(state==='write'?.03:0));
+    const out:Marker[]=[];
+    for(let i=0;i<count;i++){
+      const at=.08+(.64*i/Math.max(1,count-1));
+      out.push(marker(at,i%2===0?'foleyKey1':'foleyKey2',.42,state==='write'?1.02:.98,i%2===0?-.10:.10));
+    }
+    return out;
   }
 
   if(state==='type_fast'||state==='code_focus'){
     const count=state==='type_fast'?12:9;
-    const markers=repeatCue('typing',count,.05,.76,.25,state==='type_fast'?1.08:1.02);
-    if(state==='code_focus')markers.push(marker(.86,'checkpoint',.28,1.06,0));
-    return markers;
+    const out:Marker[]=[];
+    for(let i=0;i<count;i++){
+      const at=.05+(.71*i/Math.max(1,count-1));
+      out.push(marker(at,i%2===0?'foleyKey1':'foleyKey2',.36,state==='type_fast'?1.08:1.02,i%2===0?-.10:.10));
+    }
+    if(state==='code_focus')out.push(marker(.86,'checkpoint',.22,1.04,0));
+    return out;
   }
 
   if(state==='loading'){
