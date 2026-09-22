@@ -42,7 +42,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='0.9.3';
+const DAI_WEB_VERSION='0.9.4';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -178,7 +178,6 @@ export default function GithubApp(){
   const typingTimer=useRef<number|undefined>(undefined);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
-  const speechStreamAbortRef=useRef<AbortController|null>(null);
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
@@ -427,8 +426,6 @@ export default function GithubApp(){
   }
 
   function stopSpeechAudio(){
-    try{speechStreamAbortRef.current?.abort();}catch{}
-    speechStreamAbortRef.current=null;
     for(const source of speechStreamSourcesRef.current){
       try{source.stop();}catch{}
     }
@@ -442,23 +439,13 @@ export default function GithubApp(){
     return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
-  function base64Pcm16ToFloat32(base64:string){
-    const buffer=base64ToArrayBuffer(base64);
-    const view=new DataView(buffer);
-    const samples=new Float32Array(Math.floor(view.byteLength/2));
-    for(let i=0;i<samples.length;i++){
-      samples[i]=view.getInt16(i*2,true)/32768;
-    }
-    return samples;
-  }
-
   async function streamSpeech(
     text:string,
     runId:number,
     onStart?:()=>void,
     onEnd?:()=>void
   ){
-    if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
+    if(!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
@@ -469,118 +456,28 @@ export default function GithubApp(){
     }
     if(ctx.state!=='running')return false;
 
-    const {data:{session}}=await supabase.auth.getSession();
-    if(!session?.access_token)throw new Error('tts-session-missing');
+    const {data,error}=await supabase.functions.invoke('tts',{body:{text:spoken}});
+    if(error||!data?.audioBase64)throw error||new Error('tts-audio-missing');
+    if(runId!==speechRunRef.current)return false;
+
+    const audioBytes=base64ToArrayBuffer(String(data.audioBase64));
+    const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
+    if(runId!==speechRunRef.current)return false;
 
     stopSpeechAudio();
-    const controller=new AbortController();
-    speechStreamAbortRef.current=controller;
 
-    let response:Response;
-    try{
-      response=await fetch(`${supabaseUrl}/functions/v1/tts-stream`,{
-        method:'POST',
-        signal:controller.signal,
-        headers:{
-          Authorization:`Bearer ${session.access_token}`,
-          apikey:supabasePublishableKey,
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({text:spoken})
-      });
-    }catch(error){
-      if(controller.signal.aborted||runId!==speechRunRef.current)return false;
-      throw error;
-    }
-
-    if(!response.ok||!response.body){
-      const detail=await response.text().catch(()=>'');
-      if(speechStreamAbortRef.current===controller)speechStreamAbortRef.current=null;
-      throw new Error('tts-stream-'+response.status+':'+detail.slice(0,180));
-    }
-
-    speechStreamAbortRef.current=controller;
-
-    const reader=response.body.getReader();
-    const decoder=new TextDecoder();
-    let pending='';
-    let started=false;
-    let streamDone=false;
-    let endNotified=false;
-    let nextStartTime=ctx.currentTime+0.035;
-
-    const maybeFinish=()=>{
-      if(endNotified||!streamDone||!started||speechStreamSourcesRef.current.size>0)return;
-      endNotified=true;
+    const source=ctx.createBufferSource();
+    source.buffer=decoded;
+    source.connect(ctx.destination);
+    speechStreamSourcesRef.current.add(source);
+    source.onended=()=>{
+      speechStreamSourcesRef.current.delete(source);
       if(runId===speechRunRef.current)onEnd?.();
     };
 
-    const enqueueChunk=(audioBase64:string,sampleRate:number)=>{
-      if(runId!==speechRunRef.current||controller.signal.aborted)return;
-      const samples=base64Pcm16ToFloat32(audioBase64);
-      if(!samples.length)return;
-
-      const rate=Math.max(8000,Math.min(96000,Number(sampleRate||24000)));
-      const audioBuffer=ctx.createBuffer(1,samples.length,rate);
-      audioBuffer.copyToChannel(samples,0);
-
-      const source=ctx.createBufferSource();
-      source.buffer=audioBuffer;
-      source.connect(ctx.destination);
-      speechStreamSourcesRef.current.add(source);
-
-      const startAt=Math.max(ctx.currentTime+0.025,nextStartTime);
-      nextStartTime=startAt+audioBuffer.duration;
-      source.onended=()=>{
-        speechStreamSourcesRef.current.delete(source);
-        maybeFinish();
-      };
-      source.start(startAt);
-
-      if(!started){
-        started=true;
-        onStart?.();
-      }
-    };
-
-    const handleFrame=(frame:string)=>{
-      const eventName=frame.split(/\r?\n/).find(line=>line.startsWith('event:'))?.slice(6).trim()||'';
-      const dataText=frame.split(/\r?\n/).filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trim()).join('\n');
-      if(!dataText)return;
-      let payload:any;
-      try{payload=JSON.parse(dataText);}catch{return;}
-
-      if(eventName==='audio'&&payload?.data){
-        enqueueChunk(String(payload.data),Number(payload.sampleRate||24000));
-      }else if(eventName==='done'){
-        streamDone=true;
-        maybeFinish();
-      }else if(eventName==='error'){
-        throw new Error(String(payload?.code||'tts-stream-read'));
-      }
-    };
-
-    try{
-      while(true){
-        if(runId!==speechRunRef.current||controller.signal.aborted)return false;
-        const {value,done}=await reader.read();
-        if(done)break;
-        pending+=decoder.decode(value,{stream:true});
-        const frames=pending.split(/\r?\n\r?\n/);
-        pending=frames.pop()||'';
-        for(const frame of frames)handleFrame(frame);
-      }
-      if(pending.trim())handleFrame(pending);
-      streamDone=true;
-      maybeFinish();
-      return started;
-    }catch(error){
-      if(controller.signal.aborted||runId!==speechRunRef.current)return false;
-      throw error;
-    }finally{
-      try{reader.releaseLock();}catch{}
-      if(speechStreamAbortRef.current===controller)speechStreamAbortRef.current=null;
-    }
+    source.start(0);
+    onStart?.();
+    return true;
   }
 
   async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void){
@@ -624,7 +521,7 @@ export default function GithubApp(){
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
-      console.error('DAI Leda streaming TTS failed; no voice fallback used',error);
+      console.error('DAI Gemini TTS failed; no voice fallback used',error);
       setDaiState('idle');
       setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
       return false;
