@@ -1,0 +1,21 @@
+{
+  "name": "DAI AI — ضي",
+  "short_name": "DAI AI",
+  "description": "ضي — رفيقة أفكارك للمحادثة والصوت والذاكرة الاختيارية.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101321",
+  "theme_color": "#101321",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./dai-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
