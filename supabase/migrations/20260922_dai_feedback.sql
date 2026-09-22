@@ -5,6 +5,7 @@ create table if not exists public.dai_feedback (
   message text not null check (char_length(message) between 3 and 2000),
   app_version text not null default '',
   user_agent text not null default '',
+  context jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
