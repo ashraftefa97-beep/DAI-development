@@ -140,14 +140,19 @@ export default function GithubApp(){
   const [sfxMode,setSfxMode]=useState<DaiSfxMode>(()=>{
     try{
       const value=localStorage.getItem('dai-sfx-mode');
-      return value==='soft'||value==='normal'||value==='silent'?value:'soft';
-    }catch{return 'soft';}
+      const migrated=localStorage.getItem('dai-sfx-tone-migrated')==='1';
+      if(!migrated&&value==='soft')return 'normal';
+      return value==='soft'||value==='normal'||value==='silent'?value:'normal';
+    }catch{return 'normal';}
   });
   const [sfxVolume,setSfxVolume]=useState(()=>{
     try{
-      const value=Number(localStorage.getItem('dai-sfx-volume')||'.34');
-      return Number.isFinite(value)?Math.max(0,Math.min(1,value)):.34;
-    }catch{return .34;}
+      const raw=localStorage.getItem('dai-sfx-volume');
+      const value=Number(raw??'.72');
+      const migrated=localStorage.getItem('dai-sfx-tone-migrated')==='1';
+      if(!migrated&&(raw===null||Math.abs(value-.34)<.015))return .72;
+      return Number.isFinite(value)?Math.max(0,Math.min(1,value)):.72;
+    }catch{return .72;}
   });
   const [sfxNotice,setSfxNotice]=useState('');
   const [input,setInput]=useState('');
@@ -288,6 +293,7 @@ export default function GithubApp(){
       localStorage.setItem('dai-sfx-enabled',sfxEnabled?'1':'0');
       localStorage.setItem('dai-sfx-volume',String(sfxVolume));
       localStorage.setItem('dai-sfx-mode',sfxMode);
+      localStorage.setItem('dai-sfx-tone-migrated','1');
     }catch{}
   },[sfxEnabled,sfxVolume,sfxMode]);
 
@@ -3168,7 +3174,7 @@ export default function GithubApp(){
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
         <section className='dai-sfx-settings'>
           <div className='dai-sfx-head'>
-            <div><strong>مؤثرات حركات ضي</strong><small>أصوات قصيرة مميزة للحركات، وتتهدى تلقائيًا وقت كلام ضي.</small></div>
+            <div><strong>مؤثرات حركات ضي</strong><small>مؤثرات أغنى وأوضح للحركات، وتتهدى تلقائيًا وقت كلام ضي.</small></div>
             <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
           </div>
           <div className='dai-sfx-controls'>
