@@ -472,6 +472,7 @@ export default function GithubApp(){
     const {data:{session}}=await supabase.auth.getSession();
     if(!session?.access_token)throw new Error('tts-session-missing');
 
+    stopSpeechAudio();
     const controller=new AbortController();
     speechStreamAbortRef.current=controller;
 
@@ -498,7 +499,6 @@ export default function GithubApp(){
       throw new Error('tts-stream-'+response.status+':'+detail.slice(0,180));
     }
 
-    stopSpeechAudio();
     speechStreamAbortRef.current=controller;
 
     const reader=response.body.getReader();
@@ -1448,7 +1448,7 @@ export default function GithubApp(){
           }
         }
 
-        // For spoken replies, do not reveal text before Leda actually starts.
+        // For spoken replies, do not reveal text before DAI's Gemini voice actually starts.
         if(shouldSpeak)return;
 
         setConversations(prev=>{
