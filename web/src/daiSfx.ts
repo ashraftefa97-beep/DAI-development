@@ -569,7 +569,6 @@ class DaiSfxEngine {
         this.typing(.35*v,4,.10,0);
         break;
       case 'loading':
-        this.sample('tick',.0*v,0);
         this.sample('switch',.18*v,0,{rate:.98});
         this.sample('switch',.16*v,.18,{rate:1.02});
         this.sample('switch',.15*v,.36,{rate:1.05});
