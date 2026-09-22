@@ -140,7 +140,7 @@ export default function GithubApp(){
   const [sfxMode,setSfxMode]=useState<DaiSfxMode>(()=>{
     try{
       const value=localStorage.getItem('dai-sfx-mode');
-      return value==='normal'||value==='silent'?'normal'===value?'normal':'silent':'soft';
+      return value==='soft'||value==='normal'||value==='silent'?value:'soft';
     }catch{return 'soft';}
   });
   const [sfxVolume,setSfxVolume]=useState(()=>{
