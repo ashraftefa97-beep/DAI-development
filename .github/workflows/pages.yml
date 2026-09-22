@@ -36,6 +36,41 @@ jobs:
           cache: npm
           cache-dependency-path: web/package.json
 
+      - name: Prepare CC0 DAI sound library
+        working-directory: web
+        run: |
+          set -euo pipefail
+          mkdir -p public/sfx/kenney/interface public/sfx/kenney/impact public/sfx/kenney/rpg public/sfx/kenney/scifi
+
+          curl -fsSL "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip" -o /tmp/dai-interface.zip
+          curl -fsSL "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip" -o /tmp/dai-impact.zip
+          curl -fsSL "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip" -o /tmp/dai-rpg.zip
+          curl -fsSL "https://kenney.nl/media/pages/assets/sci-fi-sounds/6b296f9ecf-1677589334/kenney_sci-fi-sounds.zip" -o /tmp/dai-scifi.zip
+
+          unzip -q /tmp/dai-interface.zip -d public/sfx/kenney/interface
+          unzip -q /tmp/dai-impact.zip -d public/sfx/kenney/impact
+          unzip -q /tmp/dai-rpg.zip -d public/sfx/kenney/rpg
+          unzip -q /tmp/dai-scifi.zip -d public/sfx/kenney/scifi
+
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          root=Path("public/sfx/kenney")
+          files=[]
+          for p in sorted(root.rglob("*")):
+              if p.is_file() and p.suffix.lower() in {".wav",".ogg",".mp3"}:
+                  files.append("./"+p.as_posix().replace("public/",""))
+          (root/"manifest.json").write_text(json.dumps({"files":files},ensure_ascii=False,indent=2),encoding="utf-8")
+          (root/"LICENSE.txt").write_text(
+              "Kenney audio packs used by DAI are licensed Creative Commons CC0.\n"
+              "Source: https://kenney.nl/assets\n",
+              encoding="utf-8"
+          )
+          print("DAI CC0 sound files:", len(files))
+          for item in files[:260]:
+              print(item)
+          PY
+
       - name: Validate and build standalone GitHub app
         working-directory: web
         run: |
