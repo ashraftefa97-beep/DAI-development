@@ -368,8 +368,8 @@ export default function GithubApp(){
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
+    daiSfx.setDucked(animationAudioBusy());
     setDaiState(state);
-    daiSfx.playMotion(state,{ducked:animationAudioBusy(),durationMs:duration||2200});
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
@@ -389,6 +389,10 @@ export default function GithubApp(){
       liveOutputSourcesRef.current.size>0
     );
   }
+
+  useEffect(()=>{
+    daiSfx.setDucked(animationAudioBusy());
+  },[voiceSessionStatus,voiceNoteRecording,voiceNoteProcessing,speakingMessageId,daiState]);
 
   function looksLikeAnimationRequest(text:string){
     return /(?:اعملي|اعمل|اعمليلي|وريني|وريلي|اتحركي|حركه|حركة|ارقصي|رقصي|صقفي|اضحكي|لوحي|نطي|لفي|انحني|هاي فايف|high five|dance|wave|clap|animate|animation)/i.test(text);
