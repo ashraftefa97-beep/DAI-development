@@ -2891,3 +2891,60 @@ html[data-dai-theme="light"] .dai-history-rename {
 html[data-dai-theme="light"] .classic-version {
   color:#6e6471;
 }
+
+/* DAI centered modal system */
+.classic-overlay {
+  display:grid;
+  place-items:center;
+  padding:18px;
+  overflow:auto;
+}
+
+.classic-overlay > .dai-web-panel,
+.classic-overlay > .classic-settings,
+.classic-overlay > .classic-drawer {
+  position:relative;
+  inset:auto;
+  top:auto;
+  right:auto;
+  bottom:auto;
+  left:auto;
+  transform:none;
+  margin:auto;
+}
+
+.classic-overlay > .classic-drawer {
+  width:min(560px,100%);
+  max-height:min(88vh,760px);
+  padding:20px;
+  border:1px solid #2b2e42;
+  border-radius:22px;
+  background:#141827;
+  box-shadow:0 28px 80px rgba(0,0,0,.38);
+  overflow-y:auto;
+}
+
+.classic-overlay > .classic-settings {
+  width:min(560px,100%);
+  max-height:min(88vh,780px);
+  overflow-y:auto;
+}
+
+.classic-overlay > .dai-web-panel {
+  margin-inline:auto;
+  align-self:center;
+  justify-self:center;
+}
+
+@media(max-width:640px) {
+  .classic-overlay {
+    padding:10px;
+  }
+  .classic-overlay > .dai-web-panel,
+  .classic-overlay > .classic-settings,
+  .classic-overlay > .classic-drawer {
+    width:min(100%,560px);
+    max-height:90dvh;
+    border-radius:20px;
+  }
+}
