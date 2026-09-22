@@ -35,7 +35,7 @@ export class DaiMotion {
     this.nextIdle = 3.5; this.idleUntil = 0; this.idleAction = 'look'; this.idleSide = 1;
     this.pointer = {x:0,y:0}; this.mouseInside = this.dragging = false;
     this.offset = {x:0,y:0}; this.offsetTarget = {x:0,y:0};
-    this.particles = []; this.caught = false;
+    this.particles = []; this.caught = false; this.audioEvents = [];
     this.pose = this.targets();
   }
   setGesture(name) {
@@ -44,7 +44,7 @@ export class DaiMotion {
     if (this.gesture === nextGesture) return;
     this.gesture = nextGesture;
     this.state = moods[this.gesture] || 'idle';
-    this.gestureTime = 0; this.idleUntil = 0; this.caught = false;
+    this.gestureTime = 0; this.idleUntil = 0; this.caught = false; this.audioEvents = [];
     if (['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(this.gesture)) {
       this.burst(0,-65,['found','celebrate','success'].includes(this.gesture)?18:10);
     }
@@ -441,9 +441,170 @@ export class DaiMotion {
     if(this.reduced) set({bob:0,sx:1,sy:1});
     return p;
   }
+
+  emitAudio(cue, volume=1, rate=1, pan=0) {
+    this.audioEvents.push({cue,volume,rate,pan});
+  }
+  consumeAudioEvents() {
+    const events=this.audioEvents;
+    this.audioEvents=[];
+    return events;
+  }
+  audioCrossed(prev, now, time, cue, volume=1, rate=1, pan=0) {
+    if(prev<time && now>=time) this.emitAudio(cue,volume,rate,pan);
+  }
+  audioEvery(prev, now, first, period, cue, volume=1, rate=1, pan=0, until=Infinity) {
+    if(period<=0 || now<first || prev>=until) return;
+    let k=Math.max(0,Math.ceil((prev-first)/period));
+    if(first+k*period<=prev+1e-6) k++;
+    for(let t=first+k*period;t<=now+1e-6 && t<=until;t+=period) {
+      this.emitAudio(cue,volume,rate,pan);
+    }
+  }
+  advanceAudio(prev, now) {
+    const g=this.gesture;
+    const cross=(t,cue,v=1,r=1,p=0)=>this.audioCrossed(prev,now,t,cue,v,r,p);
+    const every=(first,period,cue,v=1,r=1,p=0,until=Infinity)=>this.audioEvery(prev,now,first,period,cue,v,r,p,until);
+
+    // Physical motion: derive cue timing from the same equations that drive the pose.
+    if(g==='wave') {
+      every(Math.PI/9,2*Math.PI/9,'swish',.46,1.00,-.12,2.5);
+    } else if(g==='double_wave') {
+      every(Math.PI/9.5,2*Math.PI/9.5,'swish',.48,1.01,0,2.4);
+    } else if(g==='hello_shy') {
+      every(Math.PI/8,2*Math.PI/8,'swish',.28,.96,.08,1.65);
+    } else if(g==='goodbye') {
+      every(Math.PI/8.8,2*Math.PI/8.8,'swish',.40,.98,.12,2.35);
+    } else if(g==='welcome_back') {
+      every(Math.PI/6,2*Math.PI/6,'swish',.38,1.00,.10,1.9);
+      cross(.82,'bell',.12,1.02,0);
+    } else if(g==='clap') {
+      // Hands are closest when (.5 + .5*sin(10t)) reaches zero.
+      every(3*Math.PI/20,2*Math.PI/10,'clap',.56,1.00,0,3.05);
+    } else if(g==='high_five') {
+      cross(.55,'clap',.62,1.02,0);
+    } else if(g==='spin') {
+      // Highest rotational velocity happens at sin(4.5t) zero crossings.
+      every(Math.PI/4.5,Math.PI/4.5,'swish',.52,1.04,0,2.95);
+    } else if(g==='dance') {
+      // Visible motion is hands/body sway, so use movement Foley rather than footsteps.
+      every(Math.PI/7,2*Math.PI/7,'swish',.30,1.00,0,4.45);
+    } else if(g==='music_groove') {
+      every(Math.PI/6.2,2*Math.PI/6.2,'fabric',.20,.99,0,3.8);
+    } else if(g==='music_nod') {
+      every(Math.PI/5.8,2*Math.PI/5.8,'fabric',.10,.98,0,2.8);
+    } else if(g==='party') {
+      every(Math.PI/8.5,2*Math.PI/8.5,'swish',.30,1.02,0,3.25);
+    } else if(g==='celebrate') {
+      every(Math.PI/7.5,2*Math.PI/7.5,'swish',.28,1.02,0,3.6);
+      cross(3.45,'bell',.12,1.02,0);
+    } else if(g==='excited') {
+      every(Math.PI/10,2*Math.PI/10,'swish',.26,1.03,0,2.45);
+    } else if(g==='cheer') {
+      every(Math.PI/8,2*Math.PI/8,'swish',.24,1.01,.08,2.25);
+    } else if(g==='stretch') {
+      cross(.22,'fabric',.40,.94,0);
+      cross(.78,'swish',.18,.92,0);
+    } else if(g==='side_stretch') {
+      cross(.28,'fabric',.38,.95,-.06);
+      cross(1.20,'swish',.18,.92,.06);
+      cross(2.18,'fabric',.20,.94,0);
+    } else if(g==='bow') {
+      cross(.18,'fabric',.34,.94,0);
+      cross(.90,'swish',.16,.92,0);
+      cross(1.68,'fabric',.16,.94,0);
+    } else if(g==='bounce') {
+      cross(.12,'swish',.20,1.01,0);
+      every(Math.PI/5.4,Math.PI/5.4,'fabric',.18,.98,0,1.68);
+    } else if(g==='hop_left' || g==='hop_right') {
+      cross(.16,'swish',.24,1.00,g==='hop_left'?-.12:.12);
+      cross(1.70,'fabric',.24,.98,g==='hop_left'?-.08:.08);
+    } else if(g==='roam_walk') {
+      // The visible animation is floating/hand motion, not literal feet.
+      every(Math.PI/6,Math.PI/6,'fabric',.16,.98,0,2.85);
+    } else if(g==='sneak') {
+      every(Math.PI/5.5,Math.PI/5.5,'fabric',.13,.94,0,2.65);
+    } else if(g==='tip_toe') {
+      cross(.20,'fabric',.14,.92,0);
+      cross(1.40,'swish',.13,.92,0);
+      cross(2.80,'fabric',.14,.92,0);
+    } else if(g==='sway' || g==='cozy_sway') {
+      const speed=g==='sway'?1.8:1.4;
+      every(Math.PI/speed,Math.PI/speed,'fabric',.12,.96,0,3.5);
+    } else if(g==='fishing') {
+      // These times are the exact phase boundaries used by targets().
+      cross(.42,'swish',.52,1.00,-.12);   // rod cast
+      cross(.96,'water',.40,1.00,.10);    // line settles in water
+      cross(4.20,'fabric',.18,.96,0);      // surprise / hand reposition
+      cross(4.77,'ratchet',.28,1.00,-.04);// reel starts
+      cross(4.94,'ratchet',.26,1.03,.04);
+      cross(5.11,'ratchet',.24,.98,-.03);
+      cross(4.84,'water',.32,.98,.10);     // fish breaks surface
+    } else if(g==='write') {
+      // Hand x position is sin(7t); key presses align to extrema.
+      every(Math.PI/14,Math.PI/7,'key',.28,1.00,0,3.85);
+    } else if(g==='type_fast') {
+      every(Math.PI/24,Math.PI/12,'key',.25,1.04,0,3.45);
+    } else if(g==='code_focus') {
+      // No visible typing motion in this pose; use only a subtle terminal-like click.
+      cross(.72,'click',.09,.98,0);
+      cross(2.45,'click',.08,1.02,0);
+    } else if(g==='camera_pose') {
+      // pose = sin(2t)*.5+.5 reaches its first clear peak here.
+      cross(Math.PI/4,'mech',.46,1.00,0);
+    } else if(g==='salute') {
+      cross(.50,'mech',.18,1.00,0);
+    } else if(g==='read') {
+      // No physical book is drawn; keep this silent to avoid fake Foley.
+    } else if(g==='heart') {
+      cross(.72,'fabric',.12,.96,0);
+    } else if(g==='sleep') {
+      cross(.82,'breath',.24,.90,0);
+      cross(2.55,'breath',.20,.92,0);
+      cross(4.10,'breath',.18,.92,0);
+    } else if(g==='yawn') {
+      cross(.82,'breath',.28,.88,0);
+    } else if(g==='breathe') {
+      every(.52,Math.PI/1.45,'breath',.22,.94,0,4.15);
+    } else if(g==='meditate') {
+      every(.55,Math.PI/1.3,'breath',.20,.92,0,4.05);
+    } else if(g==='relax') {
+      every(.55,Math.PI/1.35,'breath',.18,.94,0,3.6);
+    } else if(g==='wake_up') {
+      cross(.42,'fabric',.18,1.00,0);
+    }
+
+    // Digital/semantic events stay minimal and only fire at visible state changes.
+    if(g==='idea') {
+      cross(.42,'glass',.20,1.02,0);
+    } else if(g==='lightbulb_pop') {
+      cross(.28,'glass',.24,1.05,0);
+    } else if(g==='brainstorm') {
+      cross(.60,'glass',.10,1.00,-.05);
+      cross(3.02,'glass',.09,1.03,.05);
+    } else if(g==='search' || g==='scan') {
+      cross(.18,'computer',.08,g==='scan'?1.03:.98,0);
+    } else if(g==='found' || g==='success' || g==='response_ready') {
+      cross(.22,'bell',.18,1.03,0);
+    } else if(g==='detect') {
+      cross(.46,'bell',.13,1.04,0);
+    } else if(g==='recharge') {
+      cross(.22,'computer',.07,.95,0);
+      cross(2.85,'bell',.10,1.00,0);
+    } else if(g==='loading') {
+      cross(.20,'computer',.06,.94,0);
+    } else if(g==='alert') {
+      cross(.18,'click',.13,1.02,0);
+    } else if(g==='error') {
+      cross(.22,'mech',.12,.84,0);
+    }
+  }
+
   advance(elapsedDt) {
     elapsedDt=Math.max(0,elapsedDt); const dt=Math.min(elapsedDt,.05);
+    const prevGestureTime=this.gestureTime;
     this.elapsed+=elapsedDt; this.gestureTime+=elapsedDt;
+    this.advanceAudio(prevGestureTime,this.gestureTime);
     if(this.elapsed>this.nextBlink&&!this.reduced) {
       this.blinkTime=0; this.nextBlink=this.elapsed+2.6+this.random()*2.9;
     }
