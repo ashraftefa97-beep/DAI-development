@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { createUISFX } from 'uisfx';
 
 export type DaiSfxMode = 'soft' | 'normal' | 'silent';
 
@@ -7,634 +8,485 @@ type PlayOptions = {
   durationMs?: number;
 };
 
-type SampleAlias =
-  | 'confirm'
-  | 'question'
-  | 'error'
-  | 'pluck'
+type SonicPack =
+  | 'soft'
   | 'glass'
-  | 'select'
-  | 'scroll'
-  | 'switch'
-  | 'click'
-  | 'open'
-  | 'close'
-  | 'glitch'
-  | 'softImpact'
-  | 'lightImpact'
-  | 'bellImpact'
-  | 'footstepSoft'
-  | 'cloth'
-  | 'page'
-  | 'metalClick'
-  | 'computer'
-  | 'field'
-  | 'engine'
-  | 'splashish';
-
-const SAMPLE_BANK:Record<SampleAlias,string[]>={
-  confirm:[
-    'sfx/kenney/interface/Audio/confirmation_001.ogg',
-    'sfx/kenney/interface/Audio/confirmation_002.ogg',
-    'sfx/kenney/interface/Audio/confirmation_003.ogg',
-    'sfx/kenney/interface/Audio/confirmation_004.ogg'
-  ],
-  question:[
-    'sfx/kenney/interface/Audio/question_001.ogg',
-    'sfx/kenney/interface/Audio/question_002.ogg',
-    'sfx/kenney/interface/Audio/question_003.ogg',
-    'sfx/kenney/interface/Audio/question_004.ogg'
-  ],
-  error:[
-    'sfx/kenney/interface/Audio/error_001.ogg',
-    'sfx/kenney/interface/Audio/error_003.ogg',
-    'sfx/kenney/interface/Audio/error_005.ogg',
-    'sfx/kenney/interface/Audio/error_007.ogg'
-  ],
-  pluck:[
-    'sfx/kenney/interface/Audio/pluck_001.ogg',
-    'sfx/kenney/interface/Audio/pluck_002.ogg'
-  ],
-  glass:[
-    'sfx/kenney/interface/Audio/glass_001.ogg',
-    'sfx/kenney/interface/Audio/glass_003.ogg',
-    'sfx/kenney/interface/Audio/glass_005.ogg'
-  ],
-  select:[
-    'sfx/kenney/interface/Audio/select_001.ogg',
-    'sfx/kenney/interface/Audio/select_003.ogg',
-    'sfx/kenney/interface/Audio/select_006.ogg'
-  ],
-  scroll:[
-    'sfx/kenney/interface/Audio/scroll_001.ogg',
-    'sfx/kenney/interface/Audio/scroll_003.ogg',
-    'sfx/kenney/interface/Audio/scroll_005.ogg'
-  ],
-  switch:[
-    'sfx/kenney/interface/Audio/switch_001.ogg',
-    'sfx/kenney/interface/Audio/switch_004.ogg',
-    'sfx/kenney/interface/Audio/switch_007.ogg'
-  ],
-  click:[
-    'sfx/kenney/interface/Audio/click_001.ogg',
-    'sfx/kenney/interface/Audio/click_003.ogg',
-    'sfx/kenney/interface/Audio/click_005.ogg'
-  ],
-  open:[
-    'sfx/kenney/interface/Audio/open_001.ogg',
-    'sfx/kenney/interface/Audio/open_003.ogg'
-  ],
-  close:[
-    'sfx/kenney/interface/Audio/close_001.ogg',
-    'sfx/kenney/interface/Audio/close_003.ogg'
-  ],
-  glitch:[
-    'sfx/kenney/interface/Audio/glitch_001.ogg',
-    'sfx/kenney/interface/Audio/glitch_003.ogg'
-  ],
-  softImpact:[
-    'sfx/kenney/impact/Audio/impactSoft_medium_000.ogg',
-    'sfx/kenney/impact/Audio/impactSoft_medium_002.ogg',
-    'sfx/kenney/impact/Audio/impactSoft_medium_004.ogg'
-  ],
-  lightImpact:[
-    'sfx/kenney/impact/Audio/impactGeneric_light_000.ogg',
-    'sfx/kenney/impact/Audio/impactGeneric_light_002.ogg',
-    'sfx/kenney/impact/Audio/impactGeneric_light_004.ogg'
-  ],
-  bellImpact:[
-    'sfx/kenney/impact/Audio/impactBell_heavy_000.ogg',
-    'sfx/kenney/impact/Audio/impactBell_heavy_002.ogg'
-  ],
-  footstepSoft:[
-    'sfx/kenney/impact/Audio/footstep_carpet_000.ogg',
-    'sfx/kenney/impact/Audio/footstep_carpet_001.ogg',
-    'sfx/kenney/impact/Audio/footstep_carpet_002.ogg',
-    'sfx/kenney/impact/Audio/footstep_carpet_003.ogg',
-    'sfx/kenney/impact/Audio/footstep_carpet_004.ogg'
-  ],
-  cloth:[
-    'sfx/kenney/rpg/Audio/cloth1.ogg',
-    'sfx/kenney/rpg/Audio/cloth2.ogg',
-    'sfx/kenney/rpg/Audio/cloth3.ogg',
-    'sfx/kenney/rpg/Audio/cloth4.ogg'
-  ],
-  page:[
-    'sfx/kenney/rpg/Audio/bookFlip1.ogg',
-    'sfx/kenney/rpg/Audio/bookFlip2.ogg',
-    'sfx/kenney/rpg/Audio/bookFlip3.ogg'
-  ],
-  metalClick:[
-    'sfx/kenney/rpg/Audio/metalClick.ogg',
-    'sfx/kenney/rpg/Audio/metalLatch.ogg'
-  ],
-  computer:[
-    'sfx/kenney/scifi/Audio/computerNoise_000.ogg',
-    'sfx/kenney/scifi/Audio/computerNoise_001.ogg',
-    'sfx/kenney/scifi/Audio/computerNoise_002.ogg'
-  ],
-  field:[
-    'sfx/kenney/scifi/Audio/forceField_000.ogg',
-    'sfx/kenney/scifi/Audio/forceField_002.ogg',
-    'sfx/kenney/scifi/Audio/forceField_004.ogg'
-  ],
-  engine:[
-    'sfx/kenney/scifi/Audio/engineCircular_000.ogg',
-    'sfx/kenney/scifi/Audio/engineCircular_002.ogg'
-  ],
-  splashish:[
-    'sfx/kenney/scifi/Audio/slime_000.ogg',
-    'sfx/kenney/scifi/Audio/slime_001.ogg'
-  ]
-};
+  | 'arcade'
+  | 'mechanical'
+  | 'organic'
+  | 'dreamy'
+  | 'scifi'
+  | 'rubber'
+  | 'cinematic'
+  | 'studio'
+  | 'zen'
+  | 'minimal';
 
 class DaiSfxEngine {
   private enabled=true;
-  private volume=.72;
+  private volume=.78;
   private mode:DaiSfxMode='normal';
   private ready=false;
-  private samplesReady=false;
   private lastMotion='';
   private lastAt=0;
+  private timers=new Set<number>();
+  private activeStops=new Set<()=>void>();
 
-  private master:Tone.Gain|null=null;
-  private compressor:Tone.Compressor|null=null;
-  private limiter:Tone.Limiter|null=null;
-  private reverb:Tone.Reverb|null=null;
-  private delay:Tone.FeedbackDelay|null=null;
-  private eq:Tone.EQ3|null=null;
-  private players=new Map<string,Tone.Player>();
+  private ui=createUISFX({
+    pack:'scifi',
+    preferences:{}
+  } as any);
+
+  private toneMaster:Tone.Gain|null=null;
+  private toneLimiter:Tone.Limiter|null=null;
+  private toneReverb:Tone.Reverb|null=null;
 
   configure(config:{enabled:boolean;volume:number;mode:DaiSfxMode}){
     this.enabled=config.enabled;
     this.volume=Math.max(0,Math.min(1,config.volume));
     this.mode=config.mode;
-    this.refreshMaster();
+    const active=this.enabled&&this.mode!=='silent';
+    this.ui.setEnabled(active);
+    this.ui.setVolume(this.outputVolume(false));
+    this.refreshTone();
   }
 
-  private asset(path:string){
-    return new URL(path,document.baseURI).href;
+  private outputVolume(ducked:boolean){
+    if(!this.enabled||this.mode==='silent')return 0;
+    const modeGain=this.mode==='soft'?.72:1;
+    return Math.max(0,Math.min(1,this.volume*modeGain*(ducked?.30:1)));
   }
 
-  private ensureGraph(){
-    if(this.master)return;
-    this.master=new Tone.Gain(1);
-    this.eq=new Tone.EQ3({low:-1.5,mid:.8,high:1.6});
-    this.delay=new Tone.FeedbackDelay({delayTime:.095,feedback:.08,wet:.06});
-    this.reverb=new Tone.Reverb({decay:.92,preDelay:.010,wet:.14});
-    this.compressor=new Tone.Compressor({threshold:-20,ratio:3.2,attack:.006,release:.14});
-    this.limiter=new Tone.Limiter(-1.0);
-    this.master.chain(
-      this.eq,
-      this.delay,
-      this.reverb,
-      this.compressor,
-      this.limiter,
-      Tone.getDestination()
-    );
-    this.refreshMaster();
+  private ensureTone(){
+    if(this.toneMaster)return;
+    this.toneMaster=new Tone.Gain(this.outputVolume(false)*.42);
+    this.toneReverb=new Tone.Reverb({decay:.85,preDelay:.008,wet:.12});
+    this.toneLimiter=new Tone.Limiter(-1.5);
+    this.toneMaster.chain(this.toneReverb,this.toneLimiter,Tone.getDestination());
   }
 
-  private ensureSamples(){
-    if(this.players.size)return;
-    this.ensureGraph();
-    const urls=[...new Set(Object.values(SAMPLE_BANK).flat())];
-    for(const relative of urls){
-      const player=new Tone.Player({
-        url:this.asset(relative),
-        fadeIn:.003,
-        fadeOut:.025,
-        autostart:false
-      });
-      player.connect(this.master!);
-      this.players.set(relative,player);
-    }
-  }
-
-  private refreshMaster(){
-    if(!this.master)return;
-    const base=this.mode==='silent'||!this.enabled?0:this.mode==='soft'?.72:1;
-    this.master.gain.rampTo(base*this.volume,.04);
+  private refreshTone(ducked=false){
+    if(!this.toneMaster)return;
+    this.toneMaster.gain.rampTo(this.outputVolume(ducked)*.42,.04);
   }
 
   async unlock(){
     try{
-      this.ensureGraph();
-      this.ensureSamples();
-      await Tone.start();
-      if(!this.samplesReady){
-        await Tone.loaded();
-        this.samplesReady=true;
-      }
-      this.ready=Tone.getContext().state==='running';
-      return this.ready;
+      this.ensureTone();
+      await Promise.all([
+        this.ui.unlock(),
+        Tone.start()
+      ]);
+      this.ready=true;
+      return true;
     }catch(error){
-      console.warn('DAI SFX sample preload skipped',error);
-      this.ready=Tone.getContext().state==='running';
-      return this.ready;
+      console.warn('DAI sonic layer unlock failed',error);
+      this.ready=false;
+      return false;
     }
   }
 
-  private level(ducked=false){
-    if(!this.enabled||this.mode==='silent')return 0;
-    const modeGain=this.mode==='soft'?.78:1;
-    return Math.max(.01,modeGain*(ducked?.22:1));
+  private clearScheduled(){
+    for(const timer of this.timers)window.clearTimeout(timer);
+    this.timers.clear();
+    for(const stop of this.activeStops){
+      try{stop();}catch{}
+    }
+    this.activeStops.clear();
   }
 
-  private pick(alias:SampleAlias){
-    const files=SAMPLE_BANK[alias];
-    return files[Math.floor(Math.random()*files.length)]||files[0];
+  private schedule(delayMs:number,fn:()=>void){
+    const timer=window.setTimeout(()=>{
+      this.timers.delete(timer);
+      fn();
+    },Math.max(0,delayMs));
+    this.timers.add(timer);
   }
 
-  private sample(
-    alias:SampleAlias,
-    velocity:number,
-    offset=0,
-    options:{rate?:number;pan?:number;wet?:boolean}={}
-  ){
-    if(!this.samplesReady)return false;
-    const relative=this.pick(alias);
-    const player=this.players.get(relative);
-    if(!player||!player.loaded)return false;
-
-    const rate=Math.max(.82,Math.min(1.18,options.rate??(0.98+Math.random()*.04)));
-    const panValue=Math.max(-1,Math.min(1,options.pan??0));
-    const gain=new Tone.Gain(Math.max(.015,Math.min(1.15,velocity)));
-    const panner=new Tone.Panner(panValue);
-    player.playbackRate=rate;
-    player.disconnect();
-    player.chain(gain,panner,this.master!);
-
-    const at=Tone.now()+.012+Math.max(0,offset);
-    player.start(at);
-
-    window.setTimeout(()=>{
-      try{player.disconnect();player.connect(this.master!);}catch{}
-      try{gain.dispose();}catch{}
-      try{panner.dispose();}catch{}
-    },Math.round((offset+2.2)*1000));
-    return true;
-  }
-
-  private tone(note:string,velocity:number,duration=.12,offset=0){
-    const synth=new Tone.Synth({
-      oscillator:{type:'sine'},
-      envelope:{attack:.004,decay:duration*.5,sustain:.02,release:duration*.5}
+  private semantic(pack:SonicPack,cue:string,delayMs=0,ducked=false){
+    this.schedule(delayMs,()=>{
+      if(!this.ready||!this.enabled||this.mode==='silent')return;
+      try{
+        this.ui.setEnabled(true);
+        this.ui.setVolume(this.outputVolume(ducked));
+        this.ui.setPack(pack as any);
+        const handle=this.ui.play(cue as any);
+        if(handle&&typeof handle.stop==='function'){
+          const stop=()=>handle.stop();
+          this.activeStops.add(stop);
+          this.schedule(1800,()=>this.activeStops.delete(stop));
+        }
+      }catch(error){
+        console.debug('DAI semantic SFX skipped',cue,error);
+      }
     });
-    const gain=new Tone.Gain(.6);
-    synth.chain(gain,this.master!);
-    synth.triggerAttackRelease(note,duration,Tone.now()+.012+offset,velocity);
-    window.setTimeout(()=>{try{synth.dispose();gain.dispose();}catch{}},Math.round((offset+1)*1000));
   }
 
-  private sweep(fromHz:number,toHz:number,velocity:number,duration=.24,offset=0){
-    const synth=new Tone.Synth({
-      oscillator:{type:'triangle'},
-      envelope:{attack:.004,decay:duration*.55,sustain:.02,release:duration*.35}
+  private semanticLoop(pack:SonicPack,cue:string,durationMs:number,ducked=false,endCue?:string){
+    this.schedule(0,()=>{
+      if(!this.ready||!this.enabled||this.mode==='silent')return;
+      try{
+        this.ui.setVolume(this.outputVolume(ducked)*.72);
+        this.ui.setPack(pack as any);
+        const handle=this.ui.play(cue as any);
+        if(handle&&typeof handle.stop==='function'){
+          const stop=()=>handle.stop();
+          this.activeStops.add(stop);
+          this.schedule(Math.max(450,durationMs),()=>{
+            try{handle.stop();}catch{}
+            this.activeStops.delete(stop);
+            if(endCue)this.semantic(pack,endCue,40,ducked);
+          });
+        }
+      }catch(error){
+        console.debug('DAI semantic loop skipped',cue,error);
+      }
     });
-    const gain=new Tone.Gain(.55);
-    synth.chain(gain,this.master!);
-    const at=Tone.now()+.012+offset;
-    synth.frequency.setValueAtTime(fromHz,at);
-    synth.frequency.exponentialRampToValueAtTime(Math.max(35,toHz),at+duration);
-    synth.triggerAttackRelease(duration,at,velocity);
-    window.setTimeout(()=>{try{synth.dispose();gain.dispose();}catch{}},Math.round((offset+1)*1000));
   }
 
-  private twoHands(alias:SampleAlias,v:number,spacing=.20,start=0){
-    this.sample(alias,.72*v,start,{pan:-.28,rate:.98});
-    this.sample(alias,.72*v,start+spacing,{pan:.28,rate:1.02});
-  }
-
-  private footsteps(v:number,count=3,spacing=.26,start=0,soft=false){
-    for(let i=0;i<count;i++){
-      this.sample('footstepSoft',(soft?.42:.62)*v,start+i*spacing,{
-        pan:i%2===0?-.18:.18,
-        rate:soft?.92+Math.random()*.05:.98+Math.random()*.06
+  private breath(offsetMs=0,ducked=false){
+    this.schedule(offsetMs,()=>{
+      if(!this.ready)return;
+      this.ensureTone();
+      this.refreshTone(ducked);
+      const noise=new Tone.NoiseSynth({
+        noise:{type:'pink'},
+        envelope:{attack:.08,decay:.20,sustain:.08,release:.42}
       });
+      const filter=new Tone.Filter(720,'lowpass');
+      const gain=new Tone.Gain(.16);
+      noise.chain(filter,gain,this.toneMaster!);
+      noise.triggerAttackRelease(.58,Tone.now()+.01,.22);
+      window.setTimeout(()=>{
+        try{noise.dispose();filter.dispose();gain.dispose();}catch{}
+      },1000);
+    });
+  }
+
+  private softSweep(offsetMs=0,ducked=false,up=true){
+    this.schedule(offsetMs,()=>{
+      if(!this.ready)return;
+      this.ensureTone();
+      this.refreshTone(ducked);
+      const synth=new Tone.Synth({
+        oscillator:{type:'sine'},
+        envelope:{attack:.008,decay:.12,sustain:.02,release:.18}
+      });
+      const gain=new Tone.Gain(.22);
+      synth.chain(gain,this.toneMaster!);
+      const at=Tone.now()+.01;
+      synth.frequency.setValueAtTime(up?310:880,at);
+      synth.frequency.exponentialRampToValueAtTime(up?920:280,at+.24);
+      synth.triggerAttackRelease(.27,at,.30);
+      window.setTimeout(()=>{try{synth.dispose();gain.dispose();}catch{}},700);
+    });
+  }
+
+  private typingBurst(count:number,spacingMs:number,ducked=false){
+    for(let i=0;i<count;i++){
+      this.semantic('mechanical','typing',i*spacingMs,ducked);
     }
   }
 
-  private typing(v:number,count=7,spacing=.055,start=0){
+  private footsteps(count:number,spacingMs:number,ducked=false,soft=false){
     for(let i=0;i<count;i++){
-      this.sample(i%3===0?'switch':'click',(.24+(i%4)*.035)*v,start+i*spacing,{
-        pan:(i%5-2)*.08,
-        rate:.96+Math.random()*.08
-      });
+      this.semantic(soft?'zen':'organic','drop',i*spacingMs,ducked);
     }
   }
 
-  private dance(v:number,start=0){
-    this.sample('softImpact',.42*v,start,{pan:-.2,rate:.95});
-    this.sample('pluck',.30*v,start+.10,{pan:.2,rate:1.04});
-    this.sample('softImpact',.38*v,start+.32,{pan:.2,rate:1.02});
-    this.sample('pluck',.28*v,start+.44,{pan:-.2,rate:.98});
-    this.sample('softImpact',.40*v,start+.64,{pan:-.1,rate:.97});
-    this.sample('confirm',.26*v,start+.78,{pan:.1,rate:1.03});
-  }
-
-  private fishing(v:number,durationMs=7400){
-    const scale=Math.max(.78,Math.min(1.12,durationMs/7400));
-    this.sample('cloth',.42*v,0,{pan:-.35,rate:1.02});
-    this.sweep(520,210,.18*v,.28,.03);
-    this.sample('splashish',.44*v,.82*scale,{pan:.3,rate:1.05});
-    this.sample('metalClick',.30*v,2.00*scale,{pan:-.15,rate:1.04});
-    this.sample('metalClick',.27*v,2.22*scale,{pan:.15,rate:.98});
-    this.sample('metalClick',.24*v,2.44*scale,{pan:-.12,rate:1.07});
-    this.sample('splashish',.50*v,4.36*scale,{pan:.25,rate:.96});
-    this.sample('confirm',.46*v,4.58*scale,{pan:0,rate:1.05});
-  }
-
-  private motionProfile(state:string,v:number,durationMs=2200){
+  private profile(state:string,durationMs:number,ducked:boolean){
     switch(state){
       case 'wave':
-        this.sample('cloth',.40*v,0,{pan:-.25,rate:1.04});
-        this.sample('pluck',.30*v,.08,{pan:.2,rate:1.04});
+        this.semantic('glass','receive',0,ducked);
+        this.semantic('soft','reaction',120,ducked);
         break;
       case 'double_wave':
-        this.twoHands('cloth',v,.14,0);
-        this.sample('confirm',.28*v,.20,{rate:1.06});
+        this.semantic('soft','reaction',0,ducked);
+        this.semantic('soft','reaction',170,ducked);
+        this.semantic('glass','receive',290,ducked);
         break;
       case 'welcome_back':
-        this.sample('open',.34*v,0,{rate:1.03});
-        this.sample('confirm',.42*v,.10,{rate:1.05});
+        this.semantic('glass','open',0,ducked);
+        this.semantic('glass','receive',110,ducked);
+        this.semantic('dreamy','reward',220,ducked);
         break;
       case 'hello_shy':
-        this.sample('cloth',.24*v,0,{pan:-.18,rate:.94});
-        this.sample('pluck',.23*v,.12,{pan:.12,rate:.96});
+        this.semantic('soft','receive',0,ducked);
+        this.semantic('dreamy','reaction',150,ducked);
         break;
       case 'goodbye':
-        this.sample('cloth',.34*v,0,{pan:.25,rate:.98});
-        this.sample('close',.25*v,.16,{rate:1.02});
+        this.semantic('soft','reaction',0,ducked);
+        this.semantic('glass','close',200,ducked);
         break;
       case 'bow':
-        this.sample('cloth',.38*v,0,{rate:.92});
-        this.sample('pluck',.20*v,.24,{rate:.96});
+        this.semantic('organic','swipe',0,ducked);
+        this.semantic('zen','check',220,ducked);
         break;
       case 'salute':
-        this.sample('select',.35*v,0,{rate:1.06});
+        this.semantic('studio','snap',0,ducked);
+        this.semantic('glass','check',100,ducked);
         break;
 
       case 'listen':
-        this.sample('switch',.28*v,0,{rate:1.04});
-        this.sample('question',.23*v,.07,{rate:1.03});
+        this.semantic('scifi','start',0,ducked);
+        this.semantic('glass','focus',100,ducked);
         break;
       case 'search':
-        this.sample('computer',.22*v,0,{rate:1.05});
-        this.sweep(280,900,.18*v,.28,.02);
-        this.sample('select',.18*v,.28,{rate:1.08});
+        this.semanticLoop('scifi','scanning',Math.min(Math.max(durationMs,800),2600),ducked,'checkpoint');
         break;
       case 'scan':
-        this.sample('field',.28*v,0,{rate:1.04});
-        this.sweep(320,1180,.16*v,.34,.01);
+        this.semanticLoop('scifi','scanning',Math.min(Math.max(durationMs,700),2200),ducked,'checkpoint');
         break;
       case 'detect':
-        this.sample('computer',.24*v,0,{rate:1.08});
-        this.sample('confirm',.35*v,.22,{rate:1.06});
+        this.semantic('scifi','checkpoint',0,ducked);
+        this.semantic('glass','complete',180,ducked);
         break;
       case 'found':
-        this.sample('confirm',.50*v,0,{rate:1.05});
-        this.sample('glass',.16*v,.07,{rate:1.08});
+        this.semantic('glass','complete',0,ducked);
+        this.semantic('dreamy','reward',120,ducked);
         break;
 
       case 'heart':
-        this.sample('softImpact',.28*v,0,{rate:.88});
-        this.sample('softImpact',.24*v,.14,{rate:.94});
-        this.sample('glass',.20*v,.24,{rate:1.09});
+        this.semantic('dreamy','reaction',0,ducked);
+        this.semantic('dreamy','reward',150,ducked);
+        this.semantic('glass','check',320,ducked);
         break;
       case 'blush':
       case 'shy':
-        this.sample('cloth',.20*v,0,{rate:.92});
-        this.sample('pluck',.20*v,.12,{rate:.94});
+        this.semantic('soft','reaction',0,ducked);
+        this.semantic('dreamy','info',180,ducked);
         break;
       case 'happy':
-        this.sample('pluck',.36*v,0,{rate:1.06});
-        this.sample('confirm',.28*v,.10,{rate:1.04});
+        this.semantic('soft','success',0,ducked);
+        this.semantic('glass','reaction',130,ducked);
         break;
       case 'giggle':
-        this.sample('pluck',.30*v,0,{rate:1.10});
-        this.sample('pluck',.25*v,.13,{rate:1.15});
+        this.semantic('rubber','reaction',0,ducked);
+        this.semantic('rubber','reaction',150,ducked);
         break;
       case 'laugh':
-        this.sample('pluck',.36*v,0,{rate:1.08});
-        this.sample('pluck',.31*v,.12,{rate:1.13});
-        this.sample('confirm',.22*v,.25,{rate:1.10});
+        this.semantic('rubber','reaction',0,ducked);
+        this.semantic('rubber','reaction',130,ducked);
+        this.semantic('soft','success',270,ducked);
         break;
       case 'excited':
       case 'cheer':
-        this.sample('confirm',.40*v,0,{rate:1.10});
-        this.sample('softImpact',.26*v,.13,{rate:1.04});
-        this.sample('glass',.18*v,.21,{rate:1.12});
+        this.semantic('arcade','reward',0,ducked);
+        this.semantic('arcade','reaction',130,ducked);
+        this.semantic('glass','success',250,ducked);
         break;
       case 'proud':
-        this.sample('bellImpact',.25*v,0,{rate:1.10});
-        this.sample('confirm',.28*v,.12,{rate:.98});
+        this.semantic('cinematic','achievement',0,ducked);
         break;
       case 'celebrate':
-        this.dance(v,0);
-        this.sample('glass',.18*v,.22,{rate:1.12});
+        this.semantic('cinematic','achievement',0,ducked);
+        this.semantic('arcade','reward',220,ducked);
+        this.semantic('glass','complete',420,ducked);
         break;
       case 'party':
-        this.dance(v,0);
-        this.dance(.82*v,.72);
+        this.semantic('arcade','play',0,ducked);
+        this.semantic('arcade','reward',220,ducked);
+        this.semantic('arcade','progress-step',440,ducked);
+        this.semantic('cinematic','achievement',700,ducked);
         break;
       case 'clap':
-        this.sample('softImpact',.54*v,0,{pan:-.12,rate:1.04});
-        this.sample('softImpact',.58*v,.24,{pan:.12,rate:.98});
-        this.sample('softImpact',.52*v,.48,{pan:-.08,rate:1.06});
+        this.semantic('organic','reaction',0,ducked);
+        this.semantic('organic','reaction',230,ducked);
+        this.semantic('organic','reaction',460,ducked);
         break;
       case 'high_five':
-        this.sample('softImpact',.72*v,.16,{rate:1.05});
-        this.sample('confirm',.24*v,.23,{rate:1.08});
+        this.semantic('rubber','drop',120,ducked);
+        this.semantic('glass','success',220,ducked);
         break;
 
       case 'idea':
-        this.sample('select',.24*v,0,{rate:1.08});
-        this.sample('glass',.34*v,.06,{rate:1.13});
-        this.sample('confirm',.24*v,.14,{rate:1.10});
+        this.semantic('glass','bonus',0,ducked);
+        this.semantic('dreamy','achievement',110,ducked);
         break;
       case 'lightbulb_pop':
-        this.sample('lightImpact',.28*v,0,{rate:1.08});
-        this.sample('glass',.38*v,.045,{rate:1.14});
+        this.semantic('glass','bonus',0,ducked);
+        this.semantic('glass','achievement',110,ducked);
         break;
       case 'brainstorm':
-        this.sample('computer',.18*v,0,{rate:1.07});
-        this.sample('select',.18*v,.22,{rate:1.04});
-        this.sample('glass',.17*v,.44,{rate:1.10});
+        this.semantic('scifi','progress-step',0,ducked);
+        this.semantic('glass','progress-step',220,ducked);
+        this.semantic('dreamy','bonus',440,ducked);
         break;
       case 'thought_orbit':
-        this.sample('field',.20*v,0,{rate:.96});
-        this.sample('pluck',.18*v,.18,{rate:1.05});
+        this.semantic('dreamy','processing',0,ducked);
+        this.schedule(Math.min(1500,durationMs),()=>this.ui.stopAll());
         break;
       case 'thinking_deep':
-        this.sample('computer',.16*v,0,{rate:.90});
-        this.tone('D4',.09*v,.30,.10);
+        this.semanticLoop('studio','processing',Math.min(durationMs,1900),ducked);
         break;
       case 'question':
-        this.sample('question',.38*v,0,{rate:1.04});
+        this.semantic('scifi','info',0,ducked);
+        this.semantic('glass','mention',160,ducked);
         break;
       case 'curious':
       case 'peek':
       case 'window_peek':
       case 'look_around':
       case 'scout':
-        this.sample('question',.22*v,0,{rate:1.08});
-        this.sample('cloth',.12*v,.08,{rate:.98});
+        this.semantic('scifi','info',0,ducked);
+        this.semantic('soft','focus',150,ducked);
         break;
 
       case 'stretch':
       case 'side_stretch':
-        this.sample('cloth',.42*v,0,{rate:.88});
-        this.sample('cloth',.25*v,.23,{rate:.94});
+        this.semantic('organic','swipe',0,ducked);
+        this.semantic('soft','release',240,ducked);
         break;
       case 'relax':
       case 'cozy_sway':
-        this.sample('cloth',.18*v,0,{rate:.84});
-        this.tone('D4',.08*v,.38,.05);
+        this.semantic('zen','sleep',0,ducked);
+        this.breath(120,ducked);
         break;
       case 'sleep':
-        this.sample('cloth',.15*v,0,{rate:.82});
-        this.tone('C5',.07*v,.42,.12);
+        this.semantic('zen','sleep',0,ducked);
+        this.breath(160,ducked);
+        this.breath(820,ducked);
         break;
       case 'yawn':
-        this.sample('cloth',.16*v,0,{rate:.80});
-        this.sweep(270,150,.08*v,.52,.03);
+        this.breath(0,ducked);
+        this.semantic('zen','sleep',250,ducked);
         break;
       case 'dream':
-        this.sample('glass',.12*v,0,{rate:.88});
-        this.sample('pluck',.13*v,.28,{rate:.92});
+        this.semantic('dreamy','sleep',0,ducked);
+        this.semantic('dreamy','info',420,ducked);
         break;
       case 'meditate':
       case 'breathe':
-        this.sample('cloth',.10*v,0,{rate:.82});
-        this.tone('D4',.06*v,.44,.10);
+        this.breath(0,ducked);
+        this.breath(760,ducked);
         break;
       case 'recharge':
-        this.sample('field',.20*v,0,{rate:.88});
-        this.sample('confirm',.19*v,.38,{rate:1.02});
+        this.semanticLoop('scifi','processing',Math.min(durationMs,1800),ducked,'complete');
         break;
       case 'wake_up':
-        this.sample('open',.31*v,0,{rate:1.08});
-        this.sample('confirm',.29*v,.18,{rate:1.09});
+        this.semantic('zen','wake',0,ducked);
+        this.semantic('glass','open',160,ducked);
         break;
 
       case 'dance':
       case 'music_groove':
       case 'music_nod':
-        this.dance(v,0);
-        this.sample('cloth',.14*v,.18,{rate:1.02});
+        this.semantic('arcade','play',0,ducked);
+        this.semantic('arcade','progress-step',210,ducked);
+        this.semantic('arcade','progress-step',430,ducked);
+        this.semantic('arcade','reward',680,ducked);
         break;
       case 'spin':
-        this.sample('cloth',.38*v,0,{pan:-.35,rate:1.10});
-        this.sample('field',.15*v,.08,{pan:.35,rate:1.16});
+        this.semantic('scifi','swipe',0,ducked);
+        this.softSweep(40,ducked,true);
+        this.semantic('glass','snap',300,ducked);
         break;
       case 'bounce':
       case 'hop_left':
       case 'hop_right':
-        this.sample('softImpact',.40*v,0,{rate:.92});
-        this.sample('footstepSoft',.42*v,.22,{rate:1.06});
+        this.semantic('rubber','drag-start',0,ducked);
+        this.semantic('rubber','drop',210,ducked);
         break;
       case 'roam_walk':
-        this.footsteps(v,4,.24,0,false);
+        this.footsteps(4,230,ducked,false);
         break;
       case 'tip_toe':
       case 'sneak':
-        this.footsteps(v,3,.28,0,true);
-        this.sample('cloth',.11*v,.10,{rate:.90});
+        this.footsteps(3,280,ducked,true);
         break;
       case 'sway':
-        this.sample('cloth',.15*v,0,{pan:-.25,rate:.92});
-        this.sample('cloth',.14*v,.34,{pan:.25,rate:.95});
+        this.semantic('organic','swipe',0,ducked);
+        this.semantic('organic','swipe',360,ducked);
         break;
 
       case 'fishing':
-        this.fishing(v,durationMs);
+        this.semantic('organic','drag-start',0,ducked);
+        this.softSweep(60,ducked,false);
+        this.semantic('organic','drop',800,ducked);
+        this.semantic('mechanical','progress-step',1900,ducked);
+        this.semantic('mechanical','progress-step',2200,ducked);
+        this.semantic('organic','drop',Math.min(4200,Math.max(2600,durationMs*.58)),ducked);
+        this.semantic('glass','complete',Math.min(4600,Math.max(3000,durationMs*.64)),ducked);
         break;
 
       case 'read':
-        this.sample('page',.40*v,.04,{pan:-.15,rate:.98});
-        this.sample('page',.32*v,.62,{pan:.12,rate:1.02});
+        this.semantic('zen','open',0,ducked);
+        this.semantic('zen','forward',520,ducked);
         break;
       case 'write':
-        this.typing(.78*v,5,.085,0);
+        this.typingBurst(5,85,ducked);
         break;
       case 'type_fast':
-        this.typing(.82*v,11,.043,0);
+        this.typingBurst(11,45,ducked);
         break;
       case 'code_focus':
-        this.typing(.68*v,8,.050,0);
-        this.sample('computer',.10*v,.12,{rate:1.04});
+        this.typingBurst(8,55,ducked);
+        this.semantic('scifi','checkpoint',480,ducked);
         break;
       case 'working':
-        this.typing(.35*v,4,.10,0);
+        this.typingBurst(4,110,ducked);
         break;
       case 'loading':
-        this.sample('switch',.18*v,0,{rate:.98});
-        this.sample('switch',.16*v,.18,{rate:1.02});
-        this.sample('switch',.15*v,.36,{rate:1.05});
+        this.semanticLoop('scifi','loading',Math.min(durationMs,1600),ducked);
         break;
       case 'wait_patient':
-        this.sample('click',.14*v,0,{rate:.94});
-        this.sample('click',.12*v,.48,{rate:.96});
+        this.semantic('minimal','progress-step',0,ducked);
+        this.semantic('minimal','progress-step',520,ducked);
         break;
       case 'impatient':
-        this.sample('click',.28*v,0,{rate:1.08});
-        this.sample('click',.31*v,.12,{rate:1.12});
-        this.sample('click',.34*v,.24,{rate:1.15});
+        this.semantic('mechanical','press',0,ducked);
+        this.semantic('mechanical','press',130,ducked);
+        this.semantic('mechanical','press',260,ducked);
         break;
 
       case 'camera_pose':
-        this.sample('click',.42*v,.30,{rate:.92});
-        this.sample('metalClick',.28*v,.34,{rate:1.06});
-        this.sample('confirm',.16*v,.42,{rate:1.10});
+        this.semantic('studio','snap',300,ducked);
+        this.semantic('glass','reward',430,ducked);
         break;
       case 'pose_star':
-        this.sample('glass',.34*v,0,{rate:1.12});
-        this.sample('confirm',.26*v,.10,{rate:1.06});
+        this.semantic('glass','achievement',0,ducked);
         break;
       case 'victory':
-        this.sample('bellImpact',.28*v,0,{rate:1.06});
-        this.sample('confirm',.40*v,.10,{rate:1.08});
+        this.semantic('cinematic','achievement',0,ducked);
+        this.semantic('glass','complete',180,ducked);
         break;
       case 'peace':
-        this.sample('pluck',.25*v,0,{rate:1.04});
+        this.semantic('soft','reaction',0,ducked);
+        this.semantic('glass','info',170,ducked);
         break;
       case 'approve':
       case 'nod_yes':
       case 'success':
       case 'response_ready':
-        this.sample('confirm',.42*v,0,{rate:1.04});
+        this.semantic('glass','success',0,ducked);
         break;
 
       case 'wow':
-        this.sample('open',.30*v,0,{rate:1.12});
-        this.sample('glass',.22*v,.12,{rate:1.14});
+        this.semantic('cinematic','notification',0,ducked);
+        this.semantic('glass','bonus',160,ducked);
         break;
       case 'surprise_soft':
-        this.sample('question',.20*v,0,{rate:1.12});
-        this.sample('lightImpact',.16*v,.08,{rate:1.10});
+        this.semantic('soft','notification',0,ducked);
         break;
       case 'startled':
-        this.sample('lightImpact',.44*v,0,{rate:1.10});
-        this.sample('glitch',.18*v,.03,{rate:1.08});
+        this.semantic('cinematic','warning',0,ducked);
+        this.semantic('rubber','drop',120,ducked);
         break;
       case 'alert':
-        this.sample('switch',.30*v,0,{rate:1.12});
-        this.sample('switch',.28*v,.14,{rate:1.16});
+        this.semantic('scifi','warning',0,ducked);
         break;
       case 'error':
-        this.sample('error',.46*v,0,{rate:.98});
+        this.semantic('cinematic','error',0,ducked);
         break;
       case 'shake_no':
-        this.sample('close',.30*v,0,{rate:.96});
-        this.sample('error',.18*v,.10,{rate:1.02});
+        this.semantic('soft','blocked',0,ducked);
         break;
       case 'confused':
-        this.sample('question',.24*v,0,{rate:.95});
-        this.sample('glitch',.12*v,.16,{rate:.92});
+        this.semantic('scifi','info',0,ducked);
+        this.semantic('soft','warning',180,ducked);
         break;
 
-      // Keep speech-related loops almost silent so SFX never fight the voice.
+      // Speech and focus states intentionally stay silent so they never fight DAI voice.
       case 'talk':
       case 'focus':
       case 'voicewait':
@@ -642,7 +494,7 @@ class DaiSfxEngine {
         break;
 
       default:
-        this.sample('select',.14*v,0,{rate:1.02});
+        this.semantic('scifi','info',0,ducked);
         break;
     }
   }
@@ -650,19 +502,24 @@ class DaiSfxEngine {
   playMotion(state:string,options:PlayOptions={}){
     if(!this.ready||!this.enabled||this.mode==='silent')return false;
     const now=performance.now();
-    if(state===this.lastMotion&&now-this.lastAt<220)return false;
+    if(state===this.lastMotion&&now-this.lastAt<240)return false;
     this.lastMotion=state;
     this.lastAt=now;
-    const v=this.level(Boolean(options.ducked));
-    if(v<=0)return false;
-    this.motionProfile(state,v,options.durationMs||2200);
+    this.clearScheduled();
+    this.profile(state,options.durationMs||2200,Boolean(options.ducked));
     return true;
   }
 
   preview(){
     if(!this.ready)return false;
-    this.motionProfile('fishing',this.level(false),5200);
+    this.clearScheduled();
+    this.profile('fishing',5200,false);
     return true;
+  }
+
+  stopAll(){
+    this.clearScheduled();
+    try{this.ui.stopAll();}catch{}
   }
 }
 
