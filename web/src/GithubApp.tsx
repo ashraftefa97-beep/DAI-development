@@ -369,7 +369,7 @@ export default function GithubApp(){
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
     setDaiState(state);
-    daiSfx.playMotion(state,{ducked:animationAudioBusy()});
+    daiSfx.playMotion(state,{ducked:animationAudioBusy(),durationMs:duration||2200});
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
@@ -3174,7 +3174,7 @@ export default function GithubApp(){
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
         <section className='dai-sfx-settings'>
           <div className='dai-sfx-head'>
-            <div><strong>مؤثرات حركات ضي</strong><small>مؤثرات أغنى وأوضح للحركات، وتتهدى تلقائيًا وقت كلام ضي.</small></div>
+            <div><strong>مؤثرات حركات ضي</strong><small>كل حركة ليها تصميم صوتي مناسب ومتزامن معاها، وبيتخفض تلقائيًا وقت كلام ضي.</small></div>
             <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
           </div>
           <div className='dai-sfx-controls'>
@@ -3187,10 +3187,10 @@ export default function GithubApp(){
             onClick={async()=>{
               await daiSfx.unlock();
               const played=daiSfx.preview();
-              setSfxNotice(played?'ده صوت نجاح ضي التجريبي.':'اضغط مرة داخل الصفحة وجرب تاني.');
+              setSfxNotice(played?'ده مثال مؤثر الصيد المتزامن مع حركة ضي.':'اضغط مرة داخل الصفحة وجرب تاني.');
               window.setTimeout(()=>setSfxNotice(''),2200);
             }}
-          >تجربة مؤثر ضي</button>
+          >تجربة مؤثر حركة</button>
           {sfxNotice&&<small className='dai-sfx-notice'>{sfxNotice}</small>}
         </section>
         <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت ضي لردود المحادثة والرسائل الصوتية.</small></span></label>
