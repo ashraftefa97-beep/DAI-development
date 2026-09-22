@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
   const modelCandidates = [
     'gemini-3.1-flash-tts-preview',
   ];
-  const voiceName = 'Leda';
+  const voiceName = 'Zephyr';
   const prompt =
     `اقرئي بالمصري الطبيعي بصوت أنثوي شاب وخفيف، بسرعة محادثة نشيطة وأسرع شوية من الطبيعي مع وضوح الكلام، النص فقط من غير أي إضافة:\n${text}`;
 
