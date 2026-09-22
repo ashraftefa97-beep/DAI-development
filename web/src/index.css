@@ -2298,3 +2298,348 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:760px) {
   .dai-animation-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* DAI Web 1.0 panels */
+.dai-history-search {
+  margin: 12px 0 10px;
+  min-height: 42px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #303449;
+  border-radius: 13px;
+  background: #121625;
+  color: #8f91a8;
+}
+.dai-history-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #f4edf4;
+}
+.classic-history-row {
+  gap: 6px;
+}
+.classic-history-row .dai-history-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dai-history-actions {
+  display: flex;
+  gap: 2px;
+  opacity: .45;
+  transition: opacity .18s ease;
+}
+.classic-history-row:hover .dai-history-actions,
+.classic-history-row.pinned .dai-history-actions { opacity: 1; }
+.dai-history-actions button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: #73768a;
+  cursor: pointer;
+}
+.dai-history-actions button:hover,
+.dai-history-actions button.active { color: #ffd4e1; background: rgba(246,169,193,.08); }
+.classic-history-row.pinned { border-color: rgba(246,169,193,.20); }
+.dai-history-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid #57465a;
+  border-radius: 9px;
+  outline: 0;
+  background: #111522;
+  color: #fff3f8;
+}
+
+.dai-setting-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.dai-setting-field {
+  display: grid;
+  gap: 7px;
+  color: #aaa7b8;
+  font-size: 11px;
+}
+.dai-setting-field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid #34384d;
+  border-radius: 12px;
+  outline: 0;
+  background: #121625;
+  color: #f3ebf2;
+}
+.dai-voice-rate {
+  margin-top: 16px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: 1fr minmax(140px,220px);
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #2d3145;
+  border-radius: 13px;
+  background: #131725;
+}
+.dai-voice-rate strong,.dai-voice-rate small { display:block; }
+.dai-voice-rate small { margin-top:4px; color:#85879a; font-size:10px; }
+.dai-voice-rate input { width:100%; accent-color:#d77fa3; }
+
+.dai-settings-tools {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+.dai-settings-tools > button {
+  width: 100%;
+  padding: 11px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+  border: 1px solid #303449;
+  border-radius: 13px;
+  background: #141827;
+  color: #e8e0e8;
+  cursor: pointer;
+}
+.dai-settings-tools > button:hover { border-color:#795b74; background:#1d1c2d; }
+.dai-settings-tools svg { width:18px; height:18px; color:#dca3ba; flex:0 0 auto; }
+.dai-settings-tools strong,.dai-settings-tools small { display:block; }
+.dai-settings-tools small { margin-top:3px; color:#85879b; font-size:10px; line-height:1.5; }
+
+.dai-web-panel {
+  width: min(680px, 100%);
+  max-height: min(88vh, 820px);
+  overflow: auto;
+  padding: 19px;
+  border: 1px solid #303449;
+  border-radius: 22px;
+  background: linear-gradient(180deg,#171b2b,#111522);
+  box-shadow: 0 28px 80px rgba(0,0,0,.46);
+}
+.dai-capabilities-panel { width:min(760px,100%); }
+.dai-panel-intro {
+  margin: 4px 0 16px;
+  color: #9b9daf;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.dai-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+}
+.dai-capability-grid article {
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid #2d3146;
+  border-radius: 16px;
+  background: rgba(27,31,49,.78);
+}
+.dai-capability-grid svg { width:20px;height:20px;color:#e1a7bd;margin-bottom:9px; }
+.dai-capability-grid strong,.dai-capability-grid small { display:block; }
+.dai-capability-grid strong { color:#f5edf4;font-size:13px; }
+.dai-capability-grid small { margin-top:5px;color:#8f91a5;font-size:10px;line-height:1.6; }
+.dai-panel-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dai-panel-actions button,.dai-primary-action {
+  min-height: 42px;
+  padding: 0 15px;
+  border: 1px solid #473d4e;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: #211c2b;
+  color: #f0dce6;
+  font-weight: 700;
+  cursor: pointer;
+}
+.dai-primary-action { width:100%; margin-top:14px; background:linear-gradient(135deg,#f6a9c1,#d77fa3);border:0;color:#281b2b; }
+.dai-primary-action:disabled { opacity:.5;cursor:default; }
+.dai-inline-notice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(246,169,193,.15);
+  border-radius: 11px;
+  background: rgba(246,169,193,.06);
+  color: #cdb6c1;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.dai-diagnostics-list { display:grid; gap:8px; }
+.dai-diagnostic-row {
+  min-height: 66px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid #2f3348;
+  border-radius: 14px;
+  background: #141827;
+}
+.dai-diagnostic-icon {
+  width: 38px;height:38px;border-radius:11px;
+  display:grid;place-items:center;background:#1f2234;color:#aaa2b4;
+}
+.dai-diagnostic-icon svg { width:18px;height:18px; }
+.dai-diagnostic-row strong,.dai-diagnostic-row small { display:block; }
+.dai-diagnostic-row strong { font-size:12px;color:#ede5ec; }
+.dai-diagnostic-row small { margin-top:3px;font-size:10px;color:#898b9e;line-height:1.5; }
+.dai-diagnostic-row > b { font-size:10px;color:#8b8da1; }
+.dai-diagnostic-row.pass { border-color:rgba(140,211,157,.20); }
+.dai-diagnostic-row.pass > b { color:#a8ddb4; }
+.dai-diagnostic-row.warn { border-color:rgba(233,190,113,.24); }
+.dai-diagnostic-row.warn > b { color:#e7c98d; }
+.dai-diagnostic-row.fail { border-color:rgba(238,117,135,.24); }
+.dai-diagnostic-row.fail > b { color:#f0a6b2; }
+.dai-diagnostic-row.running .dai-diagnostic-icon { animation:statusPulse 1s ease-in-out infinite; }
+.dai-diagnostic-empty { padding:22px;text-align:center;color:#818497;font-size:12px; }
+
+.dai-feedback-field { display:grid;gap:7px;margin-top:14px;color:#aaa7b8;font-size:11px; }
+.dai-feedback-field textarea {
+  min-height: 150px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #34384d;
+  border-radius: 13px;
+  outline: 0;
+  background: #121625;
+  color: #f4edf4;
+  line-height: 1.7;
+}
+.dai-feedback-field small { text-align:left;color:#707286; }
+.dai-feedback-meta { margin-top:9px;color:#77798c;font-size:10px;line-height:1.6; }
+
+.dai-mic-indicator {
+  margin: 10px 0 16px;
+  padding: 13px;
+  display: flex;
+  gap: 10px;
+  border: 1px solid #303449;
+  border-radius: 14px;
+  background: #141827;
+}
+.dai-mic-indicator > svg { width:20px;height:20px;color:#dca3ba;flex:0 0 auto; }
+.dai-mic-indicator strong,.dai-mic-indicator small { display:block; }
+.dai-mic-indicator strong { color:#efe6ed;font-size:12px; }
+.dai-mic-indicator small { margin-top:4px;color:#8d8fa2;font-size:10px;line-height:1.7; }
+.dai-privacy-actions { display:grid;gap:8px; }
+.dai-privacy-actions button {
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: right;
+  border: 1px solid #303449;
+  border-radius: 13px;
+  background: #141827;
+  color: #e8dfe7;
+  cursor: pointer;
+}
+.dai-privacy-actions button > svg { width:18px;height:18px;color:#d4a2b5; }
+.dai-privacy-actions button strong,.dai-privacy-actions button small { display:block; }
+.dai-privacy-actions button small { margin-top:3px;color:#85879b;font-size:10px;line-height:1.5; }
+.dai-privacy-actions button.danger { border-color:rgba(244,102,124,.28);background:rgba(117,35,50,.12); }
+.dai-privacy-actions button.danger strong { color:#ffb2be; }
+.dai-privacy-actions button:disabled { opacity:.5;cursor:default; }
+
+html[data-dai-theme="light"] {
+  --bg:#f5f2f5;
+  --panel:#ffffff;
+  --panel2:#f4eff5;
+  --line:#ddd4df;
+  --text:#261f29;
+  --muted:#736b78;
+}
+html[data-dai-theme="light"] body,
+html[data-dai-theme="light"] .classic-shell { background:#f5f2f5;color:#261f29; }
+html[data-dai-theme="light"] .classic-shell {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(215,127,163,.10), transparent 30%),
+    #f5f2f5;
+}
+html[data-dai-theme="light"] .classic-bg-grid { opacity:.04; }
+html[data-dai-theme="light"] .classic-header { background:rgba(250,248,250,.91);border-color:#ddd5df; }
+html[data-dai-theme="light"] .classic-brand strong { color:#9b4f71; }
+html[data-dai-theme="light"] .classic-brand span,
+html[data-dai-theme="light"] .classic-status { color:#6f6874; }
+html[data-dai-theme="light"] .classic-status,
+html[data-dai-theme="light"] .classic-icon-button,
+html[data-dai-theme="light"] .classic-chat-panel,
+html[data-dai-theme="light"] .classic-chat-message,
+html[data-dai-theme="light"] .classic-settings,
+html[data-dai-theme="light"] .classic-drawer,
+html[data-dai-theme="light"] .dai-web-panel {
+  background:#ffffff;
+  border-color:#ded6e0;
+  color:#2b232d;
+}
+html[data-dai-theme="light"] .classic-chat-message.user { background:#fbf1f5; }
+html[data-dai-theme="light"] .classic-chat-message p,
+html[data-dai-theme="light"] .classic-input-bar textarea,
+html[data-dai-theme="light"] .dai-capability-grid strong,
+html[data-dai-theme="light"] .dai-diagnostic-row strong,
+html[data-dai-theme="light"] .dai-feedback-field textarea { color:#2c242f; }
+html[data-dai-theme="light"] .classic-input-bar { background:#ffffff;border-color:#ded6df;box-shadow:0 8px 26px rgba(69,50,64,.08); }
+html[data-dai-theme="light"] .classic-plus-button,
+html[data-dai-theme="light"] .classic-mic-button { color:#4d4650; }
+html[data-dai-theme="light"] .dai-history-search,
+html[data-dai-theme="light"] .dai-setting-field select,
+html[data-dai-theme="light"] .dai-feedback-field textarea,
+html[data-dai-theme="light"] .dai-history-rename,
+html[data-dai-theme="light"] .dai-voice-rate,
+html[data-dai-theme="light"] .dai-settings-tools > button,
+html[data-dai-theme="light"] .dai-capability-grid article,
+html[data-dai-theme="light"] .dai-diagnostic-row,
+html[data-dai-theme="light"] .dai-mic-indicator,
+html[data-dai-theme="light"] .dai-privacy-actions button {
+  background:#faf8fa;
+  border-color:#e1dae3;
+  color:#342b36;
+}
+html[data-dai-theme="light"] .dai-history-search input,
+html[data-dai-theme="light"] .dai-setting-field select,
+html[data-dai-theme="light"] .dai-feedback-field textarea,
+html[data-dai-theme="light"] .dai-history-rename { color:#2d252f; }
+
+@media(max-width:640px) {
+  .dai-setting-grid,.dai-capability-grid { grid-template-columns:1fr; }
+  .dai-voice-rate { grid-template-columns:1fr; }
+  .dai-web-panel {
+    width:100%;
+    max-height:90vh;
+    border-radius:20px 20px 12px 12px;
+    padding:15px;
+  }
+  .dai-diagnostic-row { grid-template-columns:36px 1fr auto; padding:9px; }
+  .dai-diagnostic-icon { width:34px;height:34px; }
+  .dai-capability-grid article { min-height:96px; }
+  .dai-history-actions { opacity:1; }
+  .classic-header-actions { gap:4px; }
+  .classic-header-actions .classic-icon-button { width:34px;height:34px; }
+}
