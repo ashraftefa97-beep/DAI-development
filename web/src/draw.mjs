@@ -139,6 +139,8 @@ function personality(c,m) {
 export function stageScale(w,h) { return Math.max(.35,Math.min(w/600,h/420,1.12)); }
 export function drawDai(c,m,w,h) {
   c.clearRect(0,0,w,h);c.save();c.lineCap='round';c.lineJoin='round';
+  const lightTheme=c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme==='light';
+  c.filter=lightTheme?'brightness(.76) saturate(1.22) contrast(1.16)':'none';
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
   const g=c.createRadialGradient(0,5,0,0,5,210);
