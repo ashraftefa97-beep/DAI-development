@@ -4,6 +4,7 @@ import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, Eye, Gamepad2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
+import { daiSfx, type DaiSfxMode } from './daiSfx';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
@@ -46,7 +47,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.0.0';
+const DAI_WEB_VERSION='1.1.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -133,6 +134,22 @@ export default function GithubApp(){
   const [voiceEnabled,setVoiceEnabled]=useState(()=>{
     try { return localStorage.getItem('dai-voice-enabled')!=='0'; } catch { return true; }
   });
+  const [sfxEnabled,setSfxEnabled]=useState(()=>{
+    try { return localStorage.getItem('dai-sfx-enabled')!=='0'; } catch { return true; }
+  });
+  const [sfxMode,setSfxMode]=useState<DaiSfxMode>(()=>{
+    try{
+      const value=localStorage.getItem('dai-sfx-mode');
+      return value==='normal'||value==='silent'?'normal'===value?'normal':'silent':'soft';
+    }catch{return 'soft';}
+  });
+  const [sfxVolume,setSfxVolume]=useState(()=>{
+    try{
+      const value=Number(localStorage.getItem('dai-sfx-volume')||'.34');
+      return Number.isFinite(value)?Math.max(0,Math.min(1,value)):.34;
+    }catch{return .34;}
+  });
+  const [sfxNotice,setSfxNotice]=useState('');
   const [input,setInput]=useState('');
   const [historyOpen,setHistoryOpen]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
@@ -266,6 +283,15 @@ export default function GithubApp(){
   },[responseMode]);
 
   useEffect(()=>{
+    daiSfx.configure({enabled:sfxEnabled,volume:sfxVolume,mode:sfxMode});
+    try{
+      localStorage.setItem('dai-sfx-enabled',sfxEnabled?'1':'0');
+      localStorage.setItem('dai-sfx-volume',String(sfxVolume));
+      localStorage.setItem('dai-sfx-mode',sfxMode);
+    }catch{}
+  },[sfxEnabled,sfxVolume,sfxMode]);
+
+  useEffect(()=>{
     try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
   },[reduced]);
 
@@ -337,6 +363,7 @@ export default function GithubApp(){
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
     setDaiState(state);
+    daiSfx.playMotion(state,{ducked:animationAudioBusy()});
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
 
@@ -623,7 +650,10 @@ export default function GithubApp(){
   }
 
   useEffect(()=>{
-    const unlock=()=>{ void unlockSpeechAudio(); };
+    const unlock=()=>{
+      void unlockSpeechAudio();
+      void daiSfx.unlock();
+    };
     window.addEventListener('pointerdown',unlock,{capture:true,passive:true});
     window.addEventListener('touchend',unlock,{capture:true,passive:true});
     window.addEventListener('keydown',unlock,{capture:true});
@@ -3136,6 +3166,27 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
+        <section className='dai-sfx-settings'>
+          <div className='dai-sfx-head'>
+            <div><strong>مؤثرات حركات ضي</strong><small>أصوات قصيرة مميزة للحركات، وتتهدى تلقائيًا وقت كلام ضي.</small></div>
+            <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
+          </div>
+          <div className='dai-sfx-controls'>
+            <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>خفيف</option><option value='normal'>طبيعي</option><option value='silent'>صامت</option></select></label>
+            <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
+          </div>
+          <button
+            className='dai-sfx-preview'
+            disabled={!sfxEnabled||sfxMode==='silent'}
+            onClick={async()=>{
+              await daiSfx.unlock();
+              const played=daiSfx.preview();
+              setSfxNotice(played?'ده صوت نجاح ضي التجريبي.':'اضغط مرة داخل الصفحة وجرب تاني.');
+              window.setTimeout(()=>setSfxNotice(''),2200);
+            }}
+          >تجربة مؤثر ضي</button>
+          {sfxNotice&&<small className='dai-sfx-notice'>{sfxNotice}</small>}
+        </section>
         <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت ضي لردود المحادثة والرسائل الصوتية.</small></span></label>
         <div className='dai-setting-grid'>
           <label className='dai-setting-field'><span>طريقة الرد</span><select value={responseMode} onChange={e=>setResponseMode(e.target.value as ResponseMode)}><option value='auto'>تلقائي</option><option value='text'>كتابة فقط</option><option value='voice'>كتابة + صوت دائمًا</option></select></label>
