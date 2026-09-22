@@ -127,7 +127,9 @@ async function explainChatError(error:any){
 
 export default function GithubApp(){
   const [daiState,setDaiState]=useState<DaiState>('wave');
-  const [reduced,setReduced]=useState(false);
+  const [reduced,setReduced]=useState(()=>{
+    try{return localStorage.getItem('dai-reduced-motion')==='1';}catch{return false;}
+  });
   const [voiceEnabled,setVoiceEnabled]=useState(()=>{
     try { return localStorage.getItem('dai-voice-enabled')!=='0'; } catch { return true; }
   });
@@ -262,6 +264,10 @@ export default function GithubApp(){
   useEffect(()=>{
     try{localStorage.setItem('dai-response-mode',responseMode);}catch{}
   },[responseMode]);
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
+  },[reduced]);
 
   useEffect(()=>{
     try{localStorage.setItem('dai-voice-rate',String(voiceRate));}catch{}
@@ -2707,6 +2713,7 @@ export default function GithubApp(){
     const { error }=await supabase.from('dai_conversations').delete().eq('id',id);
     if(error){setErrorText('تعذر حذف المحادثة.');return;}
     setConversations(prev=>prev.filter(c=>c.id!==id));
+    setPinnedConversationIds(prev=>prev.filter(item=>item!==id));
     if(activeId===id)setActiveId('');
   }
 
@@ -2834,7 +2841,14 @@ export default function GithubApp(){
         category:feedbackCategory,
         message:message.slice(0,2000),
         app_version:DAI_WEB_VERSION,
-        user_agent:navigator.userAgent.slice(0,500)
+        user_agent:navigator.userAgent.slice(0,500),
+        context:{
+          online:navigator.onLine,
+          voice_enabled:voiceEnabled,
+          response_mode:responseMode,
+          plan,
+          last_error:errorText.slice(0,500)
+        }
       });
       if(error)throw error;
       setFeedbackMessage('');
@@ -2852,6 +2866,8 @@ export default function GithubApp(){
     setPrivacyBusy(true);
     setPrivacyNotice('');
     try{
+      const {error:messagesError}=await supabase.from('dai_messages').delete().eq('user_id',userId);
+      if(messagesError)throw messagesError;
       const {error}=await supabase.from('dai_conversations').delete().eq('user_id',userId);
       if(error)throw error;
       setConversations([]);
@@ -2925,9 +2941,11 @@ export default function GithubApp(){
             ? (voiceSessionStatus==='connecting'?'ضي بتوصل الصوت…':voiceSessionStatus==='speaking'?'ضي بتتكلم…':'ضي سامعاك…')
             : voiceNotice==='ضي بتتكلم.'
               ? 'ضي بتتكلم…'
-              : sending
-                ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
-                : 'ضي جاهزة';
+              : voiceNotice.includes('بجهّز')||voiceNotice.includes('بتجهّز')
+                ? 'ضي بتجهّز الصوت…'
+                : sending
+                  ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
+                  : 'ضي جاهزة';
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
