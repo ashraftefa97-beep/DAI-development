@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
 
   const modelCandidates = [
     'gemini-3.1-flash-tts-preview',
+    'gemini-2.5-flash-preview-tts',
   ];
   const voiceName = 'Zephyr';
   const prompt =
@@ -153,13 +154,12 @@ Deno.serve(async (req) => {
             audioBase64: wavBase64,
             mimeType: 'audio/wav',
             voice: voiceName,
-            model,
             sampleRate,
           });
         }
       }
 
-      if (![404, 429, 503].includes(response.status)) break;
+      if (![404, 429, 500, 502, 503, 504].includes(response.status)) break;
     }
 
     console.error('DAI TTS provider error', lastStatus, lastDetail);
