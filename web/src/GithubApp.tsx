@@ -615,7 +615,7 @@ export default function GithubApp(){
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
-      console.error('DAI Gemini TTS failed; no voice fallback used',error);
+      console.error('DAI voice playback failed',error);
       setDaiState('idle');
       setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
       return false;
@@ -1465,7 +1465,7 @@ export default function GithubApp(){
           }
         }
 
-        // For spoken replies, do not reveal text before DAI's Gemini voice actually starts.
+        // For spoken replies, do not reveal text before DAI voice actually starts.
         if(shouldSpeak)return;
 
         setConversations(prev=>{
@@ -1987,7 +1987,7 @@ export default function GithubApp(){
       combined.set(previous,0);
       combined.set(resampled,previous.length);
 
-      // Gemini Live works best with roughly 100 ms chunks at 16 kHz.
+      // Live voice works best with roughly 100 ms chunks at 16 kHz.
       const chunkSamples=1600;
       let offset=0;
       while(offset+chunkSamples<=combined.length){
@@ -2771,7 +2771,7 @@ export default function GithubApp(){
       {id:'supabase',label:'حساب وقاعدة بيانات ضي',status:'running',detail:'جاري الفحص…'},
       {id:'microphone',label:'الميكروفون',status:'running',detail:'جاري الفحص…'},
       {id:'audio',label:'تشغيل الصوت',status:'running',detail:'جاري الفحص…'},
-      {id:'gemini',label:'Gemini Voice',status:'running',detail:'جاري الفحص…'}
+      {id:'dai-voice',label:'خدمة صوت ضي',status:'running',detail:'جاري الفحص…'}
     ];
     setDiagnostics(initial);
     const update=(id:string,patch:Partial<DiagnosticItem>)=>{
@@ -2818,9 +2818,9 @@ export default function GithubApp(){
       const {data,error}=await supabase!.functions.invoke('tts',{body:{text:'اختبار قصير لصوت ضي.'}});
       if(error||!data?.audioBase64)throw error||new Error('audio');
       const latency=Math.round(performance.now()-started);
-      update('gemini',{status:latency>6000?'warn':'pass',detail:latency>6000?'Gemini Voice شغال لكن الاستجابة بطيئة حاليًا.':'Gemini Voice جاهز.',latency});
+      update('dai-voice',{status:latency>6000?'warn':'pass',detail:latency>6000?'صوت ضي شغال لكن الاستجابة أبطأ من المعتاد.':'خدمة صوت ضي جاهزة.',latency});
     }catch{
-      update('gemini',{status:'fail',detail:'تعذر تجهيز صوت Gemini حاليًا.'});
+      update('dai-voice',{status:'fail',detail:'خدمة صوت ضي واجهت مشكلة مؤقتة. جرّب إعادة الفحص.'});
     }finally{
       setDiagnosticsRunning(false);
     }
@@ -3136,7 +3136,7 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت Gemini لردود ضي والرسائل الصوتية.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت ضي لردود المحادثة والرسائل الصوتية.</small></span></label>
         <div className='dai-setting-grid'>
           <label className='dai-setting-field'><span>طريقة الرد</span><select value={responseMode} onChange={e=>setResponseMode(e.target.value as ResponseMode)}><option value='auto'>تلقائي</option><option value='text'>كتابة فقط</option><option value='voice'>كتابة + صوت دائمًا</option></select></label>
           <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
@@ -3171,7 +3171,7 @@ export default function GithubApp(){
         {desktopMode&&professional&&<div className='classic-privacy'>Professional يسمح بفتح وتركيز وإغلاق البرامج، التحكم في الوسائط والصوت، اختصارات التنقل، فتح روابط آمنة وملفات محلية، وتشغيل ضي مع Windows. الأوامر الحساسة تفضل محتاجة تأكيد.</div>}
         {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
         <div className='dai-settings-tools'>
-          <button onClick={()=>{setSettingsOpen(false);void runDiagnostics()}}><Activity/><span><strong>فحص جاهزية ضي</strong><small>مايك · صوت · Gemini · Supabase · زمن الاستجابة</small></span></button>
+          <button onClick={()=>{setSettingsOpen(false);void runDiagnostics()}}><Activity/><span><strong>فحص جاهزية ضي</strong><small>مايك · صوت ضي · الحساب · زمن الاستجابة</small></span></button>
           <button onClick={()=>{setSettingsOpen(false);setFeedbackOpen(true)}}><MessageSquareWarning/><span><strong>إرسال Feedback</strong><small>مشكلة صوت أو رد أو حركة أو واجهة</small></span></button>
           <button onClick={()=>{setSettingsOpen(false);setPrivacyOpen(true)}}><ShieldCheck/><span><strong>الخصوصية والبيانات</strong><small>مسح المحادثات والذاكرة وحذف الحساب</small></span></button>
           <button onClick={()=>void installPwa()}><Download/><span><strong>{pwaInstalled?'DAI Web مثبت':'تثبيت DAI Web'}</strong><small>تثبيت الموقع كتطبيق على الهاتف أو الكمبيوتر</small></span></button>
@@ -3189,7 +3189,7 @@ export default function GithubApp(){
         <p className='dai-panel-intro'>نسخة الويب مركزة على المحادثة والصوت والذاكرة وتجربة ضي. صلاحيات Windows الكاملة تفضل لتطبيق DAI Desktop.</p>
         <div className='dai-capability-grid'>
           <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>Streaming، Regenerate، سجل محادثات وبحث وتثبيت.</small></article>
-          <article><Headphones/><strong>صوت Gemini</strong><small>رسائل صوتية، قراءة الردود وLive Voice اختياري.</small></article>
+          <article><Headphones/><strong>صوت ضي</strong><small>رسائل صوتية، قراءة الردود ومحادثة صوتية مباشرة اختيارية.</small></article>
           <article><Brain/><strong>ذاكرة اختيارية</strong><small>في Professional وتقدر توقفها أو تمسحها في أي وقت.</small></article>
           <article><Sparkles/><strong>شخصية وحركات</strong><small>حالات وتعبيرات وحركات مرتبطة بالسياق.</small></article>
           <article><Activity/><strong>تشخيص ذاتي</strong><small>فحص اتصال ومايك وصوت وخدمات ضي من داخل الموقع.</small></article>
@@ -3210,7 +3210,7 @@ export default function GithubApp(){
         <div className='dai-diagnostics-list'>
           {diagnostics.length===0&&<div className='dai-diagnostic-empty'>اضغط بدء الفحص.</div>}
           {diagnostics.map(item=><article className={'dai-diagnostic-row '+item.status} key={item.id}>
-            <span className='dai-diagnostic-icon'>{item.id==='network'?<Wifi/>:item.id==='supabase'?<Database/>:item.id==='microphone'?<Mic/>:item.id==='audio'?<Headphones/>:<Sparkles/>}</span>
+            <span className='dai-diagnostic-icon'>{item.id==='network'?<Wifi/>:item.id==='supabase'?<Database/>:item.id==='microphone'?<Mic/>:item.id==='audio'?<Headphones/>:item.id==='dai-voice'?<Sparkles/>:<Sparkles/>}</span>
             <div><strong>{item.label}</strong><small>{item.detail}{typeof item.latency==='number'?' · '+item.latency+'ms':''}</small></div>
             <b>{item.status==='running'?'…':item.status==='pass'?'جاهز':item.status==='warn'?'بطيء':'مشكلة'}</b>
           </article>)}
