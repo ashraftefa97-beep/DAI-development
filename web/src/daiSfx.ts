@@ -326,7 +326,7 @@ const BASE_PROFILES:Record<string,Marker[]>={
   ]
 };
 
-function dynamicProfile(state:string,durationMs:number):Marker[]{
+function dynamicProfile(state:string,_durationMs:number):Marker[]{
   if(state==='search'||state==='scan'){
     return [
       m(.04,'computer',.12,state==='scan'?1.03:.98,0),
