@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Eye, Gamepad2, History, LayoutPanelTop, LockKeyhole, Mic, Orbit, Plus, RefreshCw, RotateCcw, Send, Settings, Sparkles, Square, Trash2, Volume2, WandSparkles, X } from 'lucide-react';
+import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, Eye, Gamepad2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
+type ResponseMode = 'auto' | 'text' | 'voice';
+type ThemeMode = 'dark' | 'light' | 'system';
+type DiagnosticStatus = 'idle' | 'running' | 'pass' | 'warn' | 'fail';
+type DiagnosticItem = { id:string; label:string; status:DiagnosticStatus; detail:string; latency?:number };
 type ProAnimationSpec = {
   id:string;
   gesture:DaiState;
@@ -42,7 +46,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='0.9.4';
+const DAI_WEB_VERSION='1.0.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -130,6 +134,46 @@ export default function GithubApp(){
   const [input,setInput]=useState('');
   const [historyOpen,setHistoryOpen]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
+  const [capabilitiesOpen,setCapabilitiesOpen]=useState(false);
+  const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
+  const [diagnosticsRunning,setDiagnosticsRunning]=useState(false);
+  const [diagnostics,setDiagnostics]=useState<DiagnosticItem[]>([]);
+  const [feedbackOpen,setFeedbackOpen]=useState(false);
+  const [feedbackCategory,setFeedbackCategory]=useState<'voice'|'reply'|'animation'|'interface'|'other'>('voice');
+  const [feedbackMessage,setFeedbackMessage]=useState('');
+  const [feedbackSending,setFeedbackSending]=useState(false);
+  const [feedbackNotice,setFeedbackNotice]=useState('');
+  const [privacyOpen,setPrivacyOpen]=useState(false);
+  const [privacyBusy,setPrivacyBusy]=useState(false);
+  const [privacyNotice,setPrivacyNotice]=useState('');
+  const [historySearch,setHistorySearch]=useState('');
+  const [historyRemoteMatches,setHistoryRemoteMatches]=useState<string[]>([]);
+  const [pinnedConversationIds,setPinnedConversationIds]=useState<string[]>(()=>{
+    try{return JSON.parse(localStorage.getItem('dai-pinned-conversations')||'[]');}catch{return [];}
+  });
+  const [renamingConversationId,setRenamingConversationId]=useState('');
+  const [renameValue,setRenameValue]=useState('');
+  const [responseMode,setResponseMode]=useState<ResponseMode>(()=>{
+    try{
+      const value=localStorage.getItem('dai-response-mode');
+      return value==='text'||value==='voice'?'auto'===value?'auto':value:'auto';
+    }catch{return 'auto';}
+  });
+  const [voiceRate,setVoiceRate]=useState(()=>{
+    try{
+      const value=Number(localStorage.getItem('dai-voice-rate')||'1');
+      return Number.isFinite(value)?Math.max(.92,Math.min(1.08,value)):1;
+    }catch{return 1;}
+  });
+  const [themeMode,setThemeMode]=useState<ThemeMode>(()=>{
+    try{
+      const value=localStorage.getItem('dai-theme');
+      return value==='light'||value==='system'?value:'dark';
+    }catch{return 'dark';}
+  });
+  const [installPrompt,setInstallPrompt]=useState<any>(null);
+  const [pwaInstalled,setPwaInstalled]=useState(()=>typeof window!=='undefined'&&window.matchMedia?.('(display-mode: standalone)').matches);
+  const [pwaNotice,setPwaNotice]=useState('');
   const [activeId,setActiveId]=useState('');
   const [conversations,setConversations]=useState<Conversation[]>([]);
   const [listening,setListening]=useState(false);
@@ -214,6 +258,49 @@ export default function GithubApp(){
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-response-mode',responseMode);}catch{}
+  },[responseMode]);
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-voice-rate',String(voiceRate));}catch{}
+  },[voiceRate]);
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-pinned-conversations',JSON.stringify(pinnedConversationIds));}catch{}
+  },[pinnedConversationIds]);
+
+  useEffect(()=>{
+    const media=window.matchMedia('(prefers-color-scheme: light)');
+    const apply=()=>{
+      const resolved=themeMode==='system'?(media.matches?'light':'dark'):themeMode;
+      document.documentElement.dataset.daiTheme=resolved;
+      document.documentElement.style.colorScheme=resolved;
+    };
+    try{localStorage.setItem('dai-theme',themeMode);}catch{}
+    apply();
+    media.addEventListener?.('change',apply);
+    return()=>media.removeEventListener?.('change',apply);
+  },[themeMode]);
+
+  useEffect(()=>{
+    const onInstall=(event:any)=>{
+      event.preventDefault?.();
+      setInstallPrompt(event);
+    };
+    const onInstalled=()=>{
+      setPwaInstalled(true);
+      setInstallPrompt(null);
+      setPwaNotice('تم تثبيت DAI Web على الجهاز.');
+    };
+    window.addEventListener('beforeinstallprompt',onInstall as EventListener);
+    window.addEventListener('appinstalled',onInstalled);
+    return()=>{
+      window.removeEventListener('beforeinstallprompt',onInstall as EventListener);
+      window.removeEventListener('appinstalled',onInstalled);
+    };
+  },[]);
 
   useEffect(()=>{
     const update=()=>setOnline(navigator.onLine);
@@ -468,6 +555,7 @@ export default function GithubApp(){
 
     const source=ctx.createBufferSource();
     source.buffer=decoded;
+    source.playbackRate.value=voiceRate;
     source.connect(ctx.destination);
     speechStreamSourcesRef.current.add(source);
     source.onended=()=>{
@@ -716,6 +804,31 @@ export default function GithubApp(){
     loadMessages();
     return()=>{alive=false;};
   },[activeId,sending,voiceSessionActive]);
+
+  useEffect(()=>{
+    if(!supabase||!userId){
+      setHistoryRemoteMatches([]);
+      return;
+    }
+    const query=historySearch.trim();
+    if(query.length<2){
+      setHistoryRemoteMatches([]);
+      return;
+    }
+    let cancelled=false;
+    const handle=window.setTimeout(async()=>{
+      const safe=query.replace(/[%_]/g,' ').trim();
+      if(!safe)return;
+      const {data,error}=await supabase!
+        .from('dai_messages')
+        .select('conversation_id')
+        .ilike('content','%'+safe+'%')
+        .limit(120);
+      if(cancelled||error)return;
+      setHistoryRemoteMatches(Array.from(new Set((data||[]).map((row:any)=>String(row.conversation_id)))));
+    },260);
+    return()=>{cancelled=true;window.clearTimeout(handle);};
+  },[historySearch,userId]);
 
   const active=conversations.find(c=>c.id===activeId)||null;
 
@@ -1280,9 +1393,10 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
-    const shouldSpeak=voiceEnabled && (
+    const shouldSpeak=voiceEnabled && responseMode!=='text' && (
       speechMode==='always' ||
-      (speechMode==='auto' && wantsSpokenReply(text))
+      responseMode==='voice' ||
+      (responseMode==='auto' && speechMode==='auto' && wantsSpokenReply(text))
     );
 
     const revealAssistant=(assistantMessage:Message)=>{
@@ -2597,6 +2711,224 @@ export default function GithubApp(){
   }
 
 
+
+  async function installPwa(){
+    if(pwaInstalled){
+      setPwaNotice('DAI Web متثبت بالفعل على الجهاز.');
+      return;
+    }
+    if(installPrompt){
+      try{
+        await installPrompt.prompt();
+        const choice=await installPrompt.userChoice;
+        setPwaNotice(choice?.outcome==='accepted'?'تم قبول تثبيت DAI Web.':'تم إلغاء التثبيت.');
+        setInstallPrompt(null);
+      }catch{
+        setPwaNotice('المتصفح منع نافذة التثبيت. استخدم Add to Home Screen من قائمة المتصفح.');
+      }
+      return;
+    }
+    setPwaNotice('لو زر التثبيت مش ظاهر، افتح قائمة المتصفح واختر Add to Home Screen أو Install app.');
+  }
+
+  function togglePinnedConversation(id:string){
+    setPinnedConversationIds(prev=>prev.includes(id)?prev.filter(item=>item!==id):[id,...prev]);
+  }
+
+  async function renameConversation(id:string){
+    if(!supabase)return;
+    const title=renameValue.trim().slice(0,80);
+    if(!title){
+      setRenamingConversationId('');
+      return;
+    }
+    const {error}=await supabase
+      .from('dai_conversations')
+      .update({title,updated_at:new Date().toISOString()})
+      .eq('id',id);
+    if(error){
+      setErrorText('تعذر تغيير اسم المحادثة.');
+      return;
+    }
+    setConversations(prev=>prev.map(item=>item.id===id?{...item,title,updatedAt:Date.now()}:item));
+    setRenamingConversationId('');
+    setRenameValue('');
+  }
+
+  async function runDiagnostics(){
+    if(diagnosticsRunning)return;
+    setDiagnosticsOpen(true);
+    setDiagnosticsRunning(true);
+    const initial:DiagnosticItem[]=[
+      {id:'network',label:'الاتصال بالإنترنت',status:'running',detail:'جاري الفحص…'},
+      {id:'supabase',label:'حساب وقاعدة بيانات ضي',status:'running',detail:'جاري الفحص…'},
+      {id:'microphone',label:'الميكروفون',status:'running',detail:'جاري الفحص…'},
+      {id:'audio',label:'تشغيل الصوت',status:'running',detail:'جاري الفحص…'},
+      {id:'gemini',label:'Gemini Voice',status:'running',detail:'جاري الفحص…'}
+    ];
+    setDiagnostics(initial);
+    const update=(id:string,patch:Partial<DiagnosticItem>)=>{
+      setDiagnostics(prev=>prev.map(item=>item.id===id?{...item,...patch}:item));
+    };
+
+    update('network',{
+      status:navigator.onLine?'pass':'fail',
+      detail:navigator.onLine?'الاتصال متاح.':'الجهاز غير متصل بالإنترنت.'
+    });
+
+    try{
+      const started=performance.now();
+      const {data:{session}}=await supabase!.auth.getSession();
+      if(!session)throw new Error('session');
+      const {error}=await supabase!.from('dai_conversations').select('id').limit(1);
+      if(error)throw error;
+      const latency=Math.round(performance.now()-started);
+      update('supabase',{status:latency>1800?'warn':'pass',detail:latency>1800?'الاتصال شغال لكنه أبطأ من المعتاد.':'الحساب وقاعدة البيانات جاهزين.',latency});
+    }catch{
+      update('supabase',{status:'fail',detail:'تعذر الوصول للحساب أو قاعدة البيانات.'});
+    }
+
+    try{
+      if(!navigator.mediaDevices?.getUserMedia)throw new Error('unsupported');
+      const started=performance.now();
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      stream.getTracks().forEach(track=>track.stop());
+      update('microphone',{status:'pass',detail:'الإذن متاح والميكروفون جاهز.',latency:Math.round(performance.now()-started)});
+    }catch{
+      update('microphone',{status:'fail',detail:'الميكروفون غير متاح أو الإذن مرفوض.'});
+    }
+
+    try{
+      const started=performance.now();
+      const unlocked=await unlockSpeechAudio();
+      update('audio',{status:unlocked?'pass':'warn',detail:unlocked?'المتصفح يسمح بتشغيل الصوت.':'اضغط مرة داخل الصفحة ثم أعد الفحص.',latency:Math.round(performance.now()-started)});
+    }catch{
+      update('audio',{status:'fail',detail:'تعذر تهيئة إخراج الصوت.'});
+    }
+
+    try{
+      const started=performance.now();
+      const {data,error}=await supabase!.functions.invoke('tts',{body:{text:'اختبار قصير لصوت ضي.'}});
+      if(error||!data?.audioBase64)throw error||new Error('audio');
+      const latency=Math.round(performance.now()-started);
+      update('gemini',{status:latency>6000?'warn':'pass',detail:latency>6000?'Gemini Voice شغال لكن الاستجابة بطيئة حاليًا.':'Gemini Voice جاهز.',latency});
+    }catch{
+      update('gemini',{status:'fail',detail:'تعذر تجهيز صوت Gemini حاليًا.'});
+    }finally{
+      setDiagnosticsRunning(false);
+    }
+  }
+
+  async function submitFeedback(){
+    if(!supabase||!userId||feedbackSending)return;
+    const message=feedbackMessage.trim();
+    if(message.length<3){
+      setFeedbackNotice('اكتب تفاصيل بسيطة عن المشكلة أو الاقتراح.');
+      return;
+    }
+    setFeedbackSending(true);
+    setFeedbackNotice('');
+    try{
+      const {error}=await supabase.from('dai_feedback').insert({
+        user_id:userId,
+        category:feedbackCategory,
+        message:message.slice(0,2000),
+        app_version:DAI_WEB_VERSION,
+        user_agent:navigator.userAgent.slice(0,500)
+      });
+      if(error)throw error;
+      setFeedbackMessage('');
+      setFeedbackNotice('وصلت ملاحظتك. شكرًا إنك بتساعد في تحسين ضي.');
+    }catch{
+      setFeedbackNotice('تعذر إرسال الملاحظة دلوقتي. جرّب تاني.');
+    }finally{
+      setFeedbackSending(false);
+    }
+  }
+
+  async function clearAllConversations(){
+    if(!supabase||!userId||privacyBusy)return;
+    if(!window.confirm('تمسح كل محادثات ضي نهائيًا؟'))return;
+    setPrivacyBusy(true);
+    setPrivacyNotice('');
+    try{
+      const {error}=await supabase.from('dai_conversations').delete().eq('user_id',userId);
+      if(error)throw error;
+      setConversations([]);
+      setActiveId('');
+      setPinnedConversationIds([]);
+      setPrivacyNotice('تم مسح كل المحادثات.');
+    }catch{
+      setPrivacyNotice('تعذر مسح كل المحادثات.');
+    }finally{
+      setPrivacyBusy(false);
+    }
+  }
+
+  async function clearAllMemory(){
+    if(!supabase||!userId||privacyBusy)return;
+    setPrivacyBusy(true);
+    setPrivacyNotice('');
+    try{
+      const {error}=await supabase.from('dai_pro_memory').delete().eq('user_id',userId);
+      if(error)throw error;
+      setProMemoryText('');
+      setProMemoryEnabled(false);
+      setPrivacyNotice('تم مسح ذاكرة ضي الاختيارية.');
+    }catch{
+      setPrivacyNotice('تعذر مسح الذاكرة.');
+    }finally{
+      setPrivacyBusy(false);
+    }
+  }
+
+  async function deleteDaiAccount(){
+    if(!supabase||privacyBusy)return;
+    if(!window.confirm('حذف الحساب نهائي ومش هينفع ترجع المحادثات بعده. تكمل؟'))return;
+    setPrivacyBusy(true);
+    setPrivacyNotice('');
+    try{
+      const {data,error}=await supabase.functions.invoke('delete-account',{body:{confirm:'DELETE'}});
+      if(error||!data?.deleted)throw error||new Error('delete');
+      await supabase.auth.signOut().catch(()=>null);
+      window.location.reload();
+    }catch{
+      setPrivacyNotice('تعذر حذف الحساب دلوقتي. جرّب تاني.');
+      setPrivacyBusy(false);
+    }
+  }
+
+  const normalizedHistorySearch=historySearch.trim().toLowerCase();
+  const visibleConversations=[...conversations]
+    .filter(item=>{
+      if(!normalizedHistorySearch)return true;
+      if(item.title.toLowerCase().includes(normalizedHistorySearch))return true;
+      if(historyRemoteMatches.includes(item.id))return true;
+      return item.messages.some(message=>message.content.toLowerCase().includes(normalizedHistorySearch));
+    })
+    .sort((a,b)=>{
+      const aPinned=pinnedConversationIds.includes(a.id)?1:0;
+      const bPinned=pinnedConversationIds.includes(b.id)?1:0;
+      if(aPinned!==bPinned)return bPinned-aPinned;
+      return b.updatedAt-a.updatedAt;
+    });
+
+  const daiStatusLabel=!online
+    ? 'مفيش اتصال'
+    : loadingData
+      ? 'بجهّز حسابك…'
+      : voiceNoteRecording
+        ? 'ضي بتسمع تسجيلك…'
+        : voiceNoteProcessing
+          ? 'ضي بتفهم التسجيل…'
+          : voiceSessionActive
+            ? (voiceSessionStatus==='connecting'?'ضي بتوصل الصوت…':voiceSessionStatus==='speaking'?'ضي بتتكلم…':'ضي سامعاك…')
+            : voiceNotice==='ضي بتتكلم.'
+              ? 'ضي بتتكلم…'
+              : sending
+                ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
+                : 'ضي جاهزة';
+
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
     return <main className='dai-companion-shell' dir='rtl' data-state={daiState}>
@@ -2641,7 +2973,8 @@ export default function GithubApp(){
           {professional?<Crown className='h-3.5 w-3.5'/>:<Sparkles className='h-3.5 w-3.5'/>}
           <span>{planOwner?'Owner Pro':professional?'Professional':'Standard'}</span>
         </button>}
-        <span className='classic-status' role='status' aria-live='polite'><i className={sending?'busy':online?'':'offline'}/><span>{!online?'مفيش اتصال':loadingData?'بجهّز حسابك…':sending?(streamingText?'ضي بتكتب…':'ضي بتفكر…'):'حسابك متصل'}</span></span>
+        <span className='classic-status' role='status' aria-live='polite'><i className={sending||voiceNoteRecording||voiceNoteProcessing||voiceSessionStatus==='speaking'?'busy':online?'':'offline'}/><span>{daiStatusLabel}</span></span>
+        <button onClick={()=>setCapabilitiesOpen(true)} className='classic-icon-button' aria-label='قدرات ضي' title='ضي تقدر تعمل إيه؟'><Info className='h-5 w-5'/></button>
         {professional&&<button onClick={()=>setControlOpen(true)} className='classic-icon-button dai-control-launch' aria-label='DAI Control Center' title='DAI Control Center'><WandSparkles className='h-5 w-5'/></button>}
         <button onClick={()=>setHistoryOpen(true)} className='classic-icon-button' aria-label='المحادثات'><History className='h-5 w-5'/></button>
         <button onClick={()=>setSettingsOpen(true)} className='classic-icon-button' aria-label='الإعدادات'><Settings className='h-5 w-5'/></button>
@@ -2753,8 +3086,30 @@ export default function GithubApp(){
       <aside className='classic-drawer'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>المحادثات</h3></div><button className='classic-icon-button' onClick={()=>setHistoryOpen(false)}><X className='h-5 w-5'/></button></div>
         <button className='classic-new-chat' onClick={newConversation}>محادثة جديدة</button>
+        <label className='dai-history-search'><Search className='h-4 w-4'/><input value={historySearch} onChange={e=>setHistorySearch(e.target.value)} placeholder='ابحث في المحادثات'/></label>
         <div className='classic-history-list'>
-          {conversations.length===0?<p>لسه مفيش محادثات.</p>:conversations.map(c=><div className={'classic-history-row '+(c.id===active?.id?'active':'')} key={c.id}><button onClick={()=>{setActiveId(c.id);setHistoryOpen(false)}}>{c.title}</button><button onClick={()=>deleteConversation(c.id)}><Trash2 className='h-4 w-4'/></button></div>)}
+          {visibleConversations.length===0
+            ? <p>{historySearch?'مفيش نتيجة للبحث.':'لسه مفيش محادثات.'}</p>
+            : visibleConversations.map(item=><div className={'classic-history-row '+(item.id===active?.id?'active':'')+(pinnedConversationIds.includes(item.id)?' pinned':'')} key={item.id}>
+                {renamingConversationId===item.id
+                  ? <input
+                      className='dai-history-rename'
+                      autoFocus
+                      value={renameValue}
+                      maxLength={80}
+                      onChange={e=>setRenameValue(e.target.value)}
+                      onKeyDown={e=>{if(e.key==='Enter')void renameConversation(item.id);if(e.key==='Escape'){setRenamingConversationId('');setRenameValue('');}}}
+                      onBlur={()=>void renameConversation(item.id)}
+                    />
+                  : <button className='dai-history-title' onClick={()=>{setActiveId(item.id);setHistoryOpen(false)}}>{item.title}</button>
+                }
+                <div className='dai-history-actions'>
+                  <button className={pinnedConversationIds.includes(item.id)?'active':''} onClick={()=>togglePinnedConversation(item.id)} title='تثبيت'><Pin className='h-3.5 w-3.5'/></button>
+                  <button onClick={()=>{setRenamingConversationId(item.id);setRenameValue(item.title)}} title='إعادة تسمية'><Pencil className='h-3.5 w-3.5'/></button>
+                  <button onClick={()=>deleteConversation(item.id)} title='حذف'><Trash2 className='h-3.5 w-3.5'/></button>
+                </div>
+              </div>)
+          }
         </div>
       </aside>
     </div>}
@@ -2763,7 +3118,12 @@ export default function GithubApp(){
       <section className='classic-settings'>
         <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
         <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>الرسائل الصوتية ترد عليها ضي كتابة وصوت. ولو كتبت «قولي بصوتك» هتسمع الرد كمان.</small></span></label>
+        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت Gemini لردود ضي والرسائل الصوتية.</small></span></label>
+        <div className='dai-setting-grid'>
+          <label className='dai-setting-field'><span>طريقة الرد</span><select value={responseMode} onChange={e=>setResponseMode(e.target.value as ResponseMode)}><option value='auto'>تلقائي</option><option value='text'>كتابة فقط</option><option value='voice'>كتابة + صوت دائمًا</option></select></label>
+          <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
+        </div>
+        <label className='dai-voice-rate'><span><strong>سرعة صوت ضي</strong><small>{voiceRate.toFixed(2)}× · تعديل بسيط يحافظ على طبيعة الصوت</small></span><input type='range' min='0.92' max='1.08' step='0.02' value={voiceRate} onChange={e=>setVoiceRate(Number(e.target.value))}/></label>
         <div className='dai-voice-health'>
           <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} onClick={()=>void testDaiVoice()}>
             {voiceTestBusy?'بجهّز الصوت…':'اختبار صوت ضي'}
@@ -2792,8 +3152,76 @@ export default function GithubApp(){
         {desktopMode&&professional&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
         {desktopMode&&professional&&<div className='classic-privacy'>Professional يسمح بفتح وتركيز وإغلاق البرامج، التحكم في الوسائط والصوت، اختصارات التنقل، فتح روابط آمنة وملفات محلية، وتشغيل ضي مع Windows. الأوامر الحساسة تفضل محتاجة تأكيد.</div>}
         {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
+        <div className='dai-settings-tools'>
+          <button onClick={()=>{setSettingsOpen(false);void runDiagnostics()}}><Activity/><span><strong>فحص جاهزية ضي</strong><small>مايك · صوت · Gemini · Supabase · زمن الاستجابة</small></span></button>
+          <button onClick={()=>{setSettingsOpen(false);setFeedbackOpen(true)}}><MessageSquareWarning/><span><strong>إرسال Feedback</strong><small>مشكلة صوت أو رد أو حركة أو واجهة</small></span></button>
+          <button onClick={()=>{setSettingsOpen(false);setPrivacyOpen(true)}}><ShieldCheck/><span><strong>الخصوصية والبيانات</strong><small>مسح المحادثات والذاكرة وحذف الحساب</small></span></button>
+          <button onClick={()=>void installPwa()}><Download/><span><strong>{pwaInstalled?'DAI Web مثبت':'تثبيت DAI Web'}</strong><small>تثبيت الموقع كتطبيق على الهاتف أو الكمبيوتر</small></span></button>
+        </div>
+        {pwaNotice&&<div className='dai-inline-notice'>{pwaNotice}</div>}
         <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
         <div className='classic-version'>DAI Web v{DAI_WEB_VERSION}</div>
+      </section>
+    </div>}
+
+
+    {capabilitiesOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setCapabilitiesOpen(false)}}>
+      <section className='dai-web-panel dai-capabilities-panel'>
+        <div className='classic-drawer-head'><div><span>DAI Web 1.0</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
+        <p className='dai-panel-intro'>نسخة الويب مركزة على المحادثة والصوت والذاكرة وتجربة ضي. صلاحيات Windows الكاملة تفضل لتطبيق DAI Desktop.</p>
+        <div className='dai-capability-grid'>
+          <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>Streaming، Regenerate، سجل محادثات وبحث وتثبيت.</small></article>
+          <article><Headphones/><strong>صوت Gemini</strong><small>رسائل صوتية، قراءة الردود وLive Voice اختياري.</small></article>
+          <article><Brain/><strong>ذاكرة اختيارية</strong><small>في Professional وتقدر توقفها أو تمسحها في أي وقت.</small></article>
+          <article><Sparkles/><strong>شخصية وحركات</strong><small>حالات وتعبيرات وحركات مرتبطة بالسياق.</small></article>
+          <article><Activity/><strong>تشخيص ذاتي</strong><small>فحص اتصال ومايك وصوت وخدمات ضي من داخل الموقع.</small></article>
+          <article><ShieldCheck/><strong>خصوصية واضحة</strong><small>تحكم في محادثاتك وذاكرتك وحسابك.</small></article>
+        </div>
+        <div className='dai-panel-actions'>
+          <button onClick={()=>{setCapabilitiesOpen(false);void runDiagnostics()}}><Activity/> فحص ضي</button>
+          <button onClick={()=>void installPwa()}><Download/> {pwaInstalled?'مثبتة':'تثبيت كتطبيق'}</button>
+        </div>
+        {pwaNotice&&<div className='dai-inline-notice'>{pwaNotice}</div>}
+      </section>
+    </div>}
+
+    {diagnosticsOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget&&!diagnosticsRunning)setDiagnosticsOpen(false)}}>
+      <section className='dai-web-panel'>
+        <div className='classic-drawer-head'><div><span>System Check</span><h3>فحص جاهزية ضي</h3></div><button className='classic-icon-button' disabled={diagnosticsRunning} onClick={()=>setDiagnosticsOpen(false)}><X className='h-5 w-5'/></button></div>
+        <p className='dai-panel-intro'>الفحص يختبر الخدمات المطلوبة لتجربة ضي ويعرض مكان المشكلة بدل رسالة عامة.</p>
+        <div className='dai-diagnostics-list'>
+          {diagnostics.length===0&&<div className='dai-diagnostic-empty'>اضغط بدء الفحص.</div>}
+          {diagnostics.map(item=><article className={'dai-diagnostic-row '+item.status} key={item.id}>
+            <span className='dai-diagnostic-icon'>{item.id==='network'?<Wifi/>:item.id==='supabase'?<Database/>:item.id==='microphone'?<Mic/>:item.id==='audio'?<Headphones/>:<Sparkles/>}</span>
+            <div><strong>{item.label}</strong><small>{item.detail}{typeof item.latency==='number'?' · '+item.latency+'ms':''}</small></div>
+            <b>{item.status==='running'?'…':item.status==='pass'?'جاهز':item.status==='warn'?'بطيء':'مشكلة'}</b>
+          </article>)}
+        </div>
+        <button className='dai-primary-action' disabled={diagnosticsRunning} onClick={()=>void runDiagnostics()}>{diagnosticsRunning?'جاري الفحص…':'إعادة الفحص'}</button>
+      </section>
+    </div>}
+
+    {feedbackOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget&&!feedbackSending)setFeedbackOpen(false)}}>
+      <section className='dai-web-panel'>
+        <div className='classic-drawer-head'><div><span>Feedback</span><h3>ساعدنا نحسن ضي</h3></div><button className='classic-icon-button' onClick={()=>setFeedbackOpen(false)}><X className='h-5 w-5'/></button></div>
+        <label className='dai-setting-field'><span>نوع الملاحظة</span><select value={feedbackCategory} onChange={e=>setFeedbackCategory(e.target.value as typeof feedbackCategory)}><option value='voice'>الصوت</option><option value='reply'>الرد</option><option value='animation'>الحركة</option><option value='interface'>الواجهة</option><option value='other'>أخرى</option></select></label>
+        <label className='dai-feedback-field'><span>إيه اللي حصل أو إيه اللي تحب يتغير؟</span><textarea value={feedbackMessage} maxLength={2000} onChange={e=>setFeedbackMessage(e.target.value)} placeholder='اكتب التفاصيل هنا…'/><small>{feedbackMessage.length}/2000</small></label>
+        <div className='dai-feedback-meta'>هيتبعت تلقائيًا: DAI Web v{DAI_WEB_VERSION} ومعلومات المتصفح العامة فقط.</div>
+        <button className='dai-primary-action' disabled={feedbackSending||feedbackMessage.trim().length<3} onClick={()=>void submitFeedback()}>{feedbackSending?'ببعت…':'إرسال الملاحظة'}</button>
+        {feedbackNotice&&<div className='dai-inline-notice'>{feedbackNotice}</div>}
+      </section>
+    </div>}
+
+    {privacyOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget&&!privacyBusy)setPrivacyOpen(false)}}>
+      <section className='dai-web-panel dai-privacy-panel'>
+        <div className='classic-drawer-head'><div><span>Privacy Center</span><h3>بياناتك تحت تحكمك</h3></div><button className='classic-icon-button' disabled={privacyBusy} onClick={()=>setPrivacyOpen(false)}><X className='h-5 w-5'/></button></div>
+        <div className='dai-mic-indicator'><Mic/><div><strong>{voiceNoteRecording||voiceSessionActive?'الميكروفون مستخدم الآن':'الميكروفون غير مستخدم الآن'}</strong><small>ضي تفتح الميكروفون فقط وقت التسجيل أو Live Voice. التسجيل العادي يُرسل للتحويل إلى نص ولا يتم تخزين ملف الصوت في قاعدة بيانات ضي.</small></div></div>
+        <div className='dai-privacy-actions'>
+          <button disabled={privacyBusy} onClick={()=>void clearAllConversations()}><Trash2/><span><strong>مسح كل المحادثات</strong><small>يحذف سجل المحادثات الخاص بحسابك.</small></span></button>
+          <button disabled={privacyBusy} onClick={()=>void clearAllMemory()}><Brain/><span><strong>مسح ذاكرة ضي</strong><small>يحذف Pro Memory الاختيارية لو كانت موجودة.</small></span></button>
+          <button className='danger' disabled={privacyBusy} onClick={()=>void deleteDaiAccount()}><LockKeyhole/><span><strong>حذف الحساب نهائيًا</strong><small>يحذف حساب DAI والبيانات المرتبطة به.</small></span></button>
+        </div>
+        {privacyNotice&&<div className='dai-inline-notice'>{privacyNotice}</div>}
       </section>
     </div>}
 
