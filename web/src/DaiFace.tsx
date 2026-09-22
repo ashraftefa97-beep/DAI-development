@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { DaiMotion, clamp } from './motion.mjs';
 import { drawDai, stageScale } from './draw.mjs';
+import { daiSfx } from './daiSfx';
 
 export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'stretch' | 'fishing' | 'heart' | 'dance' | 'idea' | 'sleep' | 'blush' | 'wow' | 'approve' | 'focus' | 'relax' | 'working' | 'response_ready' | 'peek' | 'nod_yes' | 'shake_no' | 'celebrate' | 'shy' | 'alert' | 'look_around' | 'recharge' | 'success' | 'error' | 'music_groove' | 'wake_up' | 'roam_walk' | 'bounce' | 'bow' | 'double_wave' | 'side_stretch' | 'startled' | 'scout' | 'window_peek' | 'tip_toe' | 'thought_orbit' | 'cozy_sway' | 'welcome_back' | 'giggle' | 'laugh' | 'proud' | 'excited' | 'confused' | 'thinking_deep' | 'question' | 'surprise_soft' | 'cheer' | 'clap' | 'salute' | 'hello_shy' | 'goodbye' | 'yawn' | 'dream' | 'meditate' | 'breathe' | 'read' | 'write' | 'type_fast' | 'code_focus' | 'brainstorm' | 'lightbulb_pop' | 'scan' | 'detect' | 'loading' | 'wait_patient' | 'impatient' | 'sneak' | 'hop_left' | 'hop_right' | 'spin' | 'sway' | 'pose_star' | 'party' | 'music_nod' | 'camera_pose' | 'victory' | 'high_five' | 'peace' | 'curious' | 'voicewait';
 export default function DaiFace({state='idle', reduced=false}: {state?:DaiState; reduced?:boolean}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
-  useEffect(()=>{ motion.current.setGesture(state); },[state]);
+  useEffect(()=>{ daiSfx.stopAll(); motion.current.setGesture(state); },[state]);
   useEffect(()=>{
     const m=motion.current, query=matchMedia('(prefers-reduced-motion: reduce)');
     const update=()=>{ m.reduced=reduced||query.matches; if(m.reduced)m.particles=[]; };
@@ -28,6 +29,7 @@ export default function DaiFace({state='idle', reduced=false}: {state?:DaiState;
     const tick=(now:number)=>{
       if(!document.hidden) {
         m.advance(Math.min((now-last)/1000,.1));
+        for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
         drawDai(c,m,w,h);
       }
       last=now;frame=requestAnimationFrame(tick);
