@@ -138,7 +138,7 @@ class DaiSfxEngine {
       dampening:3600,
       resonance:.88
     });
-    const gain=this.connect(synth,.9);
+    const gain=this.connect(synth,.9*Math.max(.12,Math.min(1,velocity)));
     const now=Tone.now()+.015;
     notes.forEach((note,index)=>synth.triggerAttack(note,now+index*spacing));
     this.cleanup([synth,gain],1100);
