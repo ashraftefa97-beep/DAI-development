@@ -574,7 +574,6 @@ class DaiSfxEngine {
         this.sample('switch',.15*v,.36,{rate:1.05});
         break;
       case 'wait_patient':
-        this.sample('tick',.0*v,0);
         this.sample('click',.14*v,0,{rate:.94});
         this.sample('click',.12*v,.48,{rate:.96});
         break;
