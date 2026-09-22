@@ -156,7 +156,7 @@ export default function GithubApp(){
   const [responseMode,setResponseMode]=useState<ResponseMode>(()=>{
     try{
       const value=localStorage.getItem('dai-response-mode');
-      return value==='text'||value==='voice'?'auto'===value?'auto':value:'auto';
+      return value==='auto'||value==='text'||value==='voice'?value:'auto';
     }catch{return 'auto';}
   });
   const [voiceRate,setVoiceRate]=useState(()=>{
