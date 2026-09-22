@@ -1,3 +1,5 @@
+import * as Tone from 'tone';
+
 export type DaiSfxMode = 'soft' | 'normal' | 'silent';
 
 type SfxKey =
@@ -30,153 +32,234 @@ const MOTION_SFX:Record<string,SfxKey>={
 };
 
 class DaiSfxEngine {
-  private ctx:AudioContext|null=null;
   private enabled=true;
-  private volume=.34;
-  private mode:DaiSfxMode='soft';
+  private volume=.72;
+  private mode:DaiSfxMode='normal';
+  private ready=false;
   private lastKey='';
   private lastAt=0;
+
+  private master:Tone.Gain|null=null;
+  private compressor:Tone.Compressor|null=null;
+  private limiter:Tone.Limiter|null=null;
+  private reverb:Tone.Reverb|null=null;
+  private delay:Tone.FeedbackDelay|null=null;
+  private bright:Tone.Filter|null=null;
 
   configure(config:{enabled:boolean;volume:number;mode:DaiSfxMode}){
     this.enabled=config.enabled;
     this.volume=Math.max(0,Math.min(1,config.volume));
     this.mode=config.mode;
+    this.refreshMaster();
   }
 
-  private ensure(){
-    if(this.ctx)return this.ctx;
-    const Ctor=window.AudioContext||(window as any).webkitAudioContext;
-    if(!Ctor)return null;
-    this.ctx=new Ctor() as AudioContext;
-    return this.ctx;
+  private ensureGraph(){
+    if(this.master)return;
+
+    this.master=new Tone.Gain(1);
+    this.compressor=new Tone.Compressor({
+      threshold:-18,
+      ratio:3.5,
+      attack:.008,
+      release:.16
+    });
+    this.limiter=new Tone.Limiter(-1.2);
+    this.reverb=new Tone.Reverb({decay:1.25,preDelay:.015,wet:.26});
+    this.delay=new Tone.FeedbackDelay({delayTime:.11,feedback:.12,wet:.12});
+    this.bright=new Tone.Filter({frequency:5200,type:'lowpass',rolloff:-12});
+
+    this.master.chain(
+      this.bright,
+      this.delay,
+      this.reverb,
+      this.compressor,
+      this.limiter,
+      Tone.getDestination()
+    );
+    this.refreshMaster();
+  }
+
+  private refreshMaster(){
+    if(!this.master)return;
+    const base=this.mode==='silent'||!this.enabled?0:this.mode==='soft'?.72:1;
+    this.master.gain.rampTo(base*this.volume,.04);
   }
 
   async unlock(){
-    const ctx=this.ensure();
-    if(!ctx)return false;
     try{
-      if(ctx.state==='suspended')await ctx.resume();
-      if(ctx.state==='running'){
-        const osc=ctx.createOscillator();
-        const gain=ctx.createGain();
-        gain.gain.value=0;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime+.01);
-      }
-      return ctx.state==='running';
+      this.ensureGraph();
+      await Tone.start();
+      this.ready=Tone.getContext().state==='running';
+      return this.ready;
     }catch{
+      this.ready=false;
       return false;
     }
   }
 
-  private level(ducked=false){
+  private gain(ducked=false){
     if(!this.enabled||this.mode==='silent')return 0;
-    const modeGain=this.mode==='soft'?.55:1;
-    return this.volume*modeGain*(ducked?.22:1);
+    const modeGain=this.mode==='soft'?.78:1;
+    return Math.max(.01,modeGain*(ducked?.26:1));
   }
 
-  private tone(freq:number,start:number,duration:number,gainValue:number,type:OscillatorType='sine',endFreq?:number){
-    const ctx=this.ensure();
-    if(!ctx||gainValue<=0)return;
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    osc.type=type;
-    osc.frequency.setValueAtTime(freq,start);
-    if(endFreq)osc.frequency.exponentialRampToValueAtTime(Math.max(30,endFreq),start+duration);
-    gain.gain.setValueAtTime(.0001,start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(.0002,gainValue),start+.012);
-    gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start+duration+.02);
+  private connect<T extends Tone.ToneAudioNode>(node:T,gain:number){
+    this.ensureGraph();
+    const local=new Tone.Gain(gain);
+    node.connect(local);
+    local.connect(this.master!);
+    return local;
   }
 
-  private noise(start:number,duration:number,gainValue:number,cutoffA=1400,cutoffB=520){
-    const ctx=this.ensure();
-    if(!ctx||gainValue<=0)return;
-    const length=Math.max(1,Math.floor(ctx.sampleRate*duration));
-    const buffer=ctx.createBuffer(1,length,ctx.sampleRate);
-    const data=buffer.getChannelData(0);
-    for(let i=0;i<length;i++)data[i]=(Math.random()*2-1)*(1-i/length);
-    const source=ctx.createBufferSource();
-    const filter=ctx.createBiquadFilter();
-    const gain=ctx.createGain();
-    source.buffer=buffer;
-    filter.type='lowpass';
-    filter.frequency.setValueAtTime(cutoffA,start);
-    filter.frequency.exponentialRampToValueAtTime(Math.max(80,cutoffB),start+duration);
-    gain.gain.setValueAtTime(.0001,start);
-    gain.gain.exponentialRampToValueAtTime(Math.max(.0002,gainValue),start+.018);
-    gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-    source.start(start);
+  private cleanup(nodes:Array<{dispose:()=>unknown}>,delay=1600){
+    window.setTimeout(()=>{
+      for(const node of nodes){
+        try{node.dispose();}catch{}
+      }
+    },delay);
+  }
+
+  private bell(notes:string[],velocity:number,spacing=.085,release=.22){
+    const synth=new Tone.PolySynth(Tone.Synth,{
+      oscillator:{type:'sine'},
+      envelope:{attack:.006,decay:.10,sustain:.06,release}
+    });
+    const gain=this.connect(synth,1);
+    const now=Tone.now()+.015;
+    notes.forEach((note,index)=>{
+      synth.triggerAttackRelease(note,.12,now+index*spacing,velocity);
+    });
+    this.cleanup([synth,gain],1200);
+  }
+
+  private pluck(notes:string[],velocity:number,spacing=.075){
+    const synth=new Tone.PluckSynth({
+      attackNoise:.7,
+      dampening:3600,
+      resonance:.88
+    });
+    const gain=this.connect(synth,.9);
+    const now=Tone.now()+.015;
+    notes.forEach((note,index)=>synth.triggerAttack(note,now+index*spacing));
+    this.cleanup([synth,gain],1100);
+  }
+
+  private softNoise(velocity:number,duration=.18,filterFreq=1700){
+    const filter=new Tone.Filter(filterFreq,'lowpass');
+    const noise=new Tone.NoiseSynth({
+      noise:{type:'pink'},
+      envelope:{attack:.008,decay:duration*.55,sustain:.02,release:duration*.45}
+    });
+    const gain=this.connect(filter,.72);
+    noise.connect(filter);
+    noise.triggerAttackRelease(duration,Tone.now()+.01,velocity);
+    this.cleanup([noise,filter,gain],1000);
   }
 
   play(key:SfxKey,options:PlayOptions={}){
-    const ctx=this.ensure();
-    if(!ctx||ctx.state!=='running')return false;
-    const now=ctx.currentTime+.006;
-    const amp=this.level(Boolean(options.ducked));
-    if(amp<=0)return false;
+    if(!this.ready||!this.enabled||this.mode==='silent')return false;
 
     const stamp=performance.now();
-    if(key===this.lastKey&&stamp-this.lastAt<180)return false;
+    if(key===this.lastKey&&stamp-this.lastAt<220)return false;
     this.lastKey=key;
     this.lastAt=stamp;
 
+    const v=this.gain(Boolean(options.ducked));
+    if(v<=0)return false;
+
     switch(key){
-      case 'hello':
-        this.tone(520,now,.13,amp*.13,'sine',690);
-        this.tone(780,now+.10,.16,amp*.10,'sine',920);
+      case 'hello': {
+        this.bell(['E5','A5'],.72*v,.105,.24);
         break;
-      case 'sparkle':
-        this.tone(900,now,.09,amp*.09,'sine',1160);
-        this.tone(1280,now+.07,.10,amp*.075,'sine',1540);
-        this.tone(1760,now+.14,.13,amp*.055,'sine',2050);
+      }
+      case 'sparkle': {
+        this.bell(['A5','C6','E6'],.74*v,.06,.34);
+        this.softNoise(.10*v,.13,4200);
         break;
-      case 'search':
-        this.tone(330,now,.28,amp*.07,'triangle',790);
-        this.tone(870,now+.19,.10,amp*.055,'sine',1120);
+      }
+      case 'search': {
+        const synth=new Tone.Synth({
+          oscillator:{type:'triangle'},
+          envelope:{attack:.008,decay:.08,sustain:.04,release:.18}
+        });
+        const gain=this.connect(synth,.92);
+        const now=Tone.now()+.01;
+        synth.frequency.setValueAtTime(280,now);
+        synth.frequency.exponentialRampToValueAtTime(820,now+.24);
+        synth.triggerAttackRelease(.28,now,.60*v);
+        this.bell(['B5'],.48*v,.08,.20);
+        this.cleanup([synth,gain],1000);
         break;
-      case 'celebrate':
-        this.tone(590,now,.09,amp*.10,'sine',760);
-        this.tone(820,now+.075,.11,amp*.09,'sine',1060);
-        this.tone(1180,now+.16,.14,amp*.075,'sine',1460);
+      }
+      case 'celebrate': {
+        this.pluck(['C5','E5','G5','C6'],.72*v,.055);
+        this.bell(['G5','C6'],.54*v,.065,.22);
         break;
-      case 'heart':
-        this.tone(440,now,.16,amp*.07,'sine',510);
-        this.tone(660,now+.055,.22,amp*.06,'sine',760);
+      }
+      case 'heart': {
+        const synth=new Tone.MembraneSynth({
+          pitchDecay:.025,
+          octaves:2,
+          envelope:{attack:.003,decay:.09,sustain:0,release:.12}
+        });
+        const gain=this.connect(synth,.78);
+        const now=Tone.now()+.01;
+        synth.triggerAttackRelease('C3','.09',now,.42*v);
+        synth.triggerAttackRelease('E3','.10',now+.12,.34*v);
+        this.bell(['A5'],.34*v,.06,.28);
+        this.cleanup([synth,gain],900);
         break;
-      case 'sleepy':
-        this.noise(now,.36,amp*.045,1000,230);
-        this.tone(310,now,.34,amp*.035,'sine',190);
+      }
+      case 'sleepy': {
+        this.softNoise(.18*v,.48,760);
+        const synth=new Tone.Synth({
+          oscillator:{type:'sine'},
+          envelope:{attack:.06,decay:.20,sustain:.02,release:.34}
+        });
+        const gain=this.connect(synth,.65);
+        synth.triggerAttackRelease('D4','.42',Tone.now()+.01,.28*v);
+        this.cleanup([synth,gain],1200);
         break;
-      case 'error':
-        this.tone(410,now,.12,amp*.065,'sine',350);
-        this.tone(300,now+.10,.16,amp*.055,'sine',260);
+      }
+      case 'error': {
+        const synth=new Tone.DuoSynth({
+          harmonicity:1.45,
+          vibratoAmount:.08,
+          voice0:{oscillator:{type:'sine'},envelope:{attack:.006,decay:.08,sustain:0,release:.12}},
+          voice1:{oscillator:{type:'triangle'},envelope:{attack:.006,decay:.08,sustain:0,release:.12}}
+        });
+        const gain=this.connect(synth,.62);
+        const now=Tone.now()+.01;
+        synth.triggerAttackRelease('F4','.10',now,.46*v);
+        synth.triggerAttackRelease('D4','.12',now+.11,.40*v);
+        this.cleanup([synth,gain],900);
         break;
-      case 'listen':
-        this.tone(470,now,.10,amp*.07,'sine',620);
-        this.tone(710,now+.08,.11,amp*.055,'sine',760);
+      }
+      case 'listen': {
+        this.bell(['D5','A5'],.50*v,.065,.18);
+        this.softNoise(.07*v,.10,3200);
         break;
-      case 'success':
-        this.tone(523,now,.10,amp*.085,'sine',560);
-        this.tone(659,now+.07,.12,amp*.075,'sine',700);
-        this.tone(784,now+.14,.16,amp*.065,'sine',840);
+      }
+      case 'success': {
+        this.pluck(['C5','G5','C6'],.68*v,.07);
+        this.bell(['E5','G5','C6'],.54*v,.055,.24);
         break;
-      case 'movement':
-        this.noise(now,.18,amp*.035,1500,520);
-        this.tone(240,now,.16,amp*.035,'triangle',340);
+      }
+      case 'movement': {
+        this.softNoise(.13*v,.18,2100);
+        const synth=new Tone.Synth({
+          oscillator:{type:'sine'},
+          envelope:{attack:.004,decay:.07,sustain:0,release:.11}
+        });
+        const gain=this.connect(synth,.52);
+        synth.triggerAttackRelease('G4','.11',Tone.now()+.015,.32*v);
+        this.cleanup([synth,gain],800);
         break;
-      case 'curious':
-        this.tone(560,now,.08,amp*.06,'sine',690);
-        this.tone(810,now+.11,.10,amp*.052,'sine',760);
+      }
+      case 'curious': {
+        this.pluck(['E5','B5'],.48*v,.14);
         break;
+      }
     }
     return true;
   }
