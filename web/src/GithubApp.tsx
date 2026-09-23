@@ -1990,7 +1990,8 @@ export default function GithubApp(){
       if(eventName==='research'){
         latestSearchSources=normalizeSearchSources(payload?.sources);
         setResearching(true);
-        daiSfx.playState('thinking');
+        // Search already owns the initial action cue from sendMessage.
+        // Keep this event visual-only so sound and motion don't double-trigger.
         if(Date.now()>=animationLockUntilRef.current)animate('search',0);
         return;
       }
