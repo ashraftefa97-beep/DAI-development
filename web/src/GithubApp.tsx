@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
+import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
@@ -4618,73 +4618,133 @@ export default function GithubApp(){
     </div>}
 
     {settingsOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setSettingsOpen(false)}}>
-      <section className='classic-settings'>
-        <div className='classic-drawer-head'><div><span>حسابك</span><h3>الإعدادات</h3></div><button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button></div>
-        <label className='classic-setting'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحِدة الأنيميشن.</small></span></label>
-        <section className='dai-sfx-settings'>
-          <div className='dai-sfx-head'>
-            <div><strong>مؤثرات حركات ضي</strong><small>كل حركة ليها تصميم صوتي مناسب ومتزامن معاها، وبيتخفض تلقائيًا وقت كلام ضي.</small></div>
-            <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
+      <section className='classic-settings dai-settings-organized'>
+        <div className='classic-drawer-head dai-settings-head'>
+          <div><span>DAI Settings</span><h3>الإعدادات</h3></div>
+          <button className='classic-icon-button' onClick={()=>setSettingsOpen(false)}><X className='h-5 w-5'/></button>
+        </div>
+
+        <section className='dai-settings-section account-section'>
+          <div className='dai-settings-section-title'>
+            <div><UserCog/><span><strong>الحساب</strong><small>إدارة بياناتك وتسجيل الدخول</small></span></div>
           </div>
-          <div className='dai-sfx-controls'>
-            <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>خفيف</option><option value='normal'>طبيعي</option><option value='silent'>صامت</option></select></label>
-            <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
+          <div className='dai-settings-account-card'>
+            <div className='dai-settings-avatar'>{(userName||'D').trim().slice(0,1).toUpperCase()}</div>
+            <div className='dai-settings-account-info'>
+              <strong>{userName||'حساب DAI'}</strong>
+              <small>{planOwner?'Owner · Professional':professional?'DAI Professional':'DAI Standard'}</small>
+            </div>
+            <div className='dai-settings-account-actions'>
+              <button onClick={()=>window.dispatchEvent(new CustomEvent('dai:open-account'))}><UserCog/> إدارة الحساب</button>
+              <button className='logout' onClick={()=>window.dispatchEvent(new CustomEvent('dai:logout'))}><LogOut/> تسجيل الخروج</button>
+            </div>
           </div>
-          <button
-            className='dai-sfx-preview'
-            disabled={!sfxEnabled||sfxMode==='silent'}
-            onClick={async()=>{
-              await daiSfx.unlock();
-              const played=daiSfx.preview();
-              setSfxNotice(played?'ده مثال مؤثر الصيد المتزامن مع حركة ضي.':'اضغط مرة داخل الصفحة وجرب تاني.');
-              window.setTimeout(()=>setSfxNotice(''),2200);
-            }}
-          >تجربة مؤثر حركة</button>
-          {sfxNotice&&<small className='dai-sfx-notice'>{sfxNotice}</small>}
         </section>
-        <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت ضي لردود المحادثة والرسائل الصوتية.</small></span></label>
-        <div className='dai-setting-grid'>
-          <label className='dai-setting-field'><span>طريقة الرد</span><select value={responseMode} onChange={e=>setResponseMode(e.target.value as ResponseMode)}><option value='auto'>تلقائي</option><option value='text'>كتابة فقط</option><option value='voice'>كتابة + صوت دائمًا</option></select></label>
-          <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
-        </div>
-        <label className='dai-voice-rate'><span><strong>سرعة صوت ضي</strong><small>{voiceRate.toFixed(2)}× · تعديل بسيط يحافظ على طبيعة الصوت</small></span><input type='range' min='0.92' max='1.08' step='0.02' value={voiceRate} onChange={e=>setVoiceRate(Number(e.target.value))}/></label>
-        <div className='dai-voice-health'>
-          <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} onClick={()=>void testDaiVoice()}>
-            {voiceTestBusy?'بجهّز الصوت…':'اختبار صوت ضي'}
-          </button>
-          <small>{voiceNotice||'الاختبار يشغّل جملة قصيرة للتأكد إن الصوت مسموع.'}</small>
-        </div>
-        <div className='dai-live-voice-setting'>
-          <div><strong>محادثة صوتية مباشرة</strong><small>Live Voice اختيارية. التسجيل العادي فوق هو المسار الأكثر ثباتًا خصوصًا على الموبايل.</small></div>
-          <button disabled={voiceNoteRecording||voiceNoteProcessing||sending} onClick={toggleLiveVoice}>
-            {voiceSessionActive?'إنهاء Live':'بدء Live'}
-          </button>
-        </div>
 
-        <button className={'dai-plan-setting '+plan} onClick={()=>setUpgradeOpen(true)}>
-          <span className='dai-plan-setting-icon'>{professional?<Crown className='h-5 w-5'/>:<LockKeyhole className='h-5 w-5'/>}</span>
-          <span><strong>{planOwner?'Professional · Owner':professional?'DAI Professional':'DAI Standard'}</strong><small>{professional?'صلاحيات الكمبيوتر الاحترافية مفعلة.':'الشات والصوت متاحين. صلاحيات الكمبيوتر تحتاج Professional.'}</small></span>
-          <span className='dai-plan-setting-action'>{professional?'مفعلة':'ترقية'}</span>
-        </button>
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><Settings/><span><strong>المظهر والحركة</strong><small>شكل ضي وطريقة الحركة داخل الواجهة</small></span></div>
+          </div>
+          <div className='dai-settings-card'>
+            <div className='dai-setting-grid'>
+              <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
+              <label className='classic-setting compact'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحدّة الأنيميشن.</small></span></label>
+            </div>
+          </div>
+        </section>
 
-        {professional&&<button className='dai-plan-setting professional dai-control-setting' onClick={()=>{setSettingsOpen(false);setControlOpen(true)}}>
-          <span className='dai-plan-setting-icon'><WandSparkles className='h-5 w-5'/></span>
-          <span><strong>DAI Control Center</strong><small>الرفيقة العائمة، التجوال، الـRoutines، ترتيب النوافذ، والحركات الذكية.</small></span>
-          <span className='dai-plan-setting-action'>فتح</span>
-        </button>}
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><Volume2/><span><strong>الصوت والمحادثة</strong><small>صوت ضي، طريقة الرد والمحادثة المباشرة</small></span></div>
+          </div>
+          <div className='dai-settings-card'>
+            <label className='classic-setting'><input type='checkbox' checked={voiceEnabled} onChange={e=>setVoiceEnabled(e.target.checked)}/><span><strong>صوت ضي</strong><small>تشغيل صوت ضي لردود المحادثة والرسائل الصوتية.</small></span></label>
+            <div className='dai-setting-grid'>
+              <label className='dai-setting-field'><span>طريقة الرد</span><select value={responseMode} onChange={e=>setResponseMode(e.target.value as ResponseMode)}><option value='auto'>تلقائي</option><option value='text'>كتابة فقط</option><option value='voice'>كتابة + صوت دائمًا</option></select></label>
+              <label className='dai-voice-rate'><span><strong>سرعة صوت ضي</strong><small>{voiceRate.toFixed(2)}×</small></span><input type='range' min='0.92' max='1.08' step='0.02' value={voiceRate} onChange={e=>setVoiceRate(Number(e.target.value))}/></label>
+            </div>
+            <div className='dai-voice-health'>
+              <button disabled={!voiceEnabled||voiceTestBusy||voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} onClick={()=>void testDaiVoice()}>
+                {voiceTestBusy?'بجهّز الصوت…':'اختبار صوت ضي'}
+              </button>
+              <small>{voiceNotice||'الاختبار يشغّل جملة قصيرة للتأكد إن الصوت مسموع.'}</small>
+            </div>
+            <div className='dai-live-voice-setting'>
+              <div><strong>محادثة صوتية مباشرة</strong><small>Live Voice اختيارية للمحادثة المستمرة.</small></div>
+              <button disabled={voiceNoteRecording||voiceNoteProcessing||sending} onClick={toggleLiveVoice}>
+                {voiceSessionActive?'إنهاء Live':'بدء Live'}
+              </button>
+            </div>
+          </div>
+        </section>
 
-        {desktopMode&&professional&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>يشغّل برنامج ضي تلقائيًا بعد تسجيل الدخول إلى Windows.</small></span></label>}
-        {desktopMode&&professional&&<div className='classic-privacy'>Professional يسمح بفتح وتركيز وإغلاق البرامج، التحكم في الوسائط والصوت، اختصارات التنقل، فتح روابط آمنة وملفات محلية، وتشغيل ضي مع Windows. الأوامر الحساسة تفضل محتاجة تأكيد.</div>}
-        {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
-        <div className='dai-settings-tools'>
-          <button onClick={()=>{setSettingsOpen(false);void runDiagnostics()}}><Activity/><span><strong>فحص جاهزية ضي</strong><small>مايك · صوت ضي · الحساب · زمن الاستجابة</small></span></button>
-          <button onClick={()=>{setSettingsOpen(false);setFeedbackOpen(true)}}><MessageSquareWarning/><span><strong>إرسال Feedback</strong><small>مشكلة صوت أو رد أو حركة أو واجهة</small></span></button>
-          <button onClick={()=>{setSettingsOpen(false);setPrivacyOpen(true)}}><ShieldCheck/><span><strong>الخصوصية والبيانات</strong><small>مسح المحادثات والذاكرة وحذف الحساب</small></span></button>
-          <button onClick={()=>void installPwa()}><Download/><span><strong>{pwaInstalled?'DAI Web مثبت':'تثبيت DAI Web'}</strong><small>تثبيت الموقع كتطبيق على الهاتف أو الكمبيوتر</small></span></button>
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><Sparkles/><span><strong>مؤثرات ضي</strong><small>المؤثرات الصوتية المصاحبة للحركات</small></span></div>
+          </div>
+          <section className='dai-sfx-settings dai-settings-card'>
+            <div className='dai-sfx-head'>
+              <div><strong>مؤثرات الحركات</strong><small>متزامنة مع حركة ضي وبتقل تلقائيًا وقت الكلام.</small></div>
+              <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
+            </div>
+            <div className='dai-sfx-controls'>
+              <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>خفيف</option><option value='normal'>طبيعي</option><option value='silent'>صامت</option></select></label>
+              <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
+            </div>
+            <button
+              className='dai-sfx-preview'
+              disabled={!sfxEnabled||sfxMode==='silent'}
+              onClick={async()=>{
+                await daiSfx.unlock();
+                const played=daiSfx.preview();
+                setSfxNotice(played?'ده مثال للمؤثر المتزامن مع حركة ضي.':'اضغط مرة داخل الصفحة وجرب تاني.');
+                window.setTimeout(()=>setSfxNotice(''),2200);
+              }}
+            >تجربة مؤثر حركة</button>
+            {sfxNotice&&<small className='dai-sfx-notice'>{sfxNotice}</small>}
+          </section>
+        </section>
+
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><Crown/><span><strong>الخطة والتحكم</strong><small>الخطة الحالية وخصائص Professional</small></span></div>
+          </div>
+          <div className='dai-settings-card plan-card'>
+            <button className={'dai-plan-setting '+plan} onClick={()=>setUpgradeOpen(true)}>
+              <span className='dai-plan-setting-icon'>{professional?<Crown className='h-5 w-5'/>:<LockKeyhole className='h-5 w-5'/>}</span>
+              <span><strong>{planOwner?'Professional · Owner':professional?'DAI Professional':'DAI Standard'}</strong><small>{professional?'صلاحيات الكمبيوتر الاحترافية مفعلة.':'الشات والصوت متاحين. صلاحيات الكمبيوتر تحتاج Professional.'}</small></span>
+              <span className='dai-plan-setting-action'>{professional?'مفعلة':'ترقية'}</span>
+            </button>
+
+            {professional&&<button className='dai-plan-setting professional dai-control-setting' onClick={()=>{setSettingsOpen(false);setControlOpen(true)}}>
+              <span className='dai-plan-setting-icon'><WandSparkles className='h-5 w-5'/></span>
+              <span><strong>DAI Control Center</strong><small>الرفيقة العائمة، التجوال، الـRoutines، ترتيب النوافذ والحركات الذكية.</small></span>
+              <span className='dai-plan-setting-action'>فتح</span>
+            </button>}
+
+            {desktopMode&&professional&&<label className='classic-setting'><input type='checkbox' checked={desktopStartup} onChange={async e=>{const next=e.target.checked;setDesktopStartup(next);try{const actual=await window.daiDesktop?.setStartup(next);setDesktopStartup(Boolean(actual));}catch{setDesktopStartup(!next);}}}/><span><strong>تشغيل ضي مع Windows</strong><small>تشغيل ضي تلقائيًا بعد تسجيل الدخول.</small></span></label>}
+            {desktopMode&&professional&&<div className='classic-privacy'>صلاحيات Professional المحلية بتفضل تحت تحكمك، والأوامر الحساسة تحتاج تأكيد.</div>}
+            {desktopMode&&!professional&&<div className='classic-privacy pro-locked'><LockKeyhole className='h-4 w-4'/> تحكم ضي في الجهاز مقفول على Standard. الشات والصوت شغالين عادي.</div>}
+          </div>
+        </section>
+
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><ShieldCheck/><span><strong>النظام والخصوصية</strong><small>الفحص، البيانات، الملاحظات وتثبيت التطبيق</small></span></div>
+          </div>
+          <div className='dai-settings-tools organized'>
+            <button onClick={()=>{setSettingsOpen(false);void runDiagnostics()}}><Activity/><span><strong>فحص جاهزية ضي</strong><small>مايك · صوت · حساب · زمن الاستجابة</small></span></button>
+            <button onClick={()=>{setSettingsOpen(false);setPrivacyOpen(true)}}><ShieldCheck/><span><strong>الخصوصية والبيانات</strong><small>المحادثات والذاكرة وحذف الحساب</small></span></button>
+            <button onClick={()=>{setSettingsOpen(false);setFeedbackOpen(true)}}><MessageSquareWarning/><span><strong>إرسال Feedback</strong><small>مشكلة في الصوت أو الرد أو الحركة أو الواجهة</small></span></button>
+            <button onClick={()=>void installPwa()}><Download/><span><strong>{pwaInstalled?'DAI Web مثبت':'تثبيت DAI Web'}</strong><small>تثبيت الموقع كتطبيق على الهاتف أو الكمبيوتر</small></span></button>
+          </div>
+          {pwaNotice&&<div className='dai-inline-notice'>{pwaNotice}</div>}
+        </section>
+
+        <div className='dai-settings-footer'>
+          <span>DAI Web v{DAI_WEB_VERSION}</span>
+          <small>حسابك وبياناتك محميين بسياسات Row Level Security.</small>
         </div>
-        {pwaNotice&&<div className='dai-inline-notice'>{pwaNotice}</div>}
-        <div className='classic-privacy'>كل مستخدم يقدر يشوف ويعدل محادثاته هو فقط بفضل Row Level Security.</div>
-        <div className='classic-version'>DAI Web v{DAI_WEB_VERSION}</div>
       </section>
     </div>}
 
