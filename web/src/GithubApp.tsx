@@ -4124,6 +4124,31 @@ export default function GithubApp(){
     setRenameValue('');
   }
 
+  async function loadRecentRequestMetrics(){
+    if(!supabase||!userId){
+      setRecentRequestMetrics([]);
+      return [] as RequestMetricRow[];
+    }
+    setRequestMetricsLoading(true);
+    try{
+      const {data,error}=await supabase
+        .from('dai_request_metrics')
+        .select('id,request_id,route,brain_profile,model,first_token_ms,total_ms,client_first_event_ms,tts_start_ms,tts_end_ms,search_engine,fallback_used,route_confidence,client_source,success,error_code,created_at')
+        .order('created_at',{ascending:false})
+        .limit(12);
+      if(error)throw error;
+      const rows=(data||[]) as RequestMetricRow[];
+      setRecentRequestMetrics(rows);
+      return rows;
+    }catch(error){
+      console.debug('DAI metrics dashboard unavailable',error);
+      setRecentRequestMetrics([]);
+      return [] as RequestMetricRow[];
+    }finally{
+      setRequestMetricsLoading(false);
+    }
+  }
+
   async function runDiagnostics(){
     if(diagnosticsRunning)return;
     setDiagnosticsOpen(true);
@@ -4133,7 +4158,8 @@ export default function GithubApp(){
       {id:'supabase',label:'حساب وقاعدة بيانات ضي',status:'running',detail:'جاري الفحص…'},
       {id:'microphone',label:'الميكروفون',status:'running',detail:'جاري الفحص…'},
       {id:'audio',label:'تشغيل الصوت',status:'running',detail:'جاري الفحص…'},
-      {id:'dai-voice',label:'خدمة صوت ضي',status:'running',detail:'جاري الفحص…'}
+      {id:'dai-voice',label:'خدمة صوت ضي',status:'running',detail:'جاري الفحص…'},
+      {id:'latency',label:'زمن استجابة ضي',status:'running',detail:'براجع آخر الطلبات…'}
     ];
     setDiagnostics(initial);
     const update=(id:string,patch:Partial<DiagnosticItem>)=>{
@@ -4183,6 +4209,32 @@ export default function GithubApp(){
       update('dai-voice',{status:latency>6000?'warn':'pass',detail:latency>6000?'صوت ضي شغال لكن الاستجابة أبطأ من المعتاد.':'خدمة صوت ضي جاهزة.',latency});
     }catch{
       update('dai-voice',{status:'fail',detail:'خدمة صوت ضي واجهت مشكلة مؤقتة. جرّب إعادة الفحص.'});
+    }
+
+    try{
+      const rows=await loadRecentRequestMetrics();
+      const latest=rows[0];
+      if(!latest){
+        update('latency',{status:'warn',detail:'مفيش طلبات حديثة كفاية للقياس. ابعت رسالة وبعدها أعد الفحص.'});
+      }else{
+        const first=latest.client_first_event_ms??latest.first_token_ms;
+        const slow=Boolean((first??0)>4500||latest.total_ms>18000);
+        const failed=!latest.success;
+        const detail=[
+          'آخر مسار: '+latest.route,
+          typeof first==='number'?'أول استجابة '+first+'ms':'أول استجابة غير مسجلة',
+          'الإجمالي '+latest.total_ms+'ms',
+          latest.tts_start_ms!==null?'بداية الصوت '+latest.tts_start_ms+'ms':null,
+          latest.fallback_used?'Fallback اتستخدم':null
+        ].filter(Boolean).join(' · ');
+        update('latency',{
+          status:failed?'fail':slow?'warn':'pass',
+          detail:failed?(detail+' · '+(latest.error_code||'طلب فشل')):detail,
+          latency:typeof first==='number'?first:undefined
+        });
+      }
+    }catch{
+      update('latency',{status:'warn',detail:'بيانات الأداء مش متاحة دلوقتي.'});
     }finally{
       setDiagnosticsRunning(false);
     }
@@ -4653,6 +4705,32 @@ export default function GithubApp(){
             <div><strong>{item.label}</strong><small>{item.detail}{typeof item.latency==='number'?' · '+item.latency+'ms':''}</small></div>
             <b>{item.status==='running'?'…':item.status==='pass'?'جاهز':item.status==='warn'?'بطيء':'مشكلة'}</b>
           </article>)}
+        </div>
+        <div className='dai-metrics-dashboard'>
+          <div className='dai-metrics-head'>
+            <div><strong>آخر الطلبات</strong><small>Route · Model · Search · Latency · TTS · Fallback</small></div>
+            <button disabled={requestMetricsLoading} onClick={()=>void loadRecentRequestMetrics()}>{requestMetricsLoading?'بحدّث…':'تحديث'}</button>
+          </div>
+          {recentRequestMetrics.length===0
+            ? <div className='dai-metrics-empty'>{requestMetricsLoading?'بقرأ بيانات الأداء…':'مفيش طلبات مسجلة لعرضها لسه.'}</div>
+            : <div className='dai-metrics-rows'>
+                {recentRequestMetrics.slice(0,8).map(metric=><article key={metric.id} className={'dai-metric-card '+(metric.success?'pass':'fail')}>
+                  <div className='dai-metric-main'>
+                    <strong>{metric.route} · {metric.brain_profile||'—'}</strong>
+                    <small>{metric.model||'model غير مسجل'}</small>
+                  </div>
+                  <div className='dai-metric-tags'>
+                    <span>Server first: {metric.first_token_ms??'—'}ms</span>
+                    <span>Client first: {metric.client_first_event_ms??'—'}ms</span>
+                    <span>Total: {metric.total_ms}ms</span>
+                    <span>TTS start: {metric.tts_start_ms??'—'}ms</span>
+                    {metric.tts_end_ms!==null&&<span>TTS end: {metric.tts_end_ms}ms</span>}
+                    {metric.search_engine&&<span>Search: {metric.search_engine}</span>}
+                    {metric.fallback_used&&<span className='warn'>Fallback</span>}
+                    {metric.error_code&&<span className='fail'>{metric.error_code}</span>}
+                  </div>
+                </article>)}
+              </div>}
         </div>
         <button className='dai-primary-action' disabled={diagnosticsRunning} onClick={()=>void runDiagnostics()}>{diagnosticsRunning?'جاري الفحص…':'إعادة الفحص'}</button>
       </section>
