@@ -5,7 +5,7 @@ import { daiSfx } from './daiSfx';
 
 export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'stretch' | 'fishing' | 'heart' | 'dance' | 'idea' | 'sleep' | 'blush' | 'wow' | 'approve' | 'focus' | 'relax' | 'working' | 'response_ready' | 'peek' | 'nod_yes' | 'shake_no' | 'celebrate' | 'shy' | 'alert' | 'look_around' | 'recharge' | 'success' | 'error' | 'music_groove' | 'wake_up' | 'roam_walk' | 'bounce' | 'bow' | 'double_wave' | 'side_stretch' | 'startled' | 'scout' | 'window_peek' | 'tip_toe' | 'thought_orbit' | 'cozy_sway' | 'welcome_back' | 'giggle' | 'laugh' | 'proud' | 'excited' | 'confused' | 'thinking_deep' | 'question' | 'surprise_soft' | 'cheer' | 'clap' | 'salute' | 'hello_shy' | 'goodbye' | 'yawn' | 'dream' | 'meditate' | 'breathe' | 'read' | 'write' | 'type_fast' | 'code_focus' | 'brainstorm' | 'lightbulb_pop' | 'scan' | 'detect' | 'loading' | 'wait_patient' | 'impatient' | 'sneak' | 'hop_left' | 'hop_right' | 'spin' | 'sway' | 'pose_star' | 'party' | 'music_nod' | 'camera_pose' | 'victory' | 'high_five' | 'peace' | 'curious' | 'voicewait';
 export type DaiRenderQuality='high'|'medium'|'low';
-export type DaiAvatarStyle='classic'|'minimal'|'cute'|'cyber';
+export type DaiAvatarStyle='classic'|'minimal'|'cute'|'cyber'|'soft'|'pro'|'hologram';
 export default function DaiFace({state='idle', reduced=false, quality='high', avatar='classic'}: {state?:DaiState; reduced?:boolean; quality?:DaiRenderQuality; avatar?:DaiAvatarStyle}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
