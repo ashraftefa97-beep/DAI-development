@@ -4333,3 +4333,198 @@ html[data-dai-theme="light"] .classic-shell[data-ai-phase="speaking"] .classic-l
     transition:none !important;
   }
 }
+
+
+/* DAI adaptive experience v1.8 */
+.dai-experience-presets {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:12px;
+}
+.dai-experience-presets button {
+  min-height:68px;
+  padding:10px;
+  border:1px solid #34384d;
+  border-radius:13px;
+  background:#121625;
+  color:#aaa9b8;
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  text-align:right;
+  cursor:pointer;
+  transition:border-color .2s ease,background .2s ease,transform .2s ease;
+}
+.dai-experience-presets button:hover {
+  border-color:rgba(246,169,193,.25);
+  transform:translateY(-1px);
+}
+.dai-experience-presets button.active {
+  border-color:rgba(246,169,193,.34);
+  background:linear-gradient(135deg,rgba(246,169,193,.105),rgba(185,154,222,.075));
+  color:#f2dce5;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.02);
+}
+.dai-experience-presets svg {
+  width:17px;
+  height:17px;
+  flex:0 0 auto;
+  color:#e8a9c0;
+}
+.dai-experience-presets strong,
+.dai-experience-presets small {
+  display:block;
+}
+.dai-experience-presets strong {
+  font-size:11px;
+}
+.dai-experience-presets small {
+  margin-top:3px;
+  font-size:9px;
+  line-height:1.5;
+  color:#7f8296;
+}
+.dai-experience-presets button.active small {
+  color:#a9a2b1;
+}
+.dai-quality-status {
+  min-height:34px;
+  margin-bottom:10px;
+  padding:0 10px;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  background:rgba(255,255,255,.015);
+  color:#85899b;
+  font-size:9px;
+}
+.dai-quality-status strong {
+  direction:ltr;
+  color:#bbb9c6;
+  font-size:9px;
+}
+.dai-sfx-preset-note {
+  display:block;
+  margin-top:9px;
+  color:#7f8295;
+  font-size:9px;
+  line-height:1.55;
+}
+.dai-runtime-health {
+  margin:14px 0;
+  padding:12px;
+  border:1px solid #303449;
+  border-radius:16px;
+  background:rgba(17,21,34,.72);
+}
+.dai-quality-badge {
+  padding:5px 8px;
+  border:1px solid #3a4055;
+  border-radius:999px;
+  color:#b9bccb;
+  font-size:9px;
+  direction:ltr;
+}
+.dai-quality-badge.high {
+  border-color:rgba(113,210,158,.28);
+  color:#9dddb8;
+}
+.dai-quality-badge.medium {
+  border-color:rgba(224,174,90,.30);
+  color:#e6c585;
+}
+.dai-quality-badge.low {
+  border-color:rgba(231,134,152,.28);
+  color:#efadba;
+}
+.dai-runtime-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:7px;
+}
+.dai-runtime-grid > div {
+  min-width:0;
+  padding:9px;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:10px;
+  background:rgba(255,255,255,.018);
+}
+.dai-runtime-grid small,
+.dai-runtime-grid strong {
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.dai-runtime-grid small {
+  color:#777b90;
+  font-size:8px;
+}
+.dai-runtime-grid strong {
+  margin-top:4px;
+  color:#d6d3dd;
+  font-size:11px;
+  direction:ltr;
+}
+
+/* Automatic quality tiers progressively remove expensive decoration. */
+.classic-shell[data-quality="medium"] .classic-bg-grid,
+.dai-companion-shell[data-quality="medium"] .dai-companion-halo {
+  opacity:.72;
+}
+.classic-shell[data-quality="low"] .classic-bg-grid {
+  opacity:.36;
+}
+.classic-shell[data-quality="low"] .classic-logo-stage::after,
+.dai-companion-shell[data-quality="low"] .dai-companion-halo {
+  animation:none !important;
+  filter:blur(18px);
+  opacity:.13 !important;
+}
+.classic-shell[data-experience="minimal"] .classic-logo-stage::after,
+.dai-companion-shell[data-experience="minimal"] .dai-companion-halo {
+  display:none;
+}
+.classic-shell[data-experience="calm"] .classic-logo-stage::after {
+  animation-duration:4.8s !important;
+  opacity:.22;
+}
+.classic-shell[data-experience="minimal"] .classic-bg-grid {
+  opacity:.24;
+}
+
+html[data-dai-theme="light"] .dai-experience-presets button,
+html[data-dai-theme="light"] .dai-runtime-health {
+  background:#fff;
+  border-color:#ded6e1;
+}
+html[data-dai-theme="light"] .dai-experience-presets button.active {
+  background:linear-gradient(135deg,#fff4f8,#f7f2fb);
+  border-color:#dcbfcd;
+}
+html[data-dai-theme="light"] .dai-experience-presets strong,
+html[data-dai-theme="light"] .dai-runtime-grid strong {
+  color:#433847;
+}
+html[data-dai-theme="light"] .dai-runtime-grid > div,
+html[data-dai-theme="light"] .dai-quality-status {
+  border-color:#e3dce5;
+  background:#f9f6fa;
+}
+
+@media(max-width:640px) {
+  .dai-experience-presets {
+    grid-template-columns:1fr;
+  }
+  .dai-experience-presets button {
+    min-height:54px;
+    align-items:center;
+  }
+  .dai-runtime-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
