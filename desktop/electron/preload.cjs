@@ -17,4 +17,16 @@ contextBridge.exposeInMainWorld('daiDesktop', {
   hideCompanion: () => ipcRenderer.invoke('dai:companion-hide'),
   setCompanionWander: (enabled) => ipcRenderer.invoke('dai:companion-wander', Boolean(enabled)),
   openMainWindow: () => ipcRenderer.invoke('dai:open-main'),
+  browserOpen: (url) => ipcRenderer.invoke('dai:browser-open', String(url || '')),
+  browserClose: () => ipcRenderer.invoke('dai:browser-close'),
+  browserReload: () => ipcRenderer.invoke('dai:browser-reload'),
+  browserBack: () => ipcRenderer.invoke('dai:browser-back'),
+  browserForward: () => ipcRenderer.invoke('dai:browser-forward'),
+  browserExternal: () => ipcRenderer.invoke('dai:browser-external'),
+  onBrowserState: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, state) => callback(state || {});
+    ipcRenderer.on('dai:browser-state', handler);
+    return () => ipcRenderer.removeListener('dai:browser-state', handler);
+  },
 });
