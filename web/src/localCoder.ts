@@ -30,6 +30,10 @@ async function createEngine(onProgress?:ProgressCallback){
   progressListener=onProgress||null;
 
   enginePromise=(async()=>{
+    try{
+      const general=await import('./localGeneral');
+      await general.unloadLocalGeneral();
+    }catch{}
     const webllm=await import('@mlc-ai/web-llm');
     let lastError:any=null;
 
@@ -109,4 +113,11 @@ export async function runLocalCoder(options:{
 
 export function stopLocalCoder(){
   try{engine?.interruptGenerate?.();}catch{}
+}
+
+export async function unloadLocalCoder(){
+  try{await engine?.unload?.();}catch{}
+  engine=null;
+  engineModel='';
+  enginePromise=null;
 }
