@@ -419,6 +419,10 @@ export default function GithubApp(){
     return /(?:اعملي|اعمل|اعمليلي|وريني|وريلي|اتحركي|حركه|حركة|ارقصي|رقصي|صقفي|اضحكي|لوحي|نطي|لفي|انحني|هاي فايف|high five|dance|wave|clap|animate|animation)/i.test(text);
   }
 
+  function looksLikeResearchRequest(text:string){
+    return /(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|حل مشكلة|حل للمشكلة|راجعلي|تحقق|اتأكد|تأكد|latest|search|find|link|video|price|source|compare)/i.test(text);
+  }
+
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
     if(!professional||!proAnimations)return false;
     const spec=animationSpecById(id);
@@ -1437,7 +1441,9 @@ export default function GithubApp(){
     streamMessageIdRef.current=tempAssistantId;
 
     let latestSearchSources:SearchSource[]=[];
-    setResearching(false);
+    const predictedResearch=looksLikeResearchRequest(text);
+    setResearching(predictedResearch);
+    if(predictedResearch&&Date.now()>=animationLockUntilRef.current)animate('search',0);
 
     let {data:{session}}=await supabase.auth.getSession();
     if(!session){
@@ -1751,9 +1757,10 @@ export default function GithubApp(){
     setErrorText('');
     setSending(true);
     setStreamingText(false);
-    setResearching(false);
+    const predictedResearch=looksLikeResearchRequest(text);
+    setResearching(predictedResearch);
     const sonicRequest=++sonicRequestRef.current;
-    daiSfx.playState('action');
+    daiSfx.playState(predictedResearch?'thinking':'action');
     window.setTimeout(()=>{
       if(sonicRequestRef.current===sonicRequest)daiSfx.playState('thinking');
     },110);
@@ -1768,7 +1775,7 @@ export default function GithubApp(){
       createdAt:Date.now()
     };
     setPendingUserMessage(optimisticMessage);
-    animate(fromVoice?'voicewait':stateForUserText(text),0);
+    animate(fromVoice?'voicewait':predictedResearch?'search':stateForUserText(text),0);
 
     let desktopActionResult='';
     if(desktopMode){
