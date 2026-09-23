@@ -4,7 +4,7 @@ const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
 }
-export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint'];
+export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix'];
 
 function avatarTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
@@ -35,6 +35,90 @@ function avatarTheme(c,avatar='classic') {
     dots:'234,187,225',
     particles:['#FFD0E2','#FFE9A8','#D8C5FF'],
     eyeW:1.12,eyeH:1.08,spacing:48,stroke:12,cheekBoost:1.34
+  };
+  if(avatar==='aurora')return {
+    eyeA:isLight?'#8FE4D7':'#D9FFF7', eyeB:isLight?'#5CC8C1':'#8DE8DE', eyeC:isLight?'#967AD7':'#C6B0FF',
+    eyeStroke:isLight?'rgba(67,139,137,.18)':'rgba(135,239,224,.10)', happy:isLight?'#4E8C87':'#CDF9F0',
+    brow:isLight?'rgba(64,119,122,.62)':'rgba(156,230,224,.62)', cheek:isLight?'79,176,166':'106,218,204',
+    mouth:isLight?'#50827F':'#BCEDE4', tongue:isLight?'#78AAA5':'#91CFC5', dots:'137,219,207',
+    particles:['#8FF0DC','#BDA8FF','#A8DFFF'], eyeW:1.02,eyeH:.98,spacing:49,stroke:8,cheekBoost:.48
+  };
+  if(avatar==='ember')return {
+    eyeA:isLight?'#F7A26D':'#FFD4B6', eyeB:isLight?'#D96B4E':'#F28B66', eyeC:isLight?'#9F3E54':'#D65B72',
+    eyeStroke:isLight?'rgba(146,70,47,.19)':'rgba(255,150,105,.10)', happy:isLight?'#9B573E':'#FFD0AE',
+    brow:isLight?'rgba(126,63,47,.65)':'rgba(244,139,98,.64)', cheek:isLight?'221,91,62':'246,115,74',
+    mouth:isLight?'#99503E':'#F3B08C', tongue:isLight?'#C86D5E':'#E68570', dots:'231,139,97',
+    particles:['#FF9A5E','#FFCA70','#E66770'], eyeW:1.00,eyeH:1.02,spacing:49,stroke:9,cheekBoost:.72
+  };
+  if(avatar==='rose')return {
+    eyeA:isLight?'#F3B7C6':'#FFF1F5', eyeB:isLight?'#D58AA4':'#F4BACE', eyeC:isLight?'#B58B74':'#E1C09D',
+    eyeStroke:isLight?'rgba(147,88,109,.16)':'rgba(255,190,211,.08)', happy:isLight?'#9A6173':'#FFE4EC',
+    brow:isLight?'rgba(126,76,101,.58)':'rgba(235,192,207,.58)', cheek:isLight?'220,117,151':'242,151,180',
+    mouth:isLight?'#9B5D70':'#F3CEDA', tongue:isLight?'#CA8295':'#DFA0AF', dots:'226,182,194',
+    particles:['#F5BECF','#E8CAA2','#E0C9EA'], eyeW:1.04,eyeH:1.00,spacing:48,stroke:9,cheekBoost:.82
+  };
+  if(avatar==='ice')return {
+    eyeA:isLight?'#B5E8F4':'#EEFCFF', eyeB:isLight?'#81CADF':'#BCEAF4', eyeC:isLight?'#799BD9':'#A8C0F4',
+    eyeStroke:isLight?'rgba(80,137,159,.17)':'rgba(194,240,250,.10)', happy:isLight?'#5B8C9D':'#E1F8FC',
+    brow:isLight?'rgba(73,118,140,.60)':'rgba(188,230,241,.60)', cheek:isLight?'106,175,197':'137,210,226',
+    mouth:isLight?'#5D8997':'#CDEAF0', tongue:isLight?'#84ADB8':'#9FC9D2', dots:'164,221,235',
+    particles:['#D4F7FF','#AFCBFF','#F3FBFF'], eyeW:.98,eyeH:1.00,spacing:50,stroke:7,cheekBoost:.34
+  };
+  if(avatar==='lime')return {
+    eyeA:isLight?'#B7E873':'#E8FFB9', eyeB:isLight?'#84C858':'#B9EA82', eyeC:isLight?'#4CA7A0':'#75CEC6',
+    eyeStroke:isLight?'rgba(86,135,62,.18)':'rgba(191,244,126,.10)', happy:isLight?'#638B4D':'#DCF6B7',
+    brow:isLight?'rgba(79,118,62,.62)':'rgba(190,230,139,.62)', cheek:isLight?'120,184,84':'151,220,105',
+    mouth:isLight?'#62824E':'#CFE7AE', tongue:isLight?'#86A96C':'#A4C88A', dots:'166,222,113',
+    particles:['#C4F47B','#7CE2C4','#E6FFA6'], eyeW:1.01,eyeH:.96,spacing:49,stroke:8,cheekBoost:.45
+  };
+  if(avatar==='violet')return {
+    eyeA:isLight?'#D5A7F0':'#F4E0FF', eyeB:isLight?'#A66AD2':'#CEA0EF', eyeC:isLight?'#D15B9A':'#F18CBD',
+    eyeStroke:isLight?'rgba(111,64,145,.18)':'rgba(220,171,255,.10)', happy:isLight?'#7C4F96':'#EED7FF',
+    brow:isLight?'rgba(96,58,124,.64)':'rgba(216,174,242,.62)', cheek:isLight?'167,91,188':'205,124,222',
+    mouth:isLight?'#774A8D':'#DFBFEA', tongue:isLight?'#A472B2':'#C391CD', dots:'201,151,225',
+    particles:['#D7A6F4','#FF91C6','#BCA4FF'], eyeW:1.04,eyeH:.98,spacing:49,stroke:9,cheekBoost:.63
+  };
+  if(avatar==='pearl')return {
+    eyeA:isLight?'#ECE9EA':'#FFFFFF', eyeB:isLight?'#CFC9D2':'#EAE6EC', eyeC:isLight?'#AAB4C8':'#CBD5E6',
+    eyeStroke:isLight?'rgba(103,103,115,.14)':'rgba(255,255,255,.07)', happy:isLight?'#77727D':'#F2EEF4',
+    brow:isLight?'rgba(91,87,99,.52)':'rgba(225,220,230,.52)', cheek:isLight?'180,164,175':'214,202,211',
+    mouth:isLight?'#736D77':'#E0D7E1', tongue:isLight?'#9D939F':'#BDB2BF', dots:'211,207,218',
+    particles:['#FFFFFF','#DCE7F6','#F5EAF5'], eyeW:.96,eyeH:.98,spacing:48,stroke:6,cheekBoost:.30
+  };
+  if(avatar==='crimson')return {
+    eyeA:isLight?'#E78A91':'#FFC8CC', eyeB:isLight?'#B94752':'#E56872', eyeC:isLight?'#562C48':'#8A456A',
+    eyeStroke:isLight?'rgba(122,46,53,.20)':'rgba(244,111,122,.11)', happy:isLight?'#884047':'#F7B9BE',
+    brow:isLight?'rgba(105,42,51,.68)':'rgba(225,103,115,.66)', cheek:isLight?'186,64,75':'225,84,96',
+    mouth:isLight?'#7E3A42':'#E4A4AA', tongue:isLight?'#A95D67':'#C57780', dots:'203,99,109',
+    particles:['#F36D79','#A24569','#FFB0B6'], eyeW:1.01,eyeH:1.02,spacing:50,stroke:9,cheekBoost:.55
+  };
+  if(avatar==='galaxy')return {
+    eyeA:isLight?'#9AB6F0':'#DDE8FF', eyeB:isLight?'#746ED0':'#A59CEF', eyeC:isLight?'#CE72B9':'#ED9DD9',
+    eyeStroke:isLight?'rgba(72,83,148,.19)':'rgba(165,172,255,.10)', happy:isLight?'#59669A':'#DCE2FF',
+    brow:isLight?'rgba(68,73,125,.64)':'rgba(182,179,242,.62)', cheek:isLight?'115,104,188':'152,138,224',
+    mouth:isLight?'#5B5C8F':'#CAC7EC', tongue:isLight?'#8581AC':'#A7A1CA', dots:'166,156,231',
+    particles:['#8EA7FF','#E387CF','#81E3E7'], eyeW:1.03,eyeH:.94,spacing:50,stroke:8,cheekBoost:.44
+  };
+  if(avatar==='desert')return {
+    eyeA:isLight?'#E7C694':'#FFE6B8', eyeB:isLight?'#C7975B':'#E8BC79', eyeC:isLight?'#9B694D':'#C78B6D',
+    eyeStroke:isLight?'rgba(124,89,49,.17)':'rgba(240,199,126,.09)', happy:isLight?'#8A6B48':'#F1D3A1',
+    brow:isLight?'rgba(109,81,50,.60)':'rgba(223,186,125,.60)', cheek:isLight?'193,133,83':'224,165,106',
+    mouth:isLight?'#856348':'#DFC29A', tongue:isLight?'#AE8162':'#C99E7C', dots:'216,179,124',
+    particles:['#EBC17D','#D99A67','#F8E2B7'], eyeW:.98,eyeH:1.00,spacing:49,stroke:8,cheekBoost:.47
+  };
+  if(avatar==='lavender')return {
+    eyeA:isLight?'#DCCCF2':'#F5EEFF', eyeB:isLight?'#B8A0DE':'#D4C3F1', eyeC:isLight?'#D7A4C8':'#EDC6DF',
+    eyeStroke:isLight?'rgba(110,91,145,.15)':'rgba(222,205,248,.08)', happy:isLight?'#817199':'#EADFF8',
+    brow:isLight?'rgba(99,82,128,.56)':'rgba(215,198,235,.56)', cheek:isLight?'175,144,193':'209,176,224',
+    mouth:isLight?'#7F6C90':'#D8C8E4', tongue:isLight?'#A491AF':'#BEA9C7', dots:'204,187,226',
+    particles:['#DCCAF5','#F2C9E1','#C7D7FA'], eyeW:1.04,eyeH:1.00,spacing:48,stroke:8,cheekBoost:.58
+  };
+  if(avatar==='matrix')return {
+    eyeA:isLight?'#8EDB88':'#C9FFC4', eyeB:isLight?'#52B564':'#82E28D', eyeC:isLight?'#247C5B':'#4EAD83',
+    eyeStroke:isLight?'rgba(49,125,64,.20)':'rgba(119,239,137,.11)', happy:isLight?'#4B8A50':'#BDF6C2',
+    brow:isLight?'rgba(46,106,55,.66)':'rgba(133,225,145,.64)', cheek:isLight?'67,154,78':'88,197,101',
+    mouth:isLight?'#4B7E50':'#A9DDAE', tongue:isLight?'#6DA374':'#84BD8A', dots:'107,207,118',
+    particles:['#68E67A','#42A86B','#B8FFBE'], eyeW:.97,eyeH:.92,spacing:50,stroke:7,cheekBoost:.35
   };
   if(avatar==='sakura')return {
     eyeA:isLight?'#F6AFC8':'#FFF4F8',
@@ -178,8 +262,91 @@ function avatarTheme(c,avatar='classic') {
   };
 }
 
+const AVATAR_MOTION_PROFILES={
+  classic:{x:.7,y:1.2,tilt:.45,scale:.004,speed:.85,phase:.0},
+  minimal:{x:.25,y:.55,tilt:.18,scale:.002,speed:.62,phase:.4},
+  cute:{x:1.15,y:1.65,tilt:.78,scale:.006,speed:1.18,phase:.8},
+  cyber:{x:.65,y:.8,tilt:.28,scale:.004,speed:1.62,phase:1.2},
+  soft:{x:.55,y:1.35,tilt:.38,scale:.004,speed:.72,phase:1.6},
+  pro:{x:.38,y:.7,tilt:.22,scale:.0025,speed:.58,phase:2.0},
+  hologram:{x:.8,y:.9,tilt:.25,scale:.005,speed:1.75,phase:2.4},
+  sakura:{x:.85,y:1.45,tilt:.55,scale:.005,speed:.93,phase:2.8},
+  ocean:{x:1.0,y:1.05,tilt:.42,scale:.0035,speed:.78,phase:3.2},
+  solar:{x:.62,y:1.2,tilt:.48,scale:.005,speed:1.05,phase:3.6},
+  midnight:{x:.42,y:.92,tilt:.35,scale:.003,speed:.52,phase:4.0},
+  mint:{x:.72,y:1.0,tilt:.40,scale:.004,speed:.88,phase:4.4},
+  aurora:{x:1.12,y:1.2,tilt:.48,scale:.005,speed:.82,phase:4.8},
+  ember:{x:.75,y:1.5,tilt:.62,scale:.006,speed:1.28,phase:5.2},
+  rose:{x:.62,y:1.15,tilt:.44,scale:.004,speed:.76,phase:5.6},
+  ice:{x:.35,y:.82,tilt:.22,scale:.003,speed:.68,phase:6.0},
+  lime:{x:.92,y:1.05,tilt:.56,scale:.005,speed:1.34,phase:6.4},
+  violet:{x:.78,y:1.18,tilt:.52,scale:.005,speed:1.02,phase:6.8},
+  pearl:{x:.28,y:.65,tilt:.16,scale:.002,speed:.49,phase:7.2},
+  crimson:{x:.58,y:1.22,tilt:.50,scale:.006,speed:1.16,phase:7.6},
+  galaxy:{x:1.0,y:1.12,tilt:.44,scale:.005,speed:.73,phase:8.0},
+  desert:{x:.66,y:.96,tilt:.33,scale:.003,speed:.64,phase:8.4},
+  lavender:{x:.72,y:1.32,tilt:.42,scale:.004,speed:.70,phase:8.8},
+  matrix:{x:.44,y:.72,tilt:.20,scale:.003,speed:1.52,phase:9.2}
+};
+function applyAvatarMotion(c,m,avatar='classic'){
+  const p=AVATAR_MOTION_PROFILES[avatar]||AVATAR_MOTION_PROFILES.classic;
+  const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(m.gesture);
+  const activity=calm?1:.28;
+  const reduced=m.reduced?.18:1;
+  const t=m.elapsed*p.speed+p.phase;
+  const dx=Math.sin(t)*p.x*activity*reduced;
+  const dy=Math.sin(t*1.31+p.phase*.21)*p.y*activity*reduced;
+  const tilt=Math.sin(t*.83+p.phase*.37)*p.tilt*activity*reduced;
+  const scale=1+Math.sin(t*1.11+p.phase*.13)*p.scale*activity*reduced;
+  c.translate(dx,dy);c.rotate(rad(tilt));c.scale(scale,scale);
+}
+
 function avatarAccent(c,m,avatar,isLight) {
-  if(avatar==='sakura'){
+  if(avatar==='aurora'){
+    c.save();const a=m.reduced?.24:.23+.09*Math.sin(m.elapsed*1.3);c.globalAlpha=a;
+    const col=isLight?'rgba(77,169,161,.62)':'rgba(133,237,221,.62)';
+    path(c,'M-112 18 Q-58 -34 0 5 T112 -10',null,col,1.3);
+    path(c,'M-104 32 Q-42 -10 8 22 T104 9',null,isLight?'rgba(133,105,193,.48)':'rgba(196,170,255,.48)',1);
+    c.restore();
+  }else if(avatar==='ember'){
+    c.save();c.globalAlpha=m.reduced?.28:.26+.09*Math.sin(m.elapsed*2.1);
+    const y=((m.elapsed*26)%76)-20;star(c,-92,56-y,2.3,isLight?'#D76A48':'#FF8B5E',-8);star(c,91,74-y*.75,1.9,isLight?'#C74455':'#EF6270',12);
+    ellipse(c,0,-95,2.7,2.7,isLight?'#D97A49':'#FFA05D');c.restore();
+  }else if(avatar==='rose'){
+    c.save();c.globalAlpha=.38;
+    const sway=Math.sin(m.elapsed*.85)*8;star(c,-103+sway*.18,3,2.4,isLight?'#D28AA1':'#F1B4C7',-10);star(c,103-sway*.18,5,2.1,isLight?'#B9957F':'#E0C0A0',9);c.restore();
+  }else if(avatar==='ice'){
+    c.save();c.globalAlpha=m.reduced?.28:.24+.07*Math.sin(m.elapsed*1.1);
+    const ice=isLight?'rgba(91,164,188,.58)':'rgba(193,239,249,.58)';
+    for(const [x,y] of [[-104,-20],[105,15],[-82,72]]){line(c,x-4,y,x+4,y,ice,1);line(c,x,y-4,x,y+4,ice,1);}
+    c.restore();
+  }else if(avatar==='lime'){
+    c.save();const scan=-62+((m.elapsed*42)%124);c.globalAlpha=m.reduced?.22:.20+.08*Math.sin(m.elapsed*2.4);
+    line(c,-106,scan,106,scan,isLight?'rgba(103,176,67,.60)':'rgba(181,239,116,.60)',1.1);c.restore();
+  }else if(avatar==='violet'){
+    c.save();c.globalAlpha=.34;
+    const a=m.elapsed*.72;ellipse(c,Math.cos(a)*106,Math.sin(a)*42,2.4,2.4,isLight?'#A16CCE':'#D4A4F6');ellipse(c,Math.cos(a+Math.PI)*106,Math.sin(a+Math.PI)*42,2,2,isLight?'#CC659C':'#EE91BE');c.restore();
+  }else if(avatar==='pearl'){
+    c.save();c.globalAlpha=m.reduced?.20:.18+.08*Math.sin(m.elapsed*.9);
+    const pearl=isLight?'rgba(151,151,163,.48)':'rgba(255,255,255,.50)';ellipse(c,0,-96,2.2,2.2,pearl);line(c,-88,83,88,83,pearl,1);c.restore();
+  }else if(avatar==='crimson'){
+    c.save();const pulse=m.reduced?.23:.20+.12*(.5+.5*Math.sin(m.elapsed*2.5));c.globalAlpha=pulse;
+    ellipse(c,0,-3,118,91,null,isLight?'rgba(172,54,64,.48)':'rgba(239,91,103,.48)',1.2);c.restore();
+  }else if(avatar==='galaxy'){
+    c.save();c.globalAlpha=.36;const a=m.elapsed*.48;
+    star(c,Math.cos(a)*107,Math.sin(a)*67,2.2,isLight?'#7086D4':'#AFC2FF',0);star(c,Math.cos(a+2.1)*95,Math.sin(a+2.1)*61,1.8,isLight?'#C46AAE':'#EF9AD8',8);star(c,Math.cos(a+4.2)*102,Math.sin(a+4.2)*55,1.6,isLight?'#67BFC4':'#91EAEC',-8);c.restore();
+  }else if(avatar==='desert'){
+    c.save();c.globalAlpha=m.reduced?.20:.18+.06*Math.sin(m.elapsed*.8);
+    const sand=isLight?'rgba(173,128,73,.52)':'rgba(232,190,121,.52)';
+    const yy=75+Math.sin(m.elapsed*1.1)*3;path(c,`M-112 ${yy} Q-72 ${yy-7} -32 ${yy} T48 ${yy} T112 ${yy}`,null,sand,1.1);c.restore();
+  }else if(avatar==='lavender'){
+    c.save();c.globalAlpha=.30;const lift=(m.elapsed*13)%80;
+    ellipse(c,-100,62-lift,2.1,2.1,isLight?'#B7A0DD':'#DDCBF7');ellipse(c,97,79-(lift*.7),1.8,1.8,isLight?'#D4A8C5':'#F0C8E1');c.restore();
+  }else if(avatar==='matrix'){
+    c.save();c.globalAlpha=m.reduced?.22:.20+.07*Math.sin(m.elapsed*2.6);
+    const green=isLight?'rgba(55,144,72,.62)':'rgba(112,235,128,.62)';
+    for(const x of [-98,-76,82,101]){const y=-72+((m.elapsed*(24+(x%7))+Math.abs(x))%142);line(c,x,y,x,y+10,green,1);}c.restore();
+  }else if(avatar==='sakura'){
     c.save();c.globalAlpha=m.reduced?.38:.34+.08*Math.sin(m.elapsed*1.8);
     star(c,-108,-4,3.1,isLight?'#DD7FA9':'#FFB8D2',-14);
     star(c,106,6,2.6,isLight?'#B894D8':'#E0C7FF',10);
@@ -294,7 +461,19 @@ function handTheme(c,avatar='classic') {
     ocean:isLight?['#173E4D','rgba(55,151,176,.23)','#55C4D8','#428DA8','rgba(88,210,229,.22)']:['#081922','rgba(97,214,232,.13)','#7ADCE9','#54B6C8','rgba(100,222,238,.24)'],
     solar:isLight?['#5B402A','rgba(196,132,63,.24)','#D99B4B','#A87138','rgba(236,167,83,.22)']:['#23170E','rgba(244,180,92,.13)','#F3B55D','#C7833F','rgba(255,184,89,.24)'],
     midnight:isLight?['#3B3359','rgba(112,95,169,.24)','#8E7BD0','#675AA4','rgba(153,133,224,.22)']:['#121022','rgba(172,158,237,.13)','#B2A2EE','#8375C8','rgba(174,158,244,.24)'],
-    mint:isLight?['#29483D','rgba(76,154,121,.23)','#76CDA8','#55967D','rgba(116,216,174,.20)']:['#0E1D18','rgba(135,224,189,.12)','#9AE7C5','#6CC7A1','rgba(139,231,194,.23)']
+    mint:isLight?['#29483D','rgba(76,154,121,.23)','#76CDA8','#55967D','rgba(116,216,174,.20)']:['#0E1D18','rgba(135,224,189,.12)','#9AE7C5','#6CC7A1','rgba(139,231,194,.23)'],
+    aurora:isLight?['#244A48','rgba(78,164,157,.23)','#78D8CD','#539A94','rgba(129,226,214,.22)']:['#0C1E1D','rgba(130,236,222,.13)','#9AF1E6','#6DCEC4','rgba(139,239,227,.25)'],
+    ember:isLight?['#5B3026','rgba(203,91,61,.24)','#DD7555','#A84D3F','rgba(238,114,73,.23)']:['#25120E','rgba(248,116,74,.14)','#F79269','#CE6249','rgba(255,126,79,.26)'],
+    rose:isLight?['#594047','rgba(190,118,142,.21)','#CE93A5','#98707B','rgba(226,159,181,.18)']:['#21181C','rgba(239,174,195,.11)','#EDB6C8','#BE8D9D','rgba(246,181,201,.20)'],
+    ice:isLight?['#354B51','rgba(105,171,190,.20)','#9FD9E8','#719BA8','rgba(178,229,241,.17)']:['#101A1D','rgba(181,232,243,.10)','#D2F4FA','#9CCAD5','rgba(198,241,249,.20)'],
+    lime:isLight?['#3B4D2B','rgba(126,185,75,.23)','#9DD066','#71964C','rgba(173,228,100,.20)']:['#151D0F','rgba(183,237,111,.12)','#C7F388','#95C866','rgba(198,246,125,.23)'],
+    violet:isLight?['#493253','rgba(158,94,185,.23)','#B779D6','#87589C','rgba(204,123,223,.21)']:['#1C1322','rgba(211,132,234,.13)','#DCA1F1','#AC76C1','rgba(221,142,239,.24)'],
+    pearl:isLight?['#4A484D','rgba(144,139,150,.17)','#C9C3CC','#8F8993','rgba(213,207,216,.13)']:['#19181B','rgba(222,217,226,.08)','#F2EEF4','#BDB7C0','rgba(241,237,244,.15)'],
+    crimson:isLight?['#4D2227','rgba(176,62,72,.25)','#C65B65','#893C45','rgba(222,72,84,.22)']:['#1C0C0F','rgba(232,77,89,.14)','#E5737D','#AC4A54','rgba(244,86,98,.25)'],
+    galaxy:isLight?['#32374E','rgba(105,111,181,.23)','#889AE1','#626C9F','rgba(154,137,220,.21)']:['#10121F','rgba(158,154,234,.13)','#B1B8F4','#7F87CA','rgba(181,157,240,.24)'],
+    desert:isLight?['#514332','rgba(180,139,84,.22)','#C7A066','#8F7049','rgba(218,176,108,.18)']:['#1D1710','rgba(226,184,117,.11)','#E0BF82','#B18C5B','rgba(235,193,126,.21)'],
+    lavender:isLight?['#48414F','rgba(157,135,185,.20)','#B7A2CE','#837596','rgba(202,178,220,.18)']:['#1A1720','rgba(211,190,232,.10)','#D9C9EA','#A999B9','rgba(224,202,239,.20)'],
+    matrix:isLight?['#203F28','rgba(68,157,84,.24)','#69C879','#4A9258','rgba(105,215,121,.22)']:['#09170D','rgba(105,225,122,.13)','#86E993','#5BBB69','rgba(115,236,130,.25)']
   };
   const p=palettes[avatar]||palettes.classic;
   return {fill:p[0],outer:p[1],edge:p[2],palm:p[3],glow:p[4]};
@@ -438,6 +617,7 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
+  applyAvatarMotion(c,m,avatar);
   avatarAccent(c,m,avatar,isLight);
   hat(c,m);wand(c,m);fishing(c,m);
   hand(c,q.lx,q.ly,q.lr,q.la,true,q.wand>.3,avatar);hand(c,q.rx,q.ry,q.rr,q.ra,false,q.rod>.3,avatar);
