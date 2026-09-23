@@ -14,7 +14,127 @@ function json(body: unknown, status = 200) {
 }
 
 function searchAllowed(text: string) {
-  return !/(?:سلاح|أسلحة|مسدس|بندقي|ذخيرة|سكين|خنجر|صاعق|تيزر|pepper\s*spray|gun|firearm|ammo|knife|taser|مخدر|حشيش|ماريجوانا|كوكايين|هيروين|فودكا|ويسكي|كحول|alcohol|cannabis|marijuana|cocaine|heroin|قمار|مراهن|كازينو|betting|casino|gambling|تحدي خطير|dangerous challenge)/i.test(text);
+  return !/(?:سلاح|أسلحة|مسدس|بندقي|ذخيرة|سكين|خنجر|صاعق|تيزر|pepper\s*spray|gun|firearm|ammo|knife|taser|مخدر|حشيش|ماريجوانا|كوكايين|هيروين|فودكا|ويسكي|كحول|alcohol|cannabis|marijuana|cocaine|heroin|قمار|مراهن|كازينو|betting|casino|gambling|تحدي خطير|dangerous challenge|إباحي|اباحي|porn|xxx)/i.test(text);
+}
+
+type SearchSource = { title: string; url: string; snippet?: string };
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function unwrapSearchUrl(value: string) {
+  try {
+    const raw = value.startsWith('//') ? 'https:' + value : value;
+    const url = new URL(raw, 'https://duckduckgo.com');
+    const wrapped = url.searchParams.get('uddg');
+    return wrapped ? decodeURIComponent(wrapped) : url.toString();
+  } catch {
+    return '';
+  }
+}
+
+async function fallbackWebSearch(query: string) {
+  const youtubeOnly = /(?:يوتيوب|youtube|فيديو)/i.test(query);
+  const searchQuery = youtubeOnly
+    ? 'site:youtube.com/watch ' + query.replace(/(?:يوتيوب|youtube)/ig, '').trim()
+    : query;
+
+  const response = await fetch(
+    'https://html.duckduckgo.com/html/?kp=1&q=' + encodeURIComponent(searchQuery),
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    },
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const html = await response.text();
+  const results: SearchSource[] = [];
+  const seen = new Set<string>();
+
+  const anchorPattern = /<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = anchorPattern.exec(html)) && results.length < 8) {
+    const url = unwrapSearchUrl(match[1]);
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    if (youtubeOnly && !/youtube\.com\/watch/i.test(url)) continue;
+    seen.add(url);
+    results.push({
+      title: decodeHtml(match[2]).slice(0, 180) || 'نتيجة بحث',
+      url,
+    });
+  }
+
+  return results;
+}
+
+async function synthesizeFromSources(
+  apiKey: string,
+  query: string,
+  sources: SearchSource[],
+) {
+  if (!sources.length) return '';
+  const sourceText = sources
+    .slice(0, 6)
+    .map((source, index) => `${index + 1}. ${source.title}\n${source.url}`)
+    .join('\n\n');
+
+  const prompt =
+    'استخدم نتائج البحث التالية فقط كمصادر متاحة، وقدّم إجابة عملية ومباشرة بالمصري الطبيعي. ' +
+    'لو الطلب عن فيديو أو رابط، اختَر أفضل نتيجة مناسبة من القائمة واذكر الرابط بوضوح. ' +
+    'لو الطلب عن حل مشكلة، استنتج خطوات عملية بدون ادعاء تفاصيل غير موجودة. ' +
+    'الطلب: ' + query + '\n\nنتائج البحث:\n' + sourceText;
+
+  for (const model of ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 16000);
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 420 },
+          }),
+        },
+      );
+      if (!response.ok) {
+        if ([400, 404, 429, 503].includes(response.status)) continue;
+        break;
+      }
+      const payload = await response.json().catch(() => ({}));
+      const answer = String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part: any) => part?.text || '')
+          ?.join('') || ''
+      ).trim();
+      if (answer) return answer;
+    } catch {
+      // Try the next model.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return '';
 }
 
 Deno.serve(async (req) => {
@@ -66,9 +186,10 @@ Deno.serve(async (req) => {
 
   const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
   const modelCandidates = [
-    'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const prompt =
@@ -81,7 +202,7 @@ Deno.serve(async (req) => {
 
   for (const model of modelCandidates) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 18000);
+    const timeout = setTimeout(() => controller.abort(), 24000);
     try {
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -96,8 +217,7 @@ Deno.serve(async (req) => {
             contents: [{ role: 'user', parts: [{ text: prompt }] }],
             tools: [{ google_search: {} }],
             generationConfig: {
-              maxOutputTokens: 500,
-              thinkingConfig: { thinkingLevel: 'minimal' },
+              maxOutputTokens: 520,
             },
           }),
         },
@@ -128,7 +248,12 @@ Deno.serve(async (req) => {
         if (sources.length >= 6) break;
       }
 
-      if (answer) return json({ ok: true, answer, sources });
+      if (answer && sources.length) {
+        return json({ ok: true, answer, sources, engine: 'grounded' });
+      }
+      if (answer && !/(?:لينك|رابط|فيديو|مصدر|source|link|video)/i.test(query)) {
+        return json({ ok: true, answer, sources: [], engine: 'grounded-no-links' });
+      }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
         console.error('DAI web research failed', error);
@@ -138,6 +263,27 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.error('DAI web research provider status', lastStatus);
+  console.error('DAI web research grounding status', lastStatus);
+
+  try {
+    const sources = await fallbackWebSearch(query);
+    if (sources.length) {
+      const synthesized = await synthesizeFromSources(apiKey, query, sources);
+      const answer = synthesized || (
+        /(?:يوتيوب|youtube|فيديو)/i.test(query)
+          ? 'لقيتلك نتائج مناسبة على يوتيوب. افتح المصادر واختار الفيديو الأنسب.'
+          : 'لقيت نتائج مرتبطة بطلبك. المصادر موجودة تحت الرد.'
+      );
+      return json({
+        ok: true,
+        answer,
+        sources: sources.slice(0, 6).map(({ title, url }) => ({ title, url })),
+        engine: 'fallback-web',
+      });
+    }
+  } catch (error) {
+    console.error('DAI fallback web search failed', error);
+  }
+
   return json({ error: 'ضي مش قادرة تكمل البحث دلوقتي.' }, 502);
 });
