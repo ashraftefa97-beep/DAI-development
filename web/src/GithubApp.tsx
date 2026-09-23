@@ -5,7 +5,7 @@ import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Datab
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
-import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
+import { createDaiRequest, type DaiTaskRoute } from './taskRouter';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
