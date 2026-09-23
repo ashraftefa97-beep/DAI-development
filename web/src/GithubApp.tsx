@@ -1872,6 +1872,11 @@ export default function GithubApp(){
 
     const oldAssistant=messages[assistantIndex];
     const userText=messages[userIndex].content;
+    const gatewayRequest=createDaiRequest(userText,'text');
+    gatewayRequestRef.current=gatewayRequest.id;
+    speechRunRef.current++;
+    stopSpeechAudio();
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
     setErrorText('');
     setSending(true);
     setStreamingText(false);
@@ -1882,7 +1887,14 @@ export default function GithubApp(){
     ));
 
     try{
-      await streamTypedReply(userText,'',oldAssistant.id);
+      await streamTypedReply(
+        userText,
+        '',
+        oldAssistant.id,
+        'auto',
+        gatewayRequest.decision.route,
+        gatewayRequest.id
+      );
     }catch(error){
       if((error as Error)?.name!=='AbortError'){
         setLastFailedText(userText);
