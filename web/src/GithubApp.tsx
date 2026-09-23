@@ -489,10 +489,6 @@ export default function GithubApp(){
     return /(?:اعملي|اعمل|اعمليلي|وريني|وريلي|اتحركي|حركه|حركة|ارقصي|رقصي|صقفي|اضحكي|لوحي|نطي|لفي|انحني|هاي فايف|high five|dance|wave|clap|animate|animation)/i.test(text);
   }
 
-  function looksLikeResearchRequest(text:string){
-    return routeDaiTask(text).route==='research';
-  }
-
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
     if(!professional||!proAnimations)return false;
     const spec=animationSpecById(id);
