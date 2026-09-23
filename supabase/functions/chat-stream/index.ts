@@ -214,6 +214,53 @@ function resolveGatewayRoute(text: string, hint: unknown): DaiTaskRoute {
   return validRoutes.has(requested) ? requested : 'chat';
 }
 
+type DaiBrainProfile = 'fast' | 'smart' | 'deep' | 'research';
+
+function selectBrainProfile(route: DaiTaskRoute, text: string): DaiBrainProfile {
+  if (route === 'research') return 'research';
+  if (route === 'complex' || route === 'code') return 'deep';
+
+  const normalized = String(text || '').trim();
+  const smartIntent =
+    normalized.length > 280 ||
+    /(?:حلل|اشرح|ليه|لماذا|قارن|مقارنة|خطة|خطه|رتب|استنتج|راجع|فكر|analy[sz]e|explain|compare|plan|review|reason)/i.test(normalized);
+
+  return smartIntent ? 'smart' : 'fast';
+}
+
+function modelCandidatesForBrain(profile: DaiBrainProfile, configuredModel: string) {
+  const configured = /^gemini-3\./i.test(configuredModel) ? [configuredModel] : [];
+  const preferred = profile === 'fast'
+    ? ['gemini-3.5-flash-lite', ...configured, 'gemini-3.8-flash']
+    : ['gemini-3.8-flash', ...configured, 'gemini-3.5-flash-lite'];
+
+  return preferred.filter((model, index, all) => all.indexOf(model) === index);
+}
+
+function thinkingLevelForModel(model: string, profile: DaiBrainProfile) {
+  if (/gemini-3\.8-flash/i.test(model)) {
+    return profile === 'deep' ? 'medium' : 'low';
+  }
+  if (/gemini-3\.5-flash-lite/i.test(model)) {
+    if (profile === 'deep') return 'medium';
+    if (profile === 'smart') return 'low';
+    return 'minimal';
+  }
+  return profile === 'deep' ? 'medium' : profile === 'smart' ? 'low' : 'minimal';
+}
+
+function outputBudgetForBrain(profile: DaiBrainProfile) {
+  if (profile === 'deep') return 1100;
+  if (profile === 'smart') return 650;
+  return 360;
+}
+
+function timeoutForBrain(profile: DaiBrainProfile) {
+  if (profile === 'deep') return 30000;
+  if (profile === 'smart') return 19000;
+  return 11500;
+}
+
 const DAI_WEB_URL = Deno.env.get('DAI_WEB_URL') || 'https://ashraftefa97-beep.github.io/DAI-development/';
 
 function cleanDetectedUrl(value: string) {
@@ -1027,7 +1074,7 @@ Deno.serve(async (req) => {
     : 'لا توجد ذاكرة Professional مفعلة للمستخدم حاليًا.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها بمعايير واضحة، وبعدها ادي حل عملي. في الترشيحات غير السياسية ما تكتفيش بسرد النتائج: اختاري الأنسب للطلب واذكري باختصار ليه هو الأنسب وما المعيار اللي اعتمدتي عليه. في السياسة والانتخابات التزمي بالمقارنة المحايدة وما تختاريش أو تأيدي طرفًا. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها بمعايير واضحة، وبعدها ادي حل عملي. في الترشيحات غير السياسية ما تكتفيش بسرد النتائج: اختاري الأنسب للطلب واذكري باختصار ليه هو الأنسب وما المعيار اللي اعتمدتي عليه. في السياسة والانتخابات التزمي بالمقارنة المحايدة وما تختاريش أو تأيدي طرفًا. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. قبل ما تردي، افهمي الهدف والقيود الموجودة في الرسالة كلها. لو الطلب فيه أكتر من نقطة، ما تسقطيش أي نقطة مهمة. لو فيه تعارض أو معلومة ناقصة مؤثرة، وضحيها بدل التخمين. في الطلبات المعقدة راجعي النتيجة داخليًا قبل الإرسال وتأكدي إن الرد فعلاً بيحل المطلوب. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const orderedHistory = historyRows
     .slice()
@@ -1049,11 +1096,8 @@ Deno.serve(async (req) => {
     contents.push({ role: 'user', parts: [{ text: message }] });
   }
 
-  const complexRequest =
-    route === 'complex' ||
-    route === 'code' ||
-    message.length > 900;
-  const maxOutputTokens = complexRequest ? 650 : 260;
+  const brainProfile = selectBrainProfile(route, message);
+  const maxOutputTokens = outputBudgetForBrain(brainProfile);
   const instantAnswer = isRegenerate ? '' : pickInstantReply(message);
   const allowWebSearch =
     !instantAnswer &&
@@ -1079,6 +1123,7 @@ Deno.serve(async (req) => {
         regenerateAssistantId: regenerateAssistantId || null,
         requestId,
         route,
+        brainProfile,
       });
 
       let answer = '';
@@ -1167,14 +1212,10 @@ Deno.serve(async (req) => {
           }
 
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
-          const modelCandidates = [
-            'gemini-3.5-flash-lite',
-            ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-            'gemini-3.1-flash-lite',
-          ].filter((model, index, all) => all.indexOf(model) === index);
+          const modelCandidates = modelCandidatesForBrain(brainProfile, configuredModel);
 
           const aiController = new AbortController();
-          const timeout = setTimeout(() => aiController.abort(), complexRequest ? 25000 : 16000);
+          const timeout = setTimeout(() => aiController.abort(), timeoutForBrain(brainProfile));
           const abortFromClient = () => aiController.abort();
           req.signal.addEventListener('abort', abortFromClient, { once: true });
 
@@ -1198,7 +1239,10 @@ Deno.serve(async (req) => {
                   contents,
                   generationConfig: {
                     maxOutputTokens,
-                    thinkingConfig: { thinkingLevel: 'minimal' },
+                    temperature: brainProfile === 'deep' ? 0.35 : 0.45,
+                    thinkingConfig: {
+                      thinkingLevel: thinkingLevelForModel(model, brainProfile),
+                    },
                   },
                 }),
               });
@@ -1340,6 +1384,7 @@ Deno.serve(async (req) => {
             searched: groundingSources.size > 0 || groundingQueries.size > 0,
             model: usedModel,
             route,
+            brainProfile,
             requestId,
           },
         });
