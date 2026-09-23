@@ -1529,9 +1529,11 @@ export default function GithubApp(){
   },[proAnimations]);
 
   useEffect(()=>{
-    if(reduced||sending||voiceSessionActive||daiState!=='idle')return;
-    const actions:DaiState[]=['cozy_sway','look_around','relax','breathe','wait_patient','peek','sway'];
-    const delay=12000+Math.floor(Math.random()*10000);
+    if(reduced||experiencePreset==='minimal'||renderQuality==='low'||sending||voiceSessionActive||daiState!=='idle')return;
+    const actions:DaiState[]=experiencePreset==='calm'
+      ? ['cozy_sway','relax','breathe','wait_patient']
+      : ['cozy_sway','look_around','relax','breathe','wait_patient','peek','sway'];
+    const delay=(experiencePreset==='calm'?18000:12000)+Math.floor(Math.random()*(experiencePreset==='calm'?12000:10000));
     const id=window.setTimeout(()=>{
       if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
       const recent=recentAutoAnimationsRef.current.map(item=>item.id);
@@ -1544,13 +1546,13 @@ export default function GithubApp(){
       animate(next,2200+Math.floor(Math.random()*1200));
     },delay);
     return()=>window.clearTimeout(id);
-  },[reduced,sending,voiceSessionActive,daiState]);
+  },[reduced,experiencePreset,renderQuality,sending,voiceSessionActive,daiState]);
 
   useEffect(()=>{
     window.clearTimeout(behaviorCycleTimerRef.current);
     behaviorCycleTimerRef.current=undefined;
 
-    if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
+    if(animationAudioBusy()||Date.now()<animationLockUntilRef.current||experiencePreset==='minimal')return;
 
     let sequence:DaiState[]=[];
     let interval=3200;
@@ -1583,6 +1585,10 @@ export default function GithubApp(){
 
     if(!sequence.length)return;
 
+    const qualityFactor=renderQuality==='low'?1.42:renderQuality==='medium'?1.18:1;
+    const presetFactor=experiencePreset==='calm'?1.28:1;
+    interval=Math.round(interval*qualityFactor*presetFactor);
+
     let index=0;
     const apply=()=>{
       if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
@@ -1593,7 +1599,7 @@ export default function GithubApp(){
       behaviorCycleTimerRef.current=window.setTimeout(apply,interval);
     };
 
-    behaviorCycleTimerRef.current=window.setTimeout(apply,1800);
+    behaviorCycleTimerRef.current=window.setTimeout(apply,Math.round(1800*presetFactor));
     return()=>{
       window.clearTimeout(behaviorCycleTimerRef.current);
       behaviorCycleTimerRef.current=undefined;
@@ -1607,7 +1613,9 @@ export default function GithubApp(){
     sending,
     streamingText,
     voiceSessionStatus,
-    speakingMessageId
+    speakingMessageId,
+    experiencePreset,
+    renderQuality
   ]);
 
   useEffect(()=>{
