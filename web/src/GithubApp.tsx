@@ -48,7 +48,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.2.0';
+const DAI_WEB_VERSION='1.3.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -272,6 +272,8 @@ export default function GithubApp(){
   const [sending,setSending]=useState(false);
   const [streamingText,setStreamingText]=useState(false);
   const [researching,setResearching]=useState(false);
+  const [codeEnginePhase,setCodeEnginePhase]=useState<'idle'|'loading'|'coding'>('idle');
+  const [codeEngineProgress,setCodeEngineProgress]=useState(0);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined'?true:navigator.onLine);
@@ -316,6 +318,7 @@ export default function GithubApp(){
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
+  const localCoderStopRef=useRef<(()=>void)|null>(null);
   const streamMessageIdRef=useRef('');
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
@@ -467,6 +470,12 @@ export default function GithubApp(){
 
   function looksLikeResearchRequest(text:string){
     return /(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|حل مشكلة|حل للمشكلة|راجعلي|تحقق|اتأكد|تأكد|latest|search|find|link|video|price|source|compare)/i.test(text);
+  }
+
+  function looksLikeCodeRequest(text:string){
+    const normalized=text.trim();
+    if(/(?:كود خصم|promo code|discount code|رمز تحقق|verification code|باركود|barcode|qr code)/i.test(normalized))return false;
+    return /(?:اكتبلي?\s+كود|اكتب\s+كود|برمج|برمجة|برمجه|مطور|تطوير\s+(?:موقع|تطبيق)|اعمل\s+(?:موقع|صفحة|صفحه|تطبيق|سكريبت)|صلح\s+(?:الكود|الخطأ|البج)|عدل\s+(?:الكود|الموقع|الصفحة|الصفحه)|كود\s+(?:html|css|javascript|typescript|react|python|sql)|\bhtml\b|\bcss\b|\bjavascript\b|\btypescript\b|\breact\b|\bnode(?:\.js)?\b|\bpython\b|\bsql\b|\bapi\b|\bregex\b|\bdebug\b|\brefactor\b|\bfunction\b|\bclass\b|\bcomponent\b|github\s+(?:repo|repository)|سكريبت|بايثون|جافاسكريبت|تايب سكريبت|ريأكت|رياكت|قاعدة بيانات|داتابيز)/i.test(normalized);
   }
 
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
@@ -1454,6 +1463,10 @@ export default function GithubApp(){
   function stopTextReply(){
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
+    localCoderStopRef.current?.();
+    localCoderStopRef.current=null;
+    setCodeEnginePhase('idle');
+    setCodeEngineProgress(0);
     const tempId=streamMessageIdRef.current;
     if(tempId){
       setConversations(prev=>prev.map(conversation=>({
@@ -1788,11 +1801,155 @@ export default function GithubApp(){
     await sendMessage(text,'typed');
   }
 
+  async function runLocalCodeReply(text:string){
+    if(!supabase||!userId)return false;
+    if(typeof navigator==='undefined'||!('gpu' in navigator))return false;
+
+    let conversationId=activeIdRef.current;
+    if(!conversationId){
+      conversationId=await createConversation(text.slice(0,48)||'محادثة برمجة')||'';
+      if(!conversationId)return false;
+      activeIdRef.current=conversationId;
+    }
+
+    const tempAssistantId='local-code-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    streamMessageIdRef.current=tempAssistantId;
+    const history=(conversations.find(item=>item.id===conversationId)?.messages||[])
+      .slice(-6)
+      .map(item=>({role:item.role,content:item.content}));
+
+    setResearching(false);
+    setCodeEnginePhase('loading');
+    setCodeEngineProgress(0);
+    animate('working',0);
+
+    const coder=await import('./localCoder');
+    localCoderStopRef.current=coder.stopLocalCoder;
+
+    let draftInserted=false;
+    const updateDraft=(full:string)=>{
+      if(!full)return;
+      setStreamingText(true);
+      setCodeEnginePhase('coding');
+      const draft:Message={
+        id:tempAssistantId,
+        role:'assistant',
+        content:full,
+        createdAt:Date.now()
+      };
+
+      setConversations(prev=>{
+        const existing=prev.find(item=>item.id===conversationId);
+        const base=existing?.messages||[];
+        const messages=draftInserted
+          ? base.map(message=>message.id===tempAssistantId?draft:message)
+          : [...base,draft];
+        draftInserted=true;
+
+        const updated:Conversation=existing
+          ? {...existing,messages,updatedAt:Date.now()}
+          : {id:conversationId,title:text.slice(0,48)||'محادثة برمجة',messages,updatedAt:Date.now()};
+
+        return [updated,...prev.filter(item=>item.id!==conversationId)];
+      });
+    };
+
+    try{
+      const result=await coder.runLocalCoder({
+        prompt:text,
+        history,
+        onProgress:(progress)=>{
+          setCodeEnginePhase(progress>=1?'coding':'loading');
+          setCodeEngineProgress(Math.round(progress*100));
+        },
+        onDelta:(_delta,full)=>updateDraft(full)
+      });
+
+      const answer=String(result.text||'').trim();
+      if(!answer)throw new Error('LOCAL_CODER_EMPTY');
+
+      const {data:saved,error}=await supabase
+        .from('dai_messages')
+        .insert([
+          {
+            conversation_id:conversationId,
+            user_id:userId,
+            role:'user',
+            content:text
+          },
+          {
+            conversation_id:conversationId,
+            user_id:userId,
+            role:'assistant',
+            content:answer
+          }
+        ])
+        .select('id,role,content,created_at');
+
+      if(error||!saved||saved.length<2)throw error||new Error('LOCAL_CODER_SAVE_FAILED');
+
+      await supabase
+        .from('dai_conversations')
+        .update({updated_at:new Date().toISOString()})
+        .eq('id',conversationId);
+
+      const userRow=saved.find((item:any)=>item.role==='user');
+      const assistantRow=saved.find((item:any)=>item.role==='assistant');
+      if(!userRow||!assistantRow)throw new Error('LOCAL_CODER_SAVE_READ_FAILED');
+
+      const userMessage:Message={
+        id:String(userRow.id),
+        role:'user',
+        content:String(userRow.content||text),
+        createdAt:new Date(userRow.created_at).getTime()
+      };
+      const assistantMessage:Message={
+        id:String(assistantRow.id),
+        role:'assistant',
+        content:String(assistantRow.content||answer),
+        createdAt:new Date(assistantRow.created_at).getTime()
+      };
+
+      setPendingUserMessage(null);
+      setActiveId(conversationId);
+      activeIdRef.current=conversationId;
+      setConversations(prev=>{
+        const existing=prev.find(item=>item.id===conversationId);
+        const base=(existing?.messages||[]).filter(message=>
+          message.id!==tempAssistantId &&
+          message.id!==userMessage.id &&
+          message.id!==assistantMessage.id
+        );
+        const updated:Conversation=existing
+          ? {...existing,messages:[...base,userMessage,assistantMessage],updatedAt:Date.now()}
+          : {
+              id:conversationId,
+              title:text.slice(0,48)||'محادثة برمجة',
+              messages:[userMessage,assistantMessage],
+              updatedAt:Date.now()
+            };
+        return [updated,...prev.filter(item=>item.id!==conversationId)];
+      });
+
+      daiSfx.playState('complete');
+      animate('success',1500);
+      return true;
+    }finally{
+      localCoderStopRef.current=null;
+      streamMessageIdRef.current='';
+      setCodeEnginePhase('idle');
+      setCodeEngineProgress(0);
+      setStreamingText(false);
+    }
+  }
+
   async function sendMessage(messageOverride?:unknown,source:'auto'|'typed'|'voice'='auto'){
     const fromVoice=typeof messageOverride==='string'&&source!=='typed';
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
-    if(!online){
+    const predictedResearch=looksLikeResearchRequest(text);
+    const predictedCode=!predictedResearch&&looksLikeCodeRequest(text);
+    if(!online&&!predictedCode){
       setErrorText('مفيش اتصال بالإنترنت دلوقتي. الرسالة لسه موجودة وتقدر تعيد المحاولة أول ما الاتصال يرجع.');
       if(!fromVoice)setLastFailedText(text);
       return;
@@ -1803,10 +1960,9 @@ export default function GithubApp(){
     setErrorText('');
     setSending(true);
     setStreamingText(false);
-    const predictedResearch=looksLikeResearchRequest(text);
     setResearching(predictedResearch);
     const sonicRequest=++sonicRequestRef.current;
-    daiSfx.playState(predictedResearch?'thinking':'action');
+    daiSfx.playState(predictedResearch?'thinking':predictedCode?'action':'action');
     window.setTimeout(()=>{
       if(sonicRequestRef.current===sonicRequest)daiSfx.playState('thinking');
     },110);
@@ -1821,7 +1977,41 @@ export default function GithubApp(){
       createdAt:Date.now()
     };
     setPendingUserMessage(optimisticMessage);
-    animate(fromVoice?'voicewait':predictedResearch?'search':stateForUserText(text),0);
+    animate(fromVoice?'voicewait':predictedResearch?'search':predictedCode?'working':stateForUserText(text),0);
+
+    if(!fromVoice&&predictedCode){
+      try{
+        const handled=await runLocalCodeReply(text);
+        if(handled){
+          setPendingUserMessage(null);
+          setSending(false);
+          return;
+        }
+      }catch(error){
+        console.warn('DAI local coder fallback',error);
+        localCoderStopRef.current=null;
+        setCodeEnginePhase('idle');
+        setCodeEngineProgress(0);
+        setStreamingText(false);
+        const tempId=streamMessageIdRef.current;
+        if(tempId){
+          setConversations(prev=>prev.map(item=>({
+            ...item,
+            messages:item.messages.filter(message=>message.id!==tempId)
+          })));
+          streamMessageIdRef.current='';
+        }
+        if(!online){
+          setPendingUserMessage(null);
+          setInput(text);
+          setLastFailedText(text);
+          setErrorText('محرك البرمجة المحلي محتاج إنترنت أول مرة عشان يتنزّل، وبعدها يشتغل من الكاش.');
+          setSending(false);
+          animate('idle',0);
+          return;
+        }
+      }
+    }
 
     let desktopActionResult='';
     if(desktopMode){
@@ -3145,7 +3335,7 @@ export default function GithubApp(){
     : voiceSessionStatus==='speaking'||Boolean(speakingMessageId)||daiState==='talk'?'speaking'
     : voiceNoteRecording||(voiceSessionActive&&voiceSessionStatus==='listening')||daiState==='listen'?'listening'
     : ['success','found','response_ready'].includes(daiState)?'complete'
-    : researching||voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
+    : researching||codeEnginePhase!=='idle'||voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
     : streamingText||daiState==='reply'?'responding'
     : input.trim()||daiState==='typing'?'attention'
     : 'idle';
@@ -3166,9 +3356,13 @@ export default function GithubApp(){
                 ? 'ضي بتجهّز الصوت…'
                 : researching
                   ? 'ضي بتبحث…'
-                  : sending
-                    ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
-                    : 'ضي جاهزة';
+                  : codeEnginePhase==='loading'
+                    ? 'ضي بتحضر محرك الكود… '+codeEngineProgress+'%'
+                    : codeEnginePhase==='coding'
+                      ? 'ضي بتبرمج…'
+                      : sending
+                        ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
+                        : 'ضي جاهزة';
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
@@ -3297,7 +3491,7 @@ export default function GithubApp(){
             <p dir='auto'>{renderLinkedText(pendingUserMessage.content)}</p>
           </article>
         }
-        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':'ضي بترد…'}</span></div>}
+        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':codeEnginePhase==='loading'?'ضي بتحضر محرك الكود… '+codeEngineProgress+'%':codeEnginePhase==='coding'?'ضي بتبرمج…':'ضي بترد…'}</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error' role='alert'><span>{errorText}</span>{lastFailedText&&!sending&&online&&<button onClick={retryLastFailed}><RotateCcw className='h-3.5 w-3.5'/> إعادة المحاولة</button>}</div>}
