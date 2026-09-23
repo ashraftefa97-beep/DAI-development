@@ -49,7 +49,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.3.0';
+const DAI_WEB_VERSION='1.4.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -1824,6 +1824,207 @@ export default function GithubApp(){
     await sendMessage(text,'typed');
   }
 
+  async function persistGeneratedExchange(
+    text:string,
+    answer:string,
+    title='محادثة جديدة',
+    tempAssistantId=''
+  ){
+    if(!supabase||!userId)return null;
+
+    let conversationId=activeIdRef.current;
+    if(!conversationId){
+      conversationId=await createConversation(title)||'';
+      if(!conversationId)return null;
+      activeIdRef.current=conversationId;
+    }
+
+    const {data:saved,error}=await supabase
+      .from('dai_messages')
+      .insert([
+        {
+          conversation_id:conversationId,
+          user_id:userId,
+          role:'user',
+          content:text
+        },
+        {
+          conversation_id:conversationId,
+          user_id:userId,
+          role:'assistant',
+          content:answer
+        }
+      ])
+      .select('id,role,content,created_at');
+
+    if(error||!saved||saved.length<2)throw error||new Error('DAI_SAVE_FAILED');
+
+    await supabase
+      .from('dai_conversations')
+      .update({updated_at:new Date().toISOString()})
+      .eq('id',conversationId);
+
+    const userRow=saved.find((item:any)=>item.role==='user');
+    const assistantRow=saved.find((item:any)=>item.role==='assistant');
+    if(!userRow||!assistantRow)throw new Error('DAI_SAVE_READ_FAILED');
+
+    const userMessage:Message={
+      id:String(userRow.id),
+      role:'user',
+      content:String(userRow.content||text),
+      createdAt:new Date(userRow.created_at).getTime()
+    };
+    const assistantMessage:Message={
+      id:String(assistantRow.id),
+      role:'assistant',
+      content:String(assistantRow.content||answer),
+      createdAt:new Date(assistantRow.created_at).getTime()
+    };
+
+    setPendingUserMessage(null);
+    setActiveId(conversationId);
+    activeIdRef.current=conversationId;
+
+    setConversations(prev=>{
+      const existing=prev.find(item=>item.id===conversationId);
+      const base=(existing?.messages||[]).filter(message=>
+        (!tempAssistantId||message.id!==tempAssistantId) &&
+        message.id!==userMessage.id &&
+        message.id!==assistantMessage.id
+      );
+      const updated:Conversation=existing
+        ? {...existing,messages:[...base,userMessage,assistantMessage],updatedAt:Date.now()}
+        : {
+            id:conversationId,
+            title,
+            messages:[userMessage,assistantMessage],
+            updatedAt:Date.now()
+          };
+      return [updated,...prev.filter(item=>item.id!==conversationId)];
+    });
+
+    return assistantMessage;
+  }
+
+  async function runLocalGeneralReply(text:string){
+    if(!supabase||!userId)return false;
+    if(typeof navigator==='undefined'||!('gpu' in navigator))return false;
+
+    let conversationId=activeIdRef.current;
+    if(!conversationId){
+      conversationId=await createConversation(text.slice(0,48)||'تحليل مع ضي')||'';
+      if(!conversationId)return false;
+      activeIdRef.current=conversationId;
+    }
+
+    const tempAssistantId='local-general-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    streamMessageIdRef.current=tempAssistantId;
+    const history=(conversations.find(item=>item.id===conversationId)?.messages||[])
+      .slice(-8)
+      .map(item=>({role:item.role,content:item.content}));
+
+    setResearching(false);
+    setGeneralEnginePhase('loading');
+    setGeneralEngineProgress(0);
+    animate('thinking_deep',0);
+
+    const general=await import('./localGeneral');
+    localGeneralStopRef.current=general.stopLocalGeneral;
+
+    let draftInserted=false;
+    const updateDraft=(full:string)=>{
+      if(!full)return;
+      setStreamingText(true);
+      setGeneralEnginePhase('thinking');
+
+      const draft:Message={
+        id:tempAssistantId,
+        role:'assistant',
+        content:full,
+        createdAt:Date.now()
+      };
+
+      setConversations(prev=>{
+        const existing=prev.find(item=>item.id===conversationId);
+        const base=existing?.messages||[];
+        const messages=draftInserted
+          ? base.map(message=>message.id===tempAssistantId?draft:message)
+          : [...base,draft];
+        draftInserted=true;
+
+        const updated:Conversation=existing
+          ? {...existing,messages,updatedAt:Date.now()}
+          : {id:conversationId,title:text.slice(0,48)||'تحليل مع ضي',messages,updatedAt:Date.now()};
+
+        return [updated,...prev.filter(item=>item.id!==conversationId)];
+      });
+    };
+
+    try{
+      const result=await general.runLocalGeneral({
+        prompt:text,
+        history,
+        onProgress:(progress)=>{
+          setGeneralEnginePhase(progress>=1?'thinking':'loading');
+          setGeneralEngineProgress(Math.round(progress*100));
+        },
+        onDelta:(_delta,full)=>updateDraft(full)
+      });
+
+      const answer=String(result.text||'').trim();
+      if(!answer)throw new Error('LOCAL_GENERAL_EMPTY');
+
+      await persistGeneratedExchange(
+        text,
+        answer,
+        text.slice(0,48)||'تحليل مع ضي',
+        tempAssistantId
+      );
+
+      daiSfx.playState('complete');
+      animate('success',1500);
+      return true;
+    }finally{
+      localGeneralStopRef.current=null;
+      streamMessageIdRef.current='';
+      setGeneralEnginePhase('idle');
+      setGeneralEngineProgress(0);
+      setStreamingText(false);
+    }
+  }
+
+  function imageAspectForText(text:string){
+    if(/(?:ريلز|reels|story|ستوري|9\s*[:x×]\s*16)/i.test(text))return '9:16';
+    if(/(?:16\s*[:x×]\s*9|landscape|يوتيوب|youtube thumbnail)/i.test(text))return '16:9';
+    if(/(?:4\s*[:x×]\s*5|instagram post|بوست انستجرام)/i.test(text))return '4:5';
+    return '1:1';
+  }
+
+  async function runImageReply(text:string){
+    if(!supabase||!userId)return false;
+    setImageGenerating(true);
+    animate('working',0);
+    try{
+      const {data,error}=await supabase.functions.invoke('image-generate',{
+        body:{prompt:text,aspect:imageAspectForText(text)}
+      });
+      if(error||!data?.imageUrl)throw error||new Error('IMAGE_GENERATION_FAILED');
+
+      const imageUrl=String(data.imageUrl);
+      const answer='جهزتلك الصورة.\n[DAI_IMAGE]('+imageUrl+')';
+      await persistGeneratedExchange(
+        text,
+        answer,
+        text.slice(0,48)||'صورة من ضي'
+      );
+      daiSfx.playState('complete');
+      animate('success',1600);
+      return true;
+    }finally{
+      setImageGenerating(false);
+    }
+  }
+
   async function runLocalCodeReply(text:string){
     if(!supabase||!userId)return false;
     if(typeof navigator==='undefined'||!('gpu' in navigator))return false;
@@ -1970,9 +2171,12 @@ export default function GithubApp(){
     const fromVoice=typeof messageOverride==='string'&&source!=='typed';
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
-    const predictedResearch=looksLikeResearchRequest(text);
-    const predictedCode=!predictedResearch&&looksLikeCodeRequest(text);
-    if(!online&&!predictedCode){
+    const routeDecision=routeDaiTask(text);
+    const predictedResearch=routeDecision.route==='research';
+    const predictedCode=routeDecision.route==='code';
+    const predictedComplex=routeDecision.route==='complex';
+    const predictedImage=routeDecision.route==='image';
+    if(!online){
       setErrorText('مفيش اتصال بالإنترنت دلوقتي. الرسالة لسه موجودة وتقدر تعيد المحاولة أول ما الاتصال يرجع.');
       if(!fromVoice)setLastFailedText(text);
       return;
@@ -1985,7 +2189,11 @@ export default function GithubApp(){
     setStreamingText(false);
     setResearching(predictedResearch);
     const sonicRequest=++sonicRequestRef.current;
-    daiSfx.playState(predictedResearch?'thinking':predictedCode?'action':'action');
+    daiSfx.playState(
+      predictedResearch||predictedComplex?'thinking'
+      : predictedImage||predictedCode?'action'
+      : 'action'
+    );
     window.setTimeout(()=>{
       if(sonicRequestRef.current===sonicRequest)daiSfx.playState('thinking');
     },110);
@@ -2000,7 +2208,14 @@ export default function GithubApp(){
       createdAt:Date.now()
     };
     setPendingUserMessage(optimisticMessage);
-    animate(fromVoice?'voicewait':predictedResearch?'search':predictedCode?'working':stateForUserText(text),0);
+    animate(
+      fromVoice?'voicewait'
+      : predictedResearch?'search'
+      : predictedCode||predictedImage?'working'
+      : predictedComplex?'thinking_deep'
+      : stateForUserText(text),
+      0
+    );
 
     if(!fromVoice&&predictedCode){
       try{
@@ -2024,15 +2239,52 @@ export default function GithubApp(){
           })));
           streamMessageIdRef.current='';
         }
-        if(!online){
+      }
+    }
+
+    if(!fromVoice&&predictedComplex){
+      try{
+        const handled=await runLocalGeneralReply(text);
+        if(handled){
           setPendingUserMessage(null);
-          setInput(text);
-          setLastFailedText(text);
-          setErrorText('محرك البرمجة المحلي محتاج إنترنت أول مرة عشان يتنزّل، وبعدها يشتغل من الكاش.');
           setSending(false);
-          animate('idle',0);
           return;
         }
+      }catch(error){
+        console.warn('DAI local reasoning fallback',error);
+        localGeneralStopRef.current=null;
+        setGeneralEnginePhase('idle');
+        setGeneralEngineProgress(0);
+        setStreamingText(false);
+        const tempId=streamMessageIdRef.current;
+        if(tempId){
+          setConversations(prev=>prev.map(item=>({
+            ...item,
+            messages:item.messages.filter(message=>message.id!==tempId)
+          })));
+          streamMessageIdRef.current='';
+        }
+      }
+    }
+
+    if(!fromVoice&&predictedImage){
+      try{
+        const handled=await runImageReply(text);
+        if(handled){
+          setPendingUserMessage(null);
+          setSending(false);
+          return;
+        }
+      }catch(error){
+        console.warn('DAI image route failed',error);
+        setImageGenerating(false);
+        setPendingUserMessage(null);
+        setInput(text);
+        setLastFailedText(text);
+        setErrorText('ضي مقدرتش تجهز الصورة دلوقتي. جرّب تاني بعد شوية.');
+        setSending(false);
+        animate('idle',0);
+        return;
       }
     }
 
@@ -3358,7 +3610,7 @@ export default function GithubApp(){
     : voiceSessionStatus==='speaking'||Boolean(speakingMessageId)||daiState==='talk'?'speaking'
     : voiceNoteRecording||(voiceSessionActive&&voiceSessionStatus==='listening')||daiState==='listen'?'listening'
     : ['success','found','response_ready'].includes(daiState)?'complete'
-    : researching||codeEnginePhase!=='idle'||voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
+    : researching||codeEnginePhase!=='idle'||generalEnginePhase!=='idle'||imageGenerating||voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
     : streamingText||daiState==='reply'?'responding'
     : input.trim()||daiState==='typing'?'attention'
     : 'idle';
@@ -3379,13 +3631,19 @@ export default function GithubApp(){
                 ? 'ضي بتجهّز الصوت…'
                 : researching
                   ? 'ضي بتبحث…'
-                  : codeEnginePhase==='loading'
-                    ? 'ضي بتحضر محرك الكود… '+codeEngineProgress+'%'
-                    : codeEnginePhase==='coding'
-                      ? 'ضي بتبرمج…'
-                      : sending
-                        ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
-                        : 'ضي جاهزة';
+                  : imageGenerating
+                    ? 'ضي بتجهز الصورة…'
+                    : codeEnginePhase==='loading'
+                      ? 'ضي بتحضر محرك الكود… '+codeEngineProgress+'%'
+                      : codeEnginePhase==='coding'
+                        ? 'ضي بتبرمج…'
+                        : generalEnginePhase==='loading'
+                          ? 'ضي بتحضر محرك التفكير… '+generalEngineProgress+'%'
+                          : generalEnginePhase==='thinking'
+                            ? 'ضي بتحلل…'
+                            : sending
+                              ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
+                              : 'ضي جاهزة';
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
@@ -3514,7 +3772,7 @@ export default function GithubApp(){
             <p dir='auto'>{renderLinkedText(pendingUserMessage.content)}</p>
           </article>
         }
-        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':codeEnginePhase==='loading'?'ضي بتحضر محرك الكود… '+codeEngineProgress+'%':codeEnginePhase==='coding'?'ضي بتبرمج…':'ضي بترد…'}</span></div>}
+        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':imageGenerating?'ضي بتجهز الصورة…':codeEnginePhase==='loading'?'ضي بتحضر محرك الكود… '+codeEngineProgress+'%':codeEnginePhase==='coding'?'ضي بتبرمج…':generalEnginePhase==='loading'?'ضي بتحضر محرك التفكير… '+generalEngineProgress+'%':generalEnginePhase==='thinking'?'ضي بتحلل…':'ضي بترد…'}</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error' role='alert'><span>{errorText}</span>{lastFailedText&&!sending&&online&&<button onClick={retryLastFailed}><RotateCcw className='h-3.5 w-3.5'/> إعادة المحاولة</button>}</div>}
