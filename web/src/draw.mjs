@@ -162,10 +162,16 @@ export function drawDai(c,m,w,h) {
   for(const [x,dy] of [[-49,3],[49,-3]]) path(c,`M${x-13} ${-73+dy} Q${x} ${-79+dy} ${x+13} ${-73+dy}`,null,isLight?`rgba(111,77,132,${alpha})`:`rgba(222,193,238,${alpha})`,2.8);
   ellipse(c,-82,40,13,5,`rgba(${isLight?'213,91,143':'247,142,183'},${(isLight?112:78)*q.cheek/255})`);
   ellipse(c,82,40,13,5,`rgba(${isLight?'213,91,143':'247,142,183'},${(isLight?112:78)*q.cheek/255})`);
-  if(q.mouth>.095) {
-    const mw=25+q.smile*7,mh=7+q.mouth*25;
-    const shape=path(c,`M${-mw/2} 52 Q0 56 ${mw/2} 52 C${mw*.55} ${55+mh} ${-mw*.55} ${55+mh} ${-mw/2} 52`,isLight?'#A9597D':'#FFE7EA');
-    c.save();c.clip(shape);ellipse(c,2,54+mh,mw*.42,mh*.30,isLight?'#D27B9C':'#E798B4');c.restore();
+  if(q.mouth>.055) {
+    const speechWide=clamp(q.mouthWide||0,0,1);
+    const mw=22+q.smile*6+speechWide*13;
+    const mh=4+q.mouth*29;
+    const upperCurve=53+speechWide*2.2;
+    const shape=path(c,`M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*.53} ${54+mh} ${-mw*.53} ${54+mh} ${-mw/2} 52`,isLight?'#A9597D':'#FFE7EA');
+    c.save();
+    c.clip(shape);
+    ellipse(c,1.5,53.5+mh,mw*.39,mh*.27,isLight?'#D27B9C':'#E798B4');
+    c.restore();
   } else path(c,`M-20 55 C-8 ${55+q.smile*22} 8 ${55+q.smile*22} 20 55`,null,isLight?'#A45278':'#FFDAE5',3.5);
   if(m.state==='thinking'&&!['search','found'].includes(m.gesture)) for(let i=0;i<3;i++) {
     const a=m.reduced?110:90+100*(.5+.5*Math.sin(m.elapsed*4-i));
