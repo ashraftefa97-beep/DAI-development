@@ -4869,3 +4869,107 @@ html[data-dai-theme="light"] .dai-avatar-sync {
 @media (prefers-reduced-motion: reduce) {
   .dai-avatar-preview .hologram-ring { animation:none; }
 }
+
+
+/* DAI avatars v2.1 — expanded color identities */
+.dai-avatar-choice.sakura .dai-avatar-preview {
+  background:radial-gradient(circle at 50% 44%,rgba(255,136,184,.16),transparent 54%),#17101a;
+}
+.dai-avatar-choice.sakura .dai-avatar-preview .eye {
+  background:linear-gradient(180deg,#fff4f8,#ffc2d8 57%,#cdb5f3);
+  box-shadow:0 0 14px rgba(255,143,187,.17);
+}
+.dai-avatar-choice.sakura .dai-avatar-preview .mouth { border-color:#ffb9d1; }
+.dai-avatar-preview .sakura-mark {
+  position:absolute;right:8px;top:7px;width:8px;height:8px;border-radius:60% 40% 60% 40%;
+  background:#ff9fc1;transform:rotate(34deg);box-shadow:-5px 4px 0 -2px #ddbdf5;
+}
+
+.dai-avatar-choice.ocean .dai-avatar-preview {
+  background:linear-gradient(180deg,rgba(80,205,226,.06),transparent 60%),#091720;
+}
+.dai-avatar-choice.ocean .dai-avatar-preview .eye {
+  background:linear-gradient(180deg,#d7fbff,#82e0ec 58%,#829ff1);
+  box-shadow:0 0 14px rgba(89,212,231,.18);
+}
+.dai-avatar-choice.ocean .dai-avatar-preview .mouth { border-color:#8edee9; }
+.dai-avatar-preview .ocean-mark {
+  position:absolute;left:8px;right:8px;bottom:8px;height:6px;border-top:1px solid rgba(102,216,233,.72);
+  border-radius:50%;
+}
+
+.dai-avatar-choice.solar .dai-avatar-preview {
+  background:radial-gradient(circle at 50% 42%,rgba(255,185,84,.12),transparent 55%),#1b130d;
+}
+.dai-avatar-choice.solar .dai-avatar-preview .eye {
+  background:linear-gradient(180deg,#fff0b8,#efb85e 58%,#db765d);
+  box-shadow:0 0 15px rgba(243,171,76,.18);
+}
+.dai-avatar-choice.solar .dai-avatar-preview .mouth { border-color:#efbd7d; }
+.dai-avatar-preview .solar-mark {
+  position:absolute;right:8px;top:7px;width:8px;height:8px;border-radius:50%;background:#f2b557;
+  box-shadow:0 0 8px rgba(242,181,87,.45);
+}
+
+.dai-avatar-choice.midnight .dai-avatar-preview {
+  background:radial-gradient(circle at 50% 44%,rgba(123,104,204,.11),transparent 55%),#0d0d1c;
+}
+.dai-avatar-choice.midnight .dai-avatar-preview .eye {
+  background:linear-gradient(180deg,#e8e2ff,#ac9ced 57%,#6d82d1);
+  box-shadow:0 0 15px rgba(151,134,224,.17);
+}
+.dai-avatar-choice.midnight .dai-avatar-preview .mouth { border-color:#b8a8e7; }
+.dai-avatar-preview .midnight-mark {
+  position:absolute;left:8px;top:8px;width:6px;height:6px;border-radius:50%;background:#b9acf2;
+  box-shadow:9px 5px 0 -2px #7f8fd7,18px -1px 0 -2px #d0c5fb;
+}
+
+.dai-avatar-choice.mint .dai-avatar-preview {
+  background:radial-gradient(circle at 50% 44%,rgba(104,211,166,.11),transparent 55%),#0d1815;
+}
+.dai-avatar-choice.mint .dai-avatar-preview .eye {
+  background:linear-gradient(180deg,#dcfff0,#91e5c2 58%,#77bdca);
+  box-shadow:0 0 14px rgba(108,211,170,.17);
+}
+.dai-avatar-choice.mint .dai-avatar-preview .mouth { border-color:#9de0c2; }
+.dai-avatar-preview .mint-mark {
+  position:absolute;right:8px;top:8px;width:7px;height:11px;border:1px solid rgba(132,225,187,.72);
+  border-radius:70% 30% 70% 30%;transform:rotate(30deg);
+}
+
+.dai-avatar-choice.sakura.active { border-color:rgba(239,120,166,.38); }
+.dai-avatar-choice.ocean.active { border-color:rgba(83,197,218,.38); }
+.dai-avatar-choice.solar.active { border-color:rgba(226,163,75,.40); }
+.dai-avatar-choice.midnight.active { border-color:rgba(140,122,210,.38); }
+.dai-avatar-choice.mint.active { border-color:rgba(104,199,158,.38); }
+
+.classic-shell[data-avatar="sakura"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(244,126,171,.16) 0%,rgba(177,143,225,.08) 44%,transparent 76%);
+}
+.classic-shell[data-avatar="ocean"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(77,196,218,.15) 0%,rgba(83,112,205,.07) 44%,transparent 76%);
+}
+.classic-shell[data-avatar="solar"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(232,166,74,.15) 0%,rgba(198,92,61,.06) 44%,transparent 76%);
+}
+.classic-shell[data-avatar="midnight"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(127,108,202,.15) 0%,rgba(64,80,147,.07) 44%,transparent 76%);
+}
+.classic-shell[data-avatar="mint"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(100,201,158,.14) 0%,rgba(83,157,166,.06) 44%,transparent 76%);
+}
+.dai-companion-shell[data-avatar="sakura"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(242,125,171,.14),rgba(178,142,225,.055) 46%,transparent 72%);
+}
+.dai-companion-shell[data-avatar="ocean"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(76,196,218,.14),rgba(85,115,207,.055) 46%,transparent 72%);
+}
+.dai-companion-shell[data-avatar="solar"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(232,165,72,.14),rgba(202,95,61,.05) 46%,transparent 72%);
+}
+.dai-companion-shell[data-avatar="midnight"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(126,108,201,.14),rgba(67,81,148,.055) 46%,transparent 72%);
+}
+.dai-companion-shell[data-avatar="mint"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(98,199,157,.14),rgba(80,157,166,.05) 46%,transparent 72%);
+}
