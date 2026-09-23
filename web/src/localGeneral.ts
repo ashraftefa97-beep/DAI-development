@@ -30,6 +30,10 @@ async function createEngine(onProgress?:ProgressCallback){
   progressListener=onProgress||null;
 
   enginePromise=(async()=>{
+    try{
+      const coder=await import('./localCoder');
+      await coder.unloadLocalCoder();
+    }catch{}
     const webllm=await import('@mlc-ai/web-llm');
     let lastError:any=null;
 
