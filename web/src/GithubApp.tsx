@@ -2020,6 +2020,7 @@ export default function GithubApp(){
     clientSource:'text'|'voice'|'desktop'='text'
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)throw new Error('stream-config');
+    const clientSupabase=supabase;
 
     const clientStartedAt=performance.now();
     let clientFirstEventMs:number|null=null;
@@ -2034,7 +2035,7 @@ export default function GithubApp(){
       if(patch.client_source)clean.client_source=patch.client_source;
       if(!Object.keys(clean).length)return;
       try{
-        await supabase
+        await clientSupabase
           .from('dai_request_metrics')
           .update(clean)
           .eq('request_id',metricRequestId)
