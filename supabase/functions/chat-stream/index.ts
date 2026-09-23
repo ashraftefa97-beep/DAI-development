@@ -72,6 +72,45 @@ function cleanErrorCode(status: number) {
 }
 
 type SearchSource = { title: string; url: string };
+type DaiTaskRoute = 'command' | 'research' | 'code' | 'image' | 'complex' | 'chat';
+
+const validRoutes = new Set<DaiTaskRoute>([
+  'command','research','code','image','complex','chat',
+]);
+
+function detectGatewayRoute(text: string): DaiTaskRoute {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return 'chat';
+
+  if (/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)\b/i.test(normalized)) {
+    return 'command';
+  }
+  if (/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i.test(normalized)) {
+    return 'command';
+  }
+  if (/(?:اعمل(?:ي|لي)?\s+(?:صورة|صوره|بوستر|poster|wallpaper)|ولّد(?:ي)?\s+(?:صورة|صوره)|انشئ(?:ي)?\s+(?:صورة|صوره)|صمم(?:ي)?\s+(?:صورة|صوره|بوستر)|generate\s+(?:an?\s+)?image|create\s+(?:an?\s+)?image)/i.test(normalized)) {
+    return 'image';
+  }
+  if (!/(?:كود خصم|promo code|discount code|رمز تحقق|verification code|باركود|barcode|qr code)/i.test(normalized) &&
+      /(?:اكتبلي?\s+كود|اكتب\s+كود|برمج|برمجة|برمجه|debug|refactor|\bhtml\b|\bcss\b|\bjavascript\b|\btypescript\b|\breact\b|\bpython\b|\bsql\b|\bapi\b)/i.test(normalized)) {
+    return 'code';
+  }
+  if (/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|link|video|price|source|compare|news|release|update)/i.test(normalized)) {
+    return 'research';
+  }
+  if (normalized.length > 900 ||
+      /(?:حلل(?:ي)?\s+بالتفصيل|تحليل\s+عميق|خطة\s+كاملة|خطه\s+كامله|معمارية|architecture|استراتيجية|استراتيجيه|خطوات\s+تفصيلية|اشرح\s+بالتفصيل|فكر\s+بعمق|deep analysis|comprehensive)/i.test(normalized)) {
+    return 'complex';
+  }
+  return 'chat';
+}
+
+function resolveGatewayRoute(text: string, hint: unknown): DaiTaskRoute {
+  const serverRoute = detectGatewayRoute(text);
+  if (serverRoute !== 'chat') return serverRoute;
+  const requested = String(hint || '') as DaiTaskRoute;
+  return validRoutes.has(requested) ? requested : 'chat';
+}
 
 function webSearchAllowed(text: string) {
   // Keep browsing age-appropriate. The model can still answer safety questions
@@ -426,6 +465,10 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const message = String(body?.message || '').trim();
+  const requestId = String(body?.requestId || '')
+    .replace(/[^a-zA-Z0-9_-]/g, '')
+    .slice(0, 120) || crypto.randomUUID();
+  const route = resolveGatewayRoute(message, body?.routeHint);
   const desktopActionResult = String(body?.desktopActionResult || '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .trim()
@@ -581,11 +624,15 @@ Deno.serve(async (req) => {
   }
 
   const complexRequest =
-    message.length > 700 ||
-    /(?:كود|برمج|debug|حلل|تحليل|بالتفصيل|خطوة بخطوة|خطة كاملة|code|refactor|analy[sz]e|explain in detail)/i.test(message);
+    route === 'complex' ||
+    route === 'code' ||
+    message.length > 900;
   const maxOutputTokens = complexRequest ? 650 : 260;
   const instantAnswer = isRegenerate ? '' : pickInstantReply(message);
-  const allowWebSearch = !instantAnswer && webSearchAllowed(message);
+  const allowWebSearch =
+    !instantAnswer &&
+    route === 'research' &&
+    webSearchAllowed(message);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -604,6 +651,8 @@ Deno.serve(async (req) => {
         conversationId,
         userMessage: savedUserMessage,
         regenerateAssistantId: regenerateAssistantId || null,
+        requestId,
+        route,
       });
 
       let answer = '';
@@ -852,6 +901,8 @@ Deno.serve(async (req) => {
             fastPath: Boolean(instantAnswer),
             searched: groundingSources.size > 0 || groundingQueries.size > 0,
             model: usedModel,
+            route,
+            requestId,
           },
         });
         close();
