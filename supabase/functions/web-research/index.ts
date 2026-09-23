@@ -19,6 +19,65 @@ function searchAllowed(text: string) {
 
 type SearchSource = { title: string; url: string; snippet?: string };
 
+function searchTerms(value: string) {
+  const stop = new Set([
+    'عاوز','عايز','محتاج','ممكن','افضل','أفضل','احسن','أحسن','لينك','رابط','موقع',
+    'ابحث','دور','بحث','find','search','best','link','website','the','and','for','with',
+    'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
+  ]);
+  return String(value || '')
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 3 && !stop.has(term))
+    .slice(0, 12);
+}
+
+function sourceScore(query: string, source: SearchSource) {
+  let score = 0;
+  const title = String(source.title || '').toLowerCase();
+  const snippet = String(source.snippet || '').toLowerCase();
+  let host = '';
+  try { host = new URL(source.url).hostname.replace(/^www\./, '').toLowerCase(); } catch {}
+
+  for (const term of searchTerms(query)) {
+    if (title.includes(term)) score += 3;
+    if (snippet.includes(term)) score += 1.2;
+    if (host.includes(term)) score += 2.5;
+  }
+
+  if (/\.(gov|edu)(\.|$)/i.test(host)) score += 3.5;
+  if (/^(?:docs\.|developer\.|support\.|help\.)/i.test(host)) score += 2.2;
+  if (/(?:official|رسمي|الرسمية|الرسمى)/i.test(title + ' ' + snippet)) score += 1.5;
+  if (source.snippet) score += 0.8;
+  if (/(?:يوتيوب|youtube|فيديو)/i.test(query) && /youtube\.com$/i.test(host)) score += 4;
+  if (/(?:github|جيت هب)/i.test(query) && /github\.com$/i.test(host)) score += 4;
+
+  const currentIntent = /(?:أحدث|احدث|آخر|اليوم|دلوقتي|حالي|latest|today|current|2026)/i.test(query);
+  if (currentIntent && /(?:2026|2025)/.test(title + ' ' + snippet)) score += 1.2;
+
+  if (/(?:pinterest\.|quora\.|medium\.com$)/i.test(host)) score -= 0.8;
+  if (/(?:login|signin|account)/i.test(title)) score -= 1.2;
+
+  return score;
+}
+
+function rankSearchSources(query: string, sources: SearchSource[]) {
+  const seen = new Set<string>();
+  return sources
+    .filter((source) => {
+      if (!source?.url || seen.has(source.url)) return false;
+      seen.add(source.url);
+      return true;
+    })
+    .map((source, index) => ({ source, index, score: sourceScore(query, source) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.source)
+    .slice(0, 8);
+}
+
 function decodeHtml(value: string) {
   return value
     .replace(/<[^>]*>/g, ' ')
@@ -117,7 +176,7 @@ async function fallbackYoutubeSearch(query: string, timeoutMs = 5000, parentSign
     });
   }
 
-  return results;
+  return rankSearchSources(query, results);
 }
 
 async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, parentSignal?: AbortSignal) {
@@ -179,22 +238,35 @@ async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, pa
     });
   }
 
-  return results;
+  return rankSearchSources(query, results);
 }
 
 function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
   if (!sources.length) return '';
+  const ranked = rankSearchSources(query, sources);
+  const best = ranked[0];
+
   if (/(?:يوتيوب|youtube|فيديو)/i.test(query)) {
-    return 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
+    return best
+      ? 'أنسب نتيجة لطلبك عندي هي: ' + best.title + '\n' + best.url
+      : 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
   }
 
-  const useful = sources
+  const recommendationIntent = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|اختار|اختاري|recommend|best|which one)/i.test(query);
+  const useful = ranked
     .slice(0, 3)
     .map((source, index) => {
       const detail = source.snippet ? ': ' + source.snippet : '';
       return `${index + 1}) ${source.title}${detail}`;
     })
     .join('\n');
+
+  if (recommendationIntent && best) {
+    return 'أنسب اختيار حسب مطابقة طلبك وجودة المصدر هو: ' + best.title +
+      (best.snippet ? '\n' + best.snippet : '') +
+      '\n' + best.url +
+      (useful ? '\n\nبدائل قوية:\n' + useful : '');
+  }
 
   return useful
     ? 'لقيت النتائج الأقرب لطلبك:\n' + useful
@@ -211,18 +283,23 @@ async function synthesizeFromSources(
   if (!sources.length) return '';
   if (Date.now() < synthesisBackoffUntil) return '';
 
-  const sourceText = sources
+  const rankedSources = rankSearchSources(query, sources);
+  const sourceText = rankedSources
     .slice(0, 6)
     .map((source, index) => `${index + 1}. ${source.title}\n${source.snippet || ''}\n${source.url}`)
     .join('\n\n');
 
   const prompt =
-    'استخدم نتائج البحث التالية فقط كمصادر متاحة، وقدّم إجابة عملية ومباشرة بالمصري الطبيعي. ' +
-    'لو الطلب عن فيديو أو رابط، اختَر أفضل نتيجة مناسبة من القائمة واذكر الرابط بوضوح. ' +
-    'لو الطلب عن حل مشكلة، استنتج خطوات عملية بدون ادعاء تفاصيل غير موجودة. ' +
-    'الطلب: ' + query + '\n\nنتائج البحث:\n' + sourceText;
+    'استخدم نتائج البحث التالية فقط كمصادر متاحة، وهي مرتبة مبدئيًا حسب الصلة وجودة المصدر. ' +
+    'قارن النتائج قبل الرد وما تعتبرش أول نتيجة هي الأفضل تلقائيًا. ' +
+    'للحقائق فضّل المصدر الأصلي أو الرسمي، وللمقارنات راعي المصادر المستقلة الموثوقة. ' +
+    'لو الطلب عن فيديو أو رابط، اختَر الأكثر تطابقًا واذكر الرابط بوضوح. ' +
+    'لو الطلب عن أفضل/أنسب/ترشيح في موضوع غير سياسي، اختَر اختيارًا واحدًا واضحًا واذكر سبب الاختيار ومعيارك باختصار. ' +
+    'لو الموضوع سياسي أو انتخابي، ما تختارش فائز أو أفضل طرف وما تأيدش اختيار؛ اعرض مقارنة محايدة فقط. ' +
+    'لو الطلب عن حل مشكلة، استنتج أقوى خطوات عملية بدون ادعاء تفاصيل غير موجودة. ' +
+    'جاوب بالمصري الطبيعي. الطلب: ' + query + '\n\nنتائج البحث:\n' + sourceText;
 
-  for (const model of ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
+  for (const model of ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite']) {
     const timeLeft = searchTimeLeft(deadline);
     if (timeLeft < 600) break;
     try {
@@ -322,10 +399,13 @@ Deno.serve(async (req) => {
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const prompt =
-    'ابحث على الويب عن الطلب التالي ثم قدّم خلاصة عملية ومباشرة بالمصري الطبيعي. ' +
-    'لو المستخدم طالب حل مشكلة: لخص السبب الأقرب، ثم خطوات الحل بالترتيب. ' +
-    'لو طالب رابط أو فيديو: اختَر نتيجة مناسبة فعلًا ولا تختلق رابطًا. ' +
-    'لا تذكر اسم مزود الذكاء أو تفاصيل تقنية عن أداة البحث. الطلب: ' + query;
+    'ابحث على الويب عن الطلب التالي وقارن أكثر من نتيجة قبل ما تحكم. ' +
+    'قيّم النتائج حسب مطابقة الطلب، موثوقية المصدر، المصدر الأصلي/الرسمي عند الحاجة، والحداثة لو السؤال حديث. ' +
+    'لو المستخدم طالب حل مشكلة: لخص السبب الأقرب، ثم أقوى خطوات الحل بالترتيب. ' +
+    'لو طالب رابط أو فيديو: اختَر الأكثر تطابقًا فعلًا ولا تختلق رابطًا. ' +
+    'لو طالب أفضل/أنسب/ترشيح في موضوع غير سياسي، اختَر اختيارًا واضحًا مبنيًا على المعايير واذكر باختصار ليه هو الأنسب. ' +
+    'لو الموضوع سياسي أو انتخابي، ممنوع تختار فائز أو أفضل طرف أو تدفع المستخدم لاختيار؛ اعرض مقارنة محايدة فقط. ' +
+    'لا تذكر اسم مزود الذكاء أو تفاصيل تقنية عن أداة البحث. جاوب بالمصري الطبيعي. الطلب: ' + query;
 
   let lastStatus = 0;
   const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
@@ -386,7 +466,12 @@ Deno.serve(async (req) => {
       }
 
       if (answer && sources.length) {
-        return json({ ok: true, answer, sources, engine: 'grounded' });
+        return json({
+          ok: true,
+          answer,
+          sources: rankSearchSources(query, sources),
+          engine: 'grounded'
+        });
       }
       if (answer && !/(?:لينك|رابط|فيديو|مصدر|source|link|video)/i.test(query)) {
         return json({ ok: true, answer, sources: [], engine: 'grounded-no-links' });
@@ -403,7 +488,10 @@ Deno.serve(async (req) => {
 
   try {
     const fallbackDeadline = Math.min(deadline, Date.now() + 7500);
-    const sources = await fallbackWebSearch(query, fallbackDeadline, req.signal);
+    const sources = rankSearchSources(
+      query,
+      await fallbackWebSearch(query, fallbackDeadline, req.signal),
+    );
     if (sources.length) {
       const synthesized = await synthesizeFromSources(apiKey, query, sources, deadline, req.signal);
       const answer = synthesized || fallbackAnswerFromSources(query, sources);
