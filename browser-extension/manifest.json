@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "DAI Side Browser",
-  "version": "1.1.0",
-  "description": "Dock real browser windows beside DAI and report connection/placement status.",
+  "version": "1.2.0",
+  "description": "Uses Chrome Native Split View to open sites beside DAI in the same browser window.",
   "permissions": [
     "windows",
     "tabs",
