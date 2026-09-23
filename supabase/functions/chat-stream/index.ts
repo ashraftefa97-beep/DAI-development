@@ -82,10 +82,10 @@ function detectGatewayRoute(text: string): DaiTaskRoute {
   const normalized = String(text || '').replace(/\s+/g, ' ').trim();
   if (!normalized) return 'chat';
 
-  if (/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)\b/i.test(normalized)) {
+  if (/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)(?:\s|$)/i.test(normalized)) {
     return 'command';
   }
-  if (/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i.test(normalized)) {
+  if (/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:وقف|وقفي|كمل|كملي|pause|resume|play|قدم|قدمي|رجع|رجعي)\s+(?:الفيديو|المقطع|الصوت|الموسيقى|الاغنية|الأغنية)|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i.test(normalized)) {
     return 'command';
   }
   if (/(?:اعمل(?:ي|لي)?\s+(?:صورة|صوره|بوستر|poster|wallpaper)|ولّد(?:ي)?\s+(?:صورة|صوره)|انشئ(?:ي)?\s+(?:صورة|صوره)|صمم(?:ي)?\s+(?:صورة|صوره|بوستر)|generate\s+(?:an?\s+)?image|create\s+(?:an?\s+)?image)/i.test(normalized)) {
