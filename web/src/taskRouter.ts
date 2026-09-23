@@ -30,8 +30,8 @@ const codeFalsePositiveRe=/(?:كود خصم|promo code|discount code|رمز تح
 const imageRe=/(?:اعمل(?:ي|لي)?\s+(?:صورة|صوره|بوستر|poster|wallpaper)|ولّد(?:ي)?\s+(?:صورة|صوره)|انشئ(?:ي)?\s+(?:صورة|صوره)|صمم(?:ي)?\s+(?:صورة|صوره|بوستر)|generate\s+(?:an?\s+)?image|create\s+(?:an?\s+)?image|image generation|text to image)/i;
 const complexRe=/(?:حلل(?:ي)?\s+بالتفصيل|تحليل\s+عميق|خطة\s+كاملة|خطه\s+كامله|معمارية|architecture|استراتيجية|استراتيجيه|خطوات\s+تفصيلية|اشرح\s+بالتفصيل|فكر\s+بعمق|reasoning|deep analysis|comprehensive|بالتفصيل\s+الممل)/i;
 
-const hardInterruptRe=/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)\b/i;
-const commandRe=/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i;
+const hardInterruptRe=/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)(?:\s|$)/i;
+const commandRe=/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:وقف|وقفي|كمل|كملي|pause|resume|play|قدم|قدمي|رجع|رجعي)\s+(?:الفيديو|المقطع|الصوت|الموسيقى|الاغنية|الأغنية)|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i;
 
 function normalizedText(value:string){
   return String(value||'').replace(/\s+/g,' ').trim();
