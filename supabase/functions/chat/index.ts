@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
   const maxOutputTokens = complexRequest ? 620 : 260;
   const allowWebSearch = !instantAnswer && webSearchAllowed(message);
   const modelCandidates = [
-    ...(allowWebSearch ? ['gemini-3.8-flash'] : ['gemini-3.5-flash-lite']),
+    'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
     'gemini-3.1-flash-lite',
   ].filter((model, index, all) => all.indexOf(model) === index);
@@ -243,13 +243,47 @@ Deno.serve(async (req) => {
   let lastStatus = 0;
   let lastDetail = '';
   let groundingMetadata: any = null;
+  let externalSources: SearchSource[] = [];
 
   const aiStartedAt = performance.now();
 
   if (answer) clearTimeout(timeout);
 
   if (!answer) try {
-    for (const model of modelCandidates) {
+    if (allowWebSearch) {
+      const researchUrl =
+        (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '') +
+        '/functions/v1/web-research';
+
+      const researchResponse = await fetch(researchUrl, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: authorization,
+          apikey: publicKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ query: message }),
+      });
+
+      const researchPayload = await researchResponse.json().catch(() => null);
+      if (researchResponse.ok && researchPayload?.answer) {
+        answer = String(researchPayload.answer || '').trim();
+        usedModel = 'dai-web-research';
+        externalSources = Array.isArray(researchPayload?.sources)
+          ? researchPayload.sources
+              .map((item: any) => ({
+                title: String(item?.title || 'مصدر').trim().slice(0, 180) || 'مصدر',
+                url: String(item?.url || '').trim(),
+              }))
+              .filter((item: any) => /^https?:\/\//i.test(item.url))
+              .slice(0, 8)
+          : [];
+      } else {
+        lastStatus = researchResponse.status || 502;
+        lastDetail = String(researchPayload?.error || 'Research failed');
+      }
+    } else for (const model of modelCandidates) {
       const aiUrl =
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
@@ -268,7 +302,6 @@ Deno.serve(async (req) => {
               parts: [{ text: systemPrompt }],
             },
             contents,
-            ...(allowWebSearch ? { tools: [{ google_search: {} }] } : {}),
             generationConfig: {
               maxOutputTokens,
               thinkingConfig: {
@@ -313,7 +346,7 @@ Deno.serve(async (req) => {
 
       // Try another free Gemini model when the requested model is unavailable
       // or its free quota is temporarily exhausted.
-      if (response.status === 404 || response.status === 429 || response.status === 503 || (allowWebSearch && response.status === 400)) {
+      if (response.status === 404 || response.status === 429 || response.status === 503) {
         continue;
       }
 
@@ -421,21 +454,23 @@ Deno.serve(async (req) => {
   }
 
   const grounding = parseGrounding(groundingMetadata);
+  const finalSources = externalSources.length ? externalSources : grounding.sources;
+  const finalQueries = allowWebSearch ? [message] : grounding.searchQueries;
 
   return json({
     conversationId,
     userMessage,
     assistantMessage,
-    researched: grounding.sources.length > 0 || grounding.searchQueries.length > 0,
-    sources: grounding.sources,
-    searchQueries: grounding.searchQueries,
+    researched: finalSources.length > 0 || finalQueries.length > 0,
+    sources: finalSources,
+    searchQueries: finalQueries,
     performance: {
       aiMs: Math.round(performance.now() - aiStartedAt),
       totalMs: Math.round(performance.now() - requestStartedAt),
       thinkingLevel,
       historyMessages: historyRows.length,
       fastPath: Boolean(instantAnswer),
-      searched: grounding.sources.length > 0 || grounding.searchQueries.length > 0,
+      searched: finalSources.length > 0 || finalQueries.length > 0,
     },
   });
 });
