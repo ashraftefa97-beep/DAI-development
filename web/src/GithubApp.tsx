@@ -5,7 +5,7 @@ import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Datab
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
-import { routeDaiTask } from './taskRouter';
+import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -337,6 +337,7 @@ export default function GithubApp(){
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
+  const gatewayRequestRef=useRef('');
   const localCoderStopRef=useRef<(()=>void)|null>(null);
   const localGeneralStopRef=useRef<(()=>void)|null>(null);
   const streamMessageIdRef=useRef('');
@@ -1558,6 +1559,7 @@ export default function GithubApp(){
   }
 
   function stopTextReply(){
+    gatewayRequestRef.current='';
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
     localCoderStopRef.current?.();
@@ -1591,7 +1593,9 @@ export default function GithubApp(){
     text:string,
     desktopActionResult='',
     regenerateAssistantId='',
-    speechMode:'auto'|'always'|'none'='auto'
+    speechMode:'auto'|'always'|'none'='auto',
+    routeHint:DaiTaskRoute='chat',
+    requestId=''
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)throw new Error('stream-config');
 
@@ -1602,7 +1606,7 @@ export default function GithubApp(){
     streamMessageIdRef.current=tempAssistantId;
 
     let latestSearchSources:SearchSource[]=[];
-    const predictedResearch=looksLikeResearchRequest(text);
+    const predictedResearch=routeHint==='research';
     setResearching(predictedResearch);
     if(predictedResearch&&Date.now()>=animationLockUntilRef.current)animate('search',0);
 
@@ -1626,7 +1630,9 @@ export default function GithubApp(){
         conversationId:activeIdRef.current||null,
         message:text,
         desktopActionResult:desktopActionResult||null,
-        regenerateAssistantId:regenerateAssistantId||null
+        regenerateAssistantId:regenerateAssistantId||null,
+        routeHint,
+        requestId:requestId||null
       })
     });
 
@@ -1660,6 +1666,7 @@ export default function GithubApp(){
     };
 
     const handleEvent=(eventName:string,payload:any)=>{
+      if(requestId&&gatewayRequestRef.current!==requestId)return;
       if(eventName==='research'){
         latestSearchSources=normalizeSearchSources(payload?.sources);
         setResearching(true);
@@ -2256,7 +2263,13 @@ export default function GithubApp(){
       void unlockSpeechAudio();
     }
 
-    const routeDecision=routeDaiTask(text);
+    const gatewayRequest=createDaiRequest(
+      text,
+      fromVoice?'voice':desktopMode?'desktop':'text'
+    );
+    gatewayRequestRef.current=gatewayRequest.id;
+    const routeDecision=gatewayRequest.decision;
+    const predictedCommand=routeDecision.route==='command';
     const predictedResearch=routeDecision.route==='research';
     const predictedCode=routeDecision.route==='code';
     const predictedComplex=routeDecision.route==='complex';
@@ -2296,7 +2309,7 @@ export default function GithubApp(){
     animate(
       fromVoice?'voicewait'
       : predictedResearch?'search'
-      : predictedCode||predictedImage?'working'
+      : predictedCommand||predictedCode||predictedImage?'working'
       : predictedComplex?'thinking_deep'
       : stateForUserText(text),
       0
@@ -2374,13 +2387,13 @@ export default function GithubApp(){
     }
 
     let desktopActionResult='';
-    if(desktopMode){
+    if(predictedCommand&&desktopMode){
       desktopActionResult=await runDesktopCommand(text);
     }
 
     if(!fromVoice){
       try{
-        await streamTypedReply(text,desktopActionResult,'',explicitVoiceRequest?'always':'auto');
+        await streamTypedReply(text,desktopActionResult,'',explicitVoiceRequest?'always':'auto',routeDecision.route,gatewayRequest.id);
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         sonicRequestRef.current++;
@@ -2412,7 +2425,7 @@ export default function GithubApp(){
     if(fromVoice){
       try{
         await unlockSpeechAudio();
-        await streamTypedReply(text,desktopActionResult,'','always');
+        await streamTypedReply(text,desktopActionResult,'','always',routeDecision.route,gatewayRequest.id);
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         const tempId=streamMessageIdRef.current;
