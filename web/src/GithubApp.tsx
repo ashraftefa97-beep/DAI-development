@@ -341,7 +341,9 @@ export default function GithubApp(){
   const [browserLoaded,setBrowserLoaded]=useState(false);
   const [browserCanBack,setBrowserCanBack]=useState(false);
   const [browserCanForward,setBrowserCanForward]=useState(false);
+  const [sideBrowserExtensionReady,setSideBrowserExtensionReady]=useState(false);
   const webBrowserWindowRef=useRef<Window|null>(null);
+  const sideBrowserRequestRef=useRef('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
@@ -501,7 +503,64 @@ export default function GithubApp(){
     return()=>{try{unsubscribe?.();}catch{}};
   },[desktopMode]);
 
+  useEffect(()=>{
+    const onMessage=(event:MessageEvent)=>{
+      if(event.source!==window)return;
+      if(event.origin!==window.location.origin)return;
+
+      const payload=event.data||{};
+      if(payload.source!=='dai-side-browser-extension')return;
+
+      if(payload.type==='READY'){
+        setSideBrowserExtensionReady(true);
+        return;
+      }
+
+      if(payload.type==='DAI_SIDE_BROWSER_RESULT'){
+        if(payload.requestId&&payload.requestId!==sideBrowserRequestRef.current)return;
+        if(payload?.result?.ok){
+          setVoiceNotice('متصفح ضي الجانبي شغال.');
+        }else if(payload?.result?.message){
+          setErrorText(String(payload.result.message));
+        }
+      }
+    };
+
+    window.addEventListener('message',onMessage);
+
+    const ping=()=>{
+      window.postMessage({
+        source:'dai-web',
+        type:'DAI_SIDE_BROWSER_PING',
+        requestId:'ping-'+Date.now()
+      },window.location.origin);
+    };
+
+    ping();
+    const retryOne=window.setTimeout(ping,500);
+    const retryTwo=window.setTimeout(ping,1600);
+
+    return()=>{
+      window.removeEventListener('message',onMessage);
+      window.clearTimeout(retryOne);
+      window.clearTimeout(retryTwo);
+    };
+  },[]);
+
   function openTopLevelWebBrowser(url:string){
+    if(sideBrowserExtensionReady){
+      const requestId='side-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+      sideBrowserRequestRef.current=requestId;
+      window.postMessage({
+        source:'dai-web',
+        type:'DAI_SIDE_BROWSER_OPEN',
+        requestId,
+        url
+      },window.location.origin);
+      setVoiceNotice('بفتح الموقع جنب ضي…');
+      return true;
+    }
+
     const screenAny=window.screen as Screen & {availLeft?:number;availTop?:number};
 
     // Dock relative to the CURRENT DAI browser window, not the whole monitor.
