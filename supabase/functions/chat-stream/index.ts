@@ -86,6 +86,122 @@ function collectGrounding(
 }
 
 
+function decodeXml(value: string) {
+  return value
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function fallbackRssSearch(query: string) {
+  const youtubeOnly = /(?:يوتيوب|youtube|فيديو)/i.test(query);
+  const searchQuery = youtubeOnly
+    ? 'site:youtube.com/watch ' + query.replace(/(?:يوتيوب|youtube)/ig, '').trim()
+    : query;
+
+  const response = await fetch(
+    'https://www.bing.com/search?format=rss&q=' + encodeURIComponent(searchQuery),
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
+      },
+    },
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const xml = await response.text();
+  const sources: SearchSource[] = [];
+  const seen = new Set<string>();
+  const itemPattern = /<item>([\s\S]*?)<\/item>/gi;
+  let itemMatch: RegExpExecArray | null;
+
+  while ((itemMatch = itemPattern.exec(xml)) && sources.length < 8) {
+    const block = itemMatch[1];
+    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/i);
+    const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/i);
+    const title = decodeXml(titleMatch?.[1] || '').slice(0, 180);
+    const url = decodeXml(linkMatch?.[1] || '').trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+    if (youtubeOnly && !/youtube\.com\/watch/i.test(url)) continue;
+    seen.add(url);
+    sources.push({ title: title || 'نتيجة بحث', url });
+  }
+
+  return sources;
+}
+
+async function summarizeFallbackSources(
+  apiKey: string,
+  configuredModel: string,
+  query: string,
+  sources: SearchSource[],
+) {
+  if (!sources.length) return '';
+
+  const modelCandidates = [
+    'gemini-3.5-flash-lite',
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-2.5-flash-lite',
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  const sourceText = sources
+    .slice(0, 6)
+    .map((source, index) => `${index + 1}. ${source.title}\n${source.url}`)
+    .join('\n\n');
+
+  const prompt =
+    'اعتمد فقط على نتائج البحث التالية. جاوب بالمصري الطبيعي وباختصار مفيد. ' +
+    'لو المستخدم طالب فيديو أو رابط، اختَر أفضل نتيجة مناسبة من القائمة واذكر الرابط. ' +
+    'لو طالب حل مشكلة، لخص الحل العملي بدون اختلاق تفاصيل. الطلب: ' +
+    query + '\n\nالنتائج:\n' + sourceText;
+
+  for (const model of modelCandidates) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 16000);
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 360 },
+          }),
+        },
+      );
+      if (!response.ok) {
+        if ([400,404,429,503].includes(response.status)) continue;
+        break;
+      }
+      const payload = await response.json().catch(() => ({}));
+      const answer = String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part: any) => part?.text || '')
+          ?.join('') || ''
+      ).trim();
+      if (answer) return answer;
+    } catch {
+      // Try next model.
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return '';
+}
+
 async function directWebResearch(
   apiKey: string,
   configuredModel: string,
@@ -172,6 +288,33 @@ async function directWebResearch(
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  try {
+    const sources = await fallbackRssSearch(query);
+    if (sources.length) {
+      const summarized = await summarizeFallbackSources(
+        apiKey,
+        configuredModel,
+        query,
+        sources,
+      );
+
+      return {
+        ok: true,
+        answer: summarized || (
+          /(?:يوتيوب|youtube|فيديو)/i.test(query)
+            ? 'لقيتلك فيديوهات مرتبطة بطلبك. افتح المصادر تحت الرد واختار الأنسب.'
+            : 'لقيت نتائج مرتبطة بطلبك، والمصادر موجودة تحت الرد.'
+        ),
+        sources,
+        model: 'fallback-web',
+        status: 200,
+        detail: '',
+      };
+    }
+  } catch (error) {
+    lastDetail = 'Fallback search: ' + String(error || '').slice(0, 900);
   }
 
   return {
