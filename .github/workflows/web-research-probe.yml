@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Verify web research returns sources within budget
+      - name: Find working grounded-search model
         shell: bash
         run: |
           set -euo pipefail
@@ -19,9 +19,6 @@ jobs:
           echo "$BODY"
           echo "$BODY" | jq -e '
             .ok == true and
-            (.totalMs | tonumber) < 30000 and
-            (
-              ((.grounded.sources // 0) | tonumber) > 0 or
-              ((.fallback.sources // 0) | tonumber) > 0
-            )
+            (.winner | length) > 0 and
+            ([.results[] | select(.status == 200 and .answer == true and (.sources | tonumber) > 0)] | length) > 0
           '
