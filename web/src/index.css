@@ -3158,3 +3158,32 @@ html[data-dai-theme="light"] .classic-chat-message p .dai-inline-link:hover,
 html[data-dai-theme="light"] .dai-companion-bubble p .dai-inline-link:hover {
   color:#6f2d4c;
 }
+
+/* DAI generated images */
+.dai-generated-image {
+  display:block;
+  width:min(520px,100%);
+  margin:10px 0 2px;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid #34384d;
+  background:#111522;
+  text-decoration:none;
+}
+.dai-generated-image img {
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:640px;
+  object-fit:cover;
+}
+.dai-generated-image:hover {
+  border-color:#775b76;
+}
+html[data-dai-theme="light"] .dai-generated-image {
+  border-color:#d2c7d4;
+  background:#fff;
+}
+html[data-dai-theme="light"] .dai-generated-image:hover {
+  border-color:#c295aa;
+}
