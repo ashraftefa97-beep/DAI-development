@@ -1170,6 +1170,39 @@ async function storePersistentResearchCache(
   }
 }
 
+
+async function providerBackedOff(admin:any, provider:string) {
+  if (!admin) return false;
+  try {
+    const { data, error } = await admin
+      .from('dai_provider_state')
+      .select('blocked_until')
+      .eq('provider',provider)
+      .maybeSingle();
+    if (error || !data?.blocked_until) return false;
+    return new Date(data.blocked_until).getTime() > Date.now();
+  } catch {
+    return false;
+  }
+}
+
+async function markProviderBackoff(
+  admin:any,
+  provider:string,
+  reason:string,
+  durationMs=15*60*1000,
+) {
+  if (!admin) return;
+  try {
+    await admin.from('dai_provider_state').upsert({
+      provider,
+      blocked_until:new Date(Date.now()+durationMs).toISOString(),
+      reason:String(reason||'').slice(0,500),
+      updated_at:new Date().toISOString(),
+    },{onConflict:'provider'});
+  } catch {}
+}
+
 function isPoliticalResearchQuery(query:string) {
   return /(?:انتخاب|انتخابات|مرشح|مرشحين|حزب|أحزاب|رئيس|برلمان|كونغرس|مجلس الشيوخ|حكومة|وزير|سياسة|سياسي|politic|election|candidate|party|president|parliament|congress|senate|minister|ballot|referendum)/i.test(query);
 }
@@ -1519,6 +1552,7 @@ async function directWebResearch(
   configuredModel: string,
   query: string,
   parentSignal?: AbortSignal,
+  admin:any=null,
 ) {
   const modelCandidates = [
     'gemini-3.8-flash',
@@ -1539,18 +1573,29 @@ async function directWebResearch(
   const cached = cachedResearch(query);
   if (cached) return { ...cached, model: cached.model + ':cache' };
 
+  const persistentCached = await persistentCachedResearch(admin,query);
+  if (persistentCached) {
+    storeResearchCache(query,persistentCached);
+    return persistentCached;
+  }
+
   let lastStatus = 0;
   let lastDetail = '';
   const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
   const groundedDeadline = Math.min(deadline, Date.now() + 15000);
+  const googleSearchBlocked =
+    Date.now() < groundingBackoffUntil ||
+    await providerBackedOff(admin,'gemini-google-search');
 
-  const interactionResult = await interactionGroundedResearch(
-    apiKey,
-    query,
-    researchPrompt,
-    groundedDeadline,
-    parentSignal,
-  );
+  const interactionResult = googleSearchBlocked
+    ? null
+    : await interactionGroundedResearch(
+        apiKey,
+        query,
+        researchPrompt,
+        groundedDeadline,
+        parentSignal,
+      );
 
   if (interactionResult?.ok && interactionResult.answer) {
     const value = {
@@ -1562,16 +1607,25 @@ async function directWebResearch(
       detail:'',
     };
     storeResearchCache(query, value);
+    await storePersistentResearchCache(admin,query,value,20*60*1000);
     return value;
   }
 
   if (interactionResult) {
     lastStatus = interactionResult.status;
     lastDetail = interactionResult.detail;
+    if (interactionResult.status === 429) {
+      await markProviderBackoff(
+        admin,
+        'gemini-google-search',
+        String(interactionResult.detail || 'quota'),
+        15*60*1000,
+      );
+    }
   }
 
   for (const model of modelCandidates) {
-    if (Date.now() < groundingBackoffUntil) break;
+    if (googleSearchBlocked || Date.now() < groundingBackoffUntil) break;
     const timeLeft = searchTimeLeft(groundedDeadline);
     if (timeLeft < 700) break;
     try {
@@ -1601,6 +1655,12 @@ async function directWebResearch(
         if (response.status === 429) {
           groundingBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
           lastDetail = 'Grounding quota backoff';
+          await markProviderBackoff(
+            admin,
+            'gemini-google-search',
+            lastDetail,
+            15*60*1000,
+          );
           break;
         }
         if ([400, 404, 503].includes(response.status)) continue;
@@ -1642,6 +1702,7 @@ async function directWebResearch(
             detail:'',
           };
           storeResearchCache(query, value);
+          await storePersistentResearchCache(admin,query,value,20*60*1000);
           return value;
         }
         lastDetail = 'Grounded generateContent returned insufficient relevant sources';
@@ -1688,6 +1749,18 @@ async function directWebResearch(
       );
     }
 
+    // Quota-independent discovery: normal Gemini generation proposes likely
+    // canonical URLs, then DAI validates/fetches the pages itself before use.
+    if (!sources.length && searchTimeLeft(deadline) > 2500) {
+      sources = await discoverAndValidateSources(
+        apiKey,
+        configuredModel,
+        query,
+        deadline,
+        parentSignal,
+      );
+    }
+
     if (sources.length) {
       const summarized = await summarizeFallbackSources(
         apiKey,
@@ -1707,6 +1780,12 @@ async function directWebResearch(
         detail:'',
       };
       storeResearchCache(query, value);
+      await storePersistentResearchCache(
+        admin,
+        query,
+        value,
+        value.model === 'fallback-web' ? 45*60*1000 : 20*60*1000,
+      );
       return value;
     }
   } catch (error) {
