@@ -151,6 +151,7 @@ function heuristicSearchQuery(query: string) {
   return String(query || '')
     .replace(/(?:^|\s)(?:دورلي|دوريلي|ابحثلي|ابحثيلي|هاتلي|رشحلي|عاوز|عايز|محتاج)(?:\s+على)?/gi, ' ')
     .replace(/(?:\s+في\s+السوق|\s+الموجود\s+في\s+السوق)/gi, ' ')
+    .replace(/أفضل|افضل|أحسن|احسن|أنسب|انسب/gi, ' best ')
     .replace(/برينتر|طابعه|طابعة|طابعات/gi, ' printer ')
     .replace(/ثري\s*دي|ثلاثي(?:ة)?\s*الأبعاد|ثلاثية\s*الابعاد/gi, ' 3D ')
     .replace(/لاب\s*توب|لابتوب/gi, ' laptop ')
@@ -170,6 +171,10 @@ async function rewriteFallbackSearchQuery(
   parentSignal?: AbortSignal,
 ) {
   const heuristic = heuristicSearchQuery(query);
+  if (Date.now() < groundingBackoffUntil || Date.now() < synthesisBackoffUntil) {
+    return heuristic || query;
+  }
+
   const candidates = [
     'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
@@ -221,6 +226,39 @@ async function rewriteFallbackSearchQuery(
   }
 
   return heuristic || query;
+}
+
+function buildFallbackQueries(originalQuery: string, rewrittenQuery: string) {
+  const recommendation = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(originalQuery);
+  const current = /(?:أحدث|احدث|آخر|اليوم|دلوقتي|حالي|latest|today|current|2026)/i.test(originalQuery);
+  const base = String(rewrittenQuery || originalQuery).replace(/\s+/g, ' ').trim();
+  const queries: string[] = [];
+
+  const push = (value: string) => {
+    const clean = value.replace(/\s+/g, ' ').trim().slice(0, 190);
+    if (clean && !queries.some((item) => item.toLowerCase() === clean.toLowerCase())) queries.push(clean);
+  };
+
+  if (recommendation) {
+    const hasBest = /\bbest\b/i.test(base);
+    const hasYear = /\b20\d{2}\b/.test(base);
+    push((hasBest ? base : 'best ' + base) + (hasYear ? '' : ' 2026') + ' review');
+    push(base + ' comparison' + (hasYear ? '' : ' 2026'));
+  }
+
+  push(base);
+  if (current && !/\b2026\b/.test(base)) push(base + ' 2026');
+
+  const productTech = /(?:3d\s*printer|printer|laptop|phone|headphones|gpu|graphics card|camera|monitor)/i.test(base);
+  if (recommendation && productTech) {
+    push('site:tomshardware.com ' + base);
+    push('site:techradar.com ' + base);
+  }
+  if (/(?:3d\s*printer|3d\s*printing)/i.test(base)) {
+    push('site:all3dp.com ' + base);
+  }
+
+  return queries.slice(0, 5);
 }
 
 function unwrapSearchUrl(value: string) {
@@ -338,6 +376,37 @@ async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, pa
   }
 
   return rankSearchSources(query, results);
+}
+
+async function fallbackMultiSearch(
+  originalQuery: string,
+  rewrittenQuery: string,
+  deadline: number,
+  parentSignal?: AbortSignal,
+) {
+  const queries = buildFallbackQueries(originalQuery, rewrittenQuery);
+  if (!queries.length) return [] as SearchSource[];
+
+  const remaining = searchTimeLeft(deadline);
+  if (remaining < 700) return [] as SearchSource[];
+
+  const tasks = queries.map(async (searchQuery) => {
+    try {
+      return await fallbackWebSearch(
+        searchQuery,
+        deadline,
+        parentSignal,
+      );
+    } catch {
+      return [] as SearchSource[];
+    }
+  });
+
+  const groups = await Promise.all(tasks);
+  return rankSearchSources(
+    originalQuery + ' ' + rewrittenQuery,
+    groups.flat(),
+  );
 }
 
 function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
@@ -595,12 +664,14 @@ Deno.serve(async (req) => {
       req.signal,
     );
     const rankingQuery = query + ' ' + rewrittenQuery;
-    let sources = rankSearchSources(
-      rankingQuery,
-      await fallbackWebSearch(rewrittenQuery, fallbackDeadline, req.signal),
+    let sources = await fallbackMultiSearch(
+      query,
+      rewrittenQuery,
+      fallbackDeadline,
+      req.signal,
     );
 
-    if (!sources.length && rewrittenQuery.toLowerCase() !== query.toLowerCase() && searchTimeLeft(fallbackDeadline) > 1200) {
+    if (!sources.length && rewrittenQuery.toLowerCase() !== query.toLowerCase() && searchTimeLeft(fallbackDeadline) > 1000) {
       sources = rankSearchSources(
         rankingQuery,
         await fallbackWebSearch(query, fallbackDeadline, req.signal),
