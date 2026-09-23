@@ -3191,7 +3191,7 @@ html[data-dai-theme="light"] .dai-generated-image:hover {
 
 /* DAI in-app browser */
 .classic-shell {
-  --dai-browser-width: min(48vw, 760px);
+  --dai-browser-width: min(50vw, 920px);
   transition: padding-right .24s cubic-bezier(.2,.8,.2,1);
 }
 .classic-shell.dai-browser-open {
@@ -3451,4 +3451,28 @@ html[data-dai-theme="light"] .dai-browser-youtube-fallback {
 html[data-dai-theme="light"] .dai-browser-youtube-fallback button {
   background: #eadfea;
   color: #6a3f58;
+}
+
+.dai-browser-panel::before {
+  content: "";
+  position: absolute;
+  z-index: 5;
+  top: 58px;
+  bottom: 0;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(246,169,193,.28), rgba(246,169,193,.06));
+  pointer-events: none;
+}
+.dai-browser-content.native-browser {
+  background: #ffffff;
+}
+.dai-browser-content.native-browser .dai-browser-native-placeholder {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+}
+.dai-browser-tool-button:disabled {
+  opacity: .36;
+  cursor: default;
 }
