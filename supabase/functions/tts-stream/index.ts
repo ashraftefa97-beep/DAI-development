@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_STREAM_CONFIG' }, 503);
 
   const prompt =
-    'اتكلمي كمتكلمة واحدة فقط بالمصري الطبيعي، بصوت أنثوي شاب وخفيف وواضح وبسرعة محادثة نشيطة. ' +
+    'اتكلمي كمتكلمة واحدة فقط بالمصري الطبيعي، بصوت أنثوي شاب وواضح وناعم بطبقة متوسطة مائلة للارتفاع وبسرعة محادثة طبيعية. ' +
     'ثبتي نفس خامة الصوت ونفس الطبقة والإيقاع من أول كلمة لآخر كلمة، وما تخفضيش طبقة الصوت أو تغيّري الشخصية في نهاية الجمل. ' +
     'النص فقط من غير أي إضافة:\n' + text;
 
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
           type: 'audio',
         },
         generation_config: {
-          speech_config: [{ voice: 'Zephyr' }],
+          speech_config: [{ voice: 'Leda' }],
         },
         stream: true,
         store: false,
