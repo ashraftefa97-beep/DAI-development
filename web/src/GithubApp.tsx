@@ -333,7 +333,7 @@ export default function GithubApp(){
   const [avatarStyle,setAvatarStyle]=useState<DaiAvatarStyle>(()=>{
     try{
       const value=localStorage.getItem('dai-avatar-style');
-      return value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'?value:'classic';
+      return value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'||value==='aurora'||value==='ember'||value==='rose'||value==='ice'||value==='lime'||value==='violet'||value==='pearl'||value==='crimson'||value==='galaxy'||value==='desert'||value==='lavender'||value==='matrix'?value:'classic';
     }catch{return 'classic';}
   });
   const [avatarSyncing,setAvatarSyncing]=useState(false);
@@ -569,7 +569,7 @@ export default function GithubApp(){
         if(cancelled)return;
         if(!error&&data?.avatar_style){
           const value=String(data.avatar_style);
-          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'){
+          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'||value==='aurora'||value==='ember'||value==='rose'||value==='ice'||value==='lime'||value==='violet'||value==='pearl'||value==='crimson'||value==='galaxy'||value==='desert'||value==='lavender'||value==='matrix'){
             setAvatarStyle(value);
           }
         }else if(!error){
@@ -5108,7 +5108,19 @@ export default function GithubApp(){
                 {id:'ocean',label:'Ocean',desc:'أزرق مائي وسيان بطابع هادي'},
                 {id:'solar',label:'Solar',desc:'ذهبي وبرتقالي دافئ وطاقة مشرقة'},
                 {id:'midnight',label:'Midnight',desc:'بنفسجي ليلي ونجوم هادية'},
-                {id:'mint',label:'Mint',desc:'أخضر نعناعي وتفاصيل منعشة'}
+                {id:'mint',label:'Mint',desc:'أخضر نعناعي وتفاصيل منعشة'},
+                {id:'aurora',label:'Aurora',desc:'تركواز وبنفسجي بحركة شفق متدفقة'},
+                {id:'ember',label:'Ember',desc:'أحمر وبرتقالي مع شرارات صاعدة'},
+                {id:'rose',label:'Rose Quartz',desc:'وردي هادي ولمسة ذهبية بحركة ناعمة'},
+                {id:'ice',label:'Ice',desc:'أزرق ثلجي ولمعات كريستالية هادية'},
+                {id:'lime',label:'Neon Lime',desc:'ليموني وسيان بخط مسح سريع'},
+                {id:'violet',label:'Violet Pulse',desc:'بنفسجي وماجنتا بنقاط تدور حول ضي'},
+                {id:'pearl',label:'Pearl',desc:'أبيض وفضي بوميض بسيط وراقي'},
+                {id:'crimson',label:'Crimson',desc:'أحمر داكن مع نبضة ضوئية مميزة'},
+                {id:'galaxy',label:'Galaxy',desc:'نيلي ووردي ونجوم تدور حول الشخصية'},
+                {id:'desert',label:'Desert',desc:'رملي وعنبر بحركة موج حر ناعمة'},
+                {id:'lavender',label:'Lavender',desc:'لافندر ووردي بجزيئات طافية'},
+                {id:'matrix',label:'Matrix',desc:'أخضر داكن بخطوط رقمية متحركة'}
               ] as Array<{id:DaiAvatarStyle;label:string;desc:string}>).map(item=>
                 <button
                   key={item.id}
@@ -5130,6 +5142,7 @@ export default function GithubApp(){
                     {item.id==='solar'&&<i className='solar-mark'/>}
                     {item.id==='midnight'&&<i className='midnight-mark'/>}
                     {item.id==='mint'&&<i className='mint-mark'/>}
+                    {['aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix'].includes(item.id)&&<i className={'avatar-new-mark '+item.id}/>} 
                   </span>
                   <span className='dai-avatar-copy'><strong>{item.label}</strong><small>{item.desc}</small></span>
                   <span className='dai-avatar-selected'>{avatarStyle===item.id?<Check/>:null}</span>
