@@ -645,10 +645,9 @@ export class DaiMotion {
     } else if(g==='brainstorm') {
       cross(.60,'glass',.10,1.00,-.05);
       cross(3.02,'glass',.09,1.03,.05);
-    } else if(g==='search' || g==='scan') {
-      cross(.18,'computer',.08,g==='scan'?1.03:.98,0);
-    } else if(g==='found' || g==='success' || g==='response_ready') {
-      cross(.22,'bell',.18,1.03,0);
+    } else if(g==='search' || g==='scan' || g==='found' || g==='success' || g==='response_ready') {
+      // The app state bus owns semantic search/result sounds.
+      // Motion stays silent here so computer/bell cues never double-fire.
     } else if(g==='detect') {
       cross(.46,'bell',.13,1.04,0);
     } else if(g==='recharge') {
