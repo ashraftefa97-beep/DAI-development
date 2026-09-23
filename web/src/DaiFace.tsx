@@ -9,6 +9,22 @@ export default function DaiFace({state='idle', reduced=false}: {state?:DaiState;
   const motion=useRef(new DaiMotion());
   useEffect(()=>{ motion.current.setGesture(state); },[state]);
   useEffect(()=>{
+    const onVoice=(event:Event)=>{
+      const detail=(event as CustomEvent<{level?:number;active?:boolean}>).detail||{};
+      motion.current.setVoiceLevel(detail.level||0,detail.active!==false);
+    };
+    const onMood=(event:Event)=>{
+      const detail=(event as CustomEvent<{mood?:string}>).detail||{};
+      motion.current.setSpeechMood(detail.mood||'neutral');
+    };
+    window.addEventListener('dai:voice-level',onVoice as EventListener);
+    window.addEventListener('dai:speech-mood',onMood as EventListener);
+    return()=>{
+      window.removeEventListener('dai:voice-level',onVoice as EventListener);
+      window.removeEventListener('dai:speech-mood',onMood as EventListener);
+    };
+  },[]);
+  useEffect(()=>{
     const m=motion.current, query=matchMedia('(prefers-reduced-motion: reduce)');
     const update=()=>{ m.reduced=reduced||query.matches; if(m.reduced)m.particles=[]; };
     update();query.addEventListener('change',update);
