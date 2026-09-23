@@ -342,6 +342,8 @@ export default function GithubApp(){
   const [browserCanBack,setBrowserCanBack]=useState(false);
   const [browserCanForward,setBrowserCanForward]=useState(false);
   const [sideBrowserExtensionReady,setSideBrowserExtensionReady]=useState(false);
+  const [sideBrowserExtensionChecked,setSideBrowserExtensionChecked]=useState(false);
+  const [sideBrowserExtensionVersion,setSideBrowserExtensionVersion]=useState('');
   const webBrowserWindowRef=useRef<Window|null>(null);
   const sideBrowserRequestRef=useRef('');
   const timer=useRef<number|undefined>(undefined);
@@ -504,6 +506,12 @@ export default function GithubApp(){
   },[desktopMode]);
 
   useEffect(()=>{
+    const markConnected=(version='')=>{
+      setSideBrowserExtensionReady(true);
+      setSideBrowserExtensionChecked(true);
+      if(version)setSideBrowserExtensionVersion(version);
+    };
+
     const onMessage=(event:MessageEvent)=>{
       if(event.source!==window)return;
       if(event.origin!==window.location.origin)return;
@@ -512,23 +520,37 @@ export default function GithubApp(){
       if(payload.source!=='dai-side-browser-extension')return;
 
       if(payload.type==='READY'){
-        setSideBrowserExtensionReady(true);
+        markConnected(String(payload.version||''));
         return;
       }
 
       if(payload.type==='DAI_SIDE_BROWSER_RESULT'){
         if(payload.requestId&&payload.requestId!==sideBrowserRequestRef.current)return;
         if(payload?.result?.ok){
-          setVoiceNotice('متصفح ضي الجانبي شغال.');
-        }else if(payload?.result?.message){
-          setErrorText(String(payload.result.message));
+          setVoiceNotice('المتصفح الجانبي اتثبت 50/50.');
+        }else{
+          const code=String(payload?.result?.code||'SIDE_BROWSER_ERROR');
+          const message=String(payload?.result?.message||'تعذر تشغيل المتصفح الجانبي.');
+          setErrorText('المتصفح الجانبي: '+code+' — '+message);
         }
       }
     };
 
+    const onReadyEvent=(event:Event)=>{
+      const detail=(event as CustomEvent<{version?:string}>).detail||{};
+      markConnected(String(detail.version||''));
+    };
+
     window.addEventListener('message',onMessage);
+    document.addEventListener('dai-side-browser-ready',onReadyEvent as EventListener);
+
+    const detectMarker=()=>{
+      const marker=document.documentElement?.getAttribute('data-dai-side-browser-extension')||'';
+      if(marker)markConnected(marker);
+    };
 
     const ping=()=>{
+      detectMarker();
       window.postMessage({
         source:'dai-web',
         type:'DAI_SIDE_BROWSER_PING',
@@ -537,13 +559,19 @@ export default function GithubApp(){
     };
 
     ping();
-    const retryOne=window.setTimeout(ping,500);
-    const retryTwo=window.setTimeout(ping,1600);
+    const retryOne=window.setTimeout(ping,400);
+    const retryTwo=window.setTimeout(ping,1200);
+    const finishCheck=window.setTimeout(()=>{
+      detectMarker();
+      setSideBrowserExtensionChecked(true);
+    },2400);
 
     return()=>{
       window.removeEventListener('message',onMessage);
+      document.removeEventListener('dai-side-browser-ready',onReadyEvent as EventListener);
       window.clearTimeout(retryOne);
       window.clearTimeout(retryTwo);
+      window.clearTimeout(finishCheck);
     };
   },[]);
 
@@ -4373,6 +4401,15 @@ export default function GithubApp(){
           {professional?<Crown className='h-3.5 w-3.5'/>:<Sparkles className='h-3.5 w-3.5'/>}
           <span>{planOwner?'Owner Pro':professional?'Professional':'Standard'}</span>
         </button>}
+        {!desktopMode&&sideBrowserExtensionChecked&&<span
+          className={'dai-side-browser-status '+(sideBrowserExtensionReady?'connected':'missing')}
+          title={sideBrowserExtensionReady
+            ? 'إضافة DAI Side Browser متصلة'+(sideBrowserExtensionVersion?' — '+sideBrowserExtensionVersion:'')
+            : 'إضافة DAI Side Browser غير متصلة بهذه الصفحة'}
+        >
+          <Globe2 className='h-3.5 w-3.5'/>
+          <span>{sideBrowserExtensionReady?'Side Browser متصل':'Side Browser غير متصل'}</span>
+        </span>}
         <span className='classic-status' role='status' aria-live='polite'><i className={sending||voiceNoteRecording||voiceNoteProcessing||voiceSessionStatus==='speaking'?'busy':online?'':'offline'}/><span>{daiStatusLabel}</span></span>
         <button onClick={()=>setCapabilitiesOpen(true)} className='classic-icon-button' aria-label='قدرات ضي' title='ضي تقدر تعمل إيه؟'><Info className='h-5 w-5'/></button>
         {professional&&<button onClick={()=>setControlOpen(true)} className='classic-icon-button dai-control-launch' aria-label='DAI Control Center' title='DAI Control Center'><WandSparkles className='h-5 w-5'/></button>}
