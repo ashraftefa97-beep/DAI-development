@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { Download, KeyRound, LogIn, LogOut, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Download, KeyRound, LogIn, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
 
 type Mode = 'login' | 'register';
@@ -51,6 +51,21 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     setProfileGender(genderValue);
     setNeedsName(Boolean(user&&emailValue&&(!nameValue||!genderValue)));
   }
+
+  useEffect(() => {
+    if (companionMode) return;
+    const openAccount=()=>{
+      setAccountNotice('');
+      setAccountOpen(true);
+    };
+    const signOut=()=>{ void logout('local'); };
+    window.addEventListener('dai:open-account',openAccount as EventListener);
+    window.addEventListener('dai:logout',signOut as EventListener);
+    return ()=>{
+      window.removeEventListener('dai:open-account',openAccount as EventListener);
+      window.removeEventListener('dai:logout',signOut as EventListener);
+    };
+  }, [companionMode]);
 
   useEffect(() => {
     if (!supabase) {
@@ -493,14 +508,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {!companionMode && <div className='auth-session-pill' dir='rtl'>
-        <button className='auth-account-open' onClick={() => { setAccountOpen(true); setAccountNotice(''); }} aria-label='إدارة الحساب'>
-          <UserCog className='h-4 w-4' />
-          <span>{sessionName || sessionEmail}</span>
-        </button>
-        <button onClick={() => logout('local')} aria-label='تسجيل الخروج'><LogOut className='h-4 w-4' /></button>
-      </div>}
-
       {children}
 
       {!companionMode && accountOpen && (
