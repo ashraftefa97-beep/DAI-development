@@ -2246,7 +2246,6 @@ Deno.serve(async (req) => {
             answer = degradedAnswer;
             usedModel = 'research-degraded:' + degradedModel;
             firstTokenMs = Math.round(performance.now() - requestStartedAt);
-            push('delta', { text: answer });
           } else {
             answer = research.answer;
             usedModel = 'dai-web-research:' + research.model;
