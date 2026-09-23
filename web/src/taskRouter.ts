@@ -1,5 +1,6 @@
 export type DaiTaskRoute =
   | 'command'
+  | 'link'
   | 'research'
   | 'code'
   | 'image'
@@ -24,7 +25,8 @@ export type DaiRequestEnvelope = {
   decision:DaiTaskDecision;
 };
 
-const researchRe=/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|link|video|price|source|compare|news|release|update)/i;
+const linkRe=/(?:\b(?:link|url|website)\b|لينك|رابط)/i;
+const researchRe=/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i;
 const codeRe=/(?:اكتبلي?\s+كود|اكتب\s+كود|برمج|برمجة|برمجه|مطور|تطوير\s+(?:موقع|تطبيق)|اعمل\s+(?:موقع|صفحة|صفحه|تطبيق|سكريبت)|صلح\s+(?:الكود|الخطأ|البج)|عدل\s+(?:الكود|الموقع|الصفحة|الصفحه)|كود\s+(?:html|css|javascript|typescript|react|python|sql)|\bhtml\b|\bcss\b|\bjavascript\b|\btypescript\b|\breact\b|\bnode(?:\.js)?\b|\bpython\b|\bsql\b|\bapi\b|\bregex\b|\bdebug\b|\brefactor\b|\bfunction\b|\bclass\b|\bcomponent\b|github\s+(?:repo|repository)|سكريبت|بايثون|جافاسكريبت|تايب سكريبت|ريأكت|رياكت|قاعدة بيانات|داتابيز)/i;
 const codeFalsePositiveRe=/(?:كود خصم|promo code|discount code|رمز تحقق|verification code|باركود|barcode|qr code)/i;
 const imageRe=/(?:اعمل(?:ي|لي)?\s+(?:صورة|صوره|بوستر|poster|wallpaper)|ولّد(?:ي)?\s+(?:صورة|صوره)|انشئ(?:ي)?\s+(?:صورة|صوره)|صمم(?:ي)?\s+(?:صورة|صوره|بوستر)|generate\s+(?:an?\s+)?image|create\s+(?:an?\s+)?image|image generation|text to image)/i;
@@ -62,6 +64,10 @@ export function routeDaiTask(text:string):DaiTaskDecision{
 
   if(!codeFalsePositiveRe.test(normalized)&&codeRe.test(normalized)){
     return {route:'code',confidence:.95,reason:'coding intent',priority:'normal'};
+  }
+
+  if(linkRe.test(normalized)){
+    return {route:'link',confidence:.97,reason:'link/navigation intent',priority:'normal'};
   }
 
   if(researchRe.test(normalized)){
