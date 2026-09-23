@@ -2822,6 +2822,7 @@ export default function GithubApp(){
 
   async function endLiveVoice(){
     if(!voiceSessionActiveRef.current)return;
+    gatewayRequestRef.current='';
     voiceSessionActiveRef.current=false;
     setVoiceSessionActive(false);
     setVoiceSessionStatus('idle');
