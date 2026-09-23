@@ -492,10 +492,6 @@ export default function GithubApp(){
     return routeDaiTask(text).route==='research';
   }
 
-  function looksLikeCodeRequest(text:string){
-    return routeDaiTask(text).route==='code';
-  }
-
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
     if(!professional||!proAnimations)return false;
     const spec=animationSpecById(id);
