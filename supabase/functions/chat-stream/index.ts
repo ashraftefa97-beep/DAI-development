@@ -2535,6 +2535,8 @@ Deno.serve(async (req) => {
         });
 
         push('done', {
+          conversationId,
+          userMessage:savedUserMessage,
           assistantMessage,
           researched: groundingSources.size > 0 || groundingQueries.size > 0,
           sources: [...groundingSources.values()].slice(0, 8),
