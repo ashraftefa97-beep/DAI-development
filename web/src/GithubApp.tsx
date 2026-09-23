@@ -975,14 +975,18 @@ export default function GithubApp(){
     const token=session?.access_token||'';
     if(!token)throw new Error('tts-session');
 
-    const speechParts=splitSpeechText(spoken);
-    const decodedParts:AudioBuffer[]=[];
+    let speechParts=splitSpeechText(spoken,650);
+    if(speechParts[0]?.length>360){
+      const firstParts=splitSpeechText(speechParts[0],360);
+      speechParts=[...firstParts,...speechParts.slice(1)];
+    }
+    if(!speechParts.length)return false;
 
-    for(const part of speechParts){
-      if(runId!==speechRunRef.current)return false;
+    const fetchSpeechPart=async(part:string)=>{
+      if(runId!==speechRunRef.current)throw new Error('tts-cancelled');
 
       const partController=new AbortController();
-      const partTimeout=window.setTimeout(()=>partController.abort(),65000);
+      const partTimeout=window.setTimeout(()=>partController.abort(),45000);
       let response:Response;
       try{
         response=await fetch(
@@ -1011,46 +1015,87 @@ export default function GithubApp(){
       if(!response.ok||!payload?.audioBase64){
         throw new Error(String(payload?.code||payload?.error||'tts-gemini-failed'));
       }
-      if(runId!==speechRunRef.current)return false;
+      if(runId!==speechRunRef.current)throw new Error('tts-cancelled');
 
       const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
-      const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
-      decodedParts.push(decoded);
-    }
+      return await ctx.decodeAudioData(audioBytes.slice(0));
+    };
 
+    // Generate only the first short chunk before playback. Remaining chunks are
+    // fetched while the first one is already speaking, which removes the long
+    // "prepare all audio first" delay on mobile.
+    const firstBuffer=await fetchSpeechPart(speechParts[0]);
     if(runId!==speechRunRef.current)return false;
-    const decoded=mergeAudioBuffers(ctx,decodedParts);
 
     stopSpeechAudio();
-
-    const source=ctx.createBufferSource();
-    source.buffer=decoded;
-    source.playbackRate.value=voiceRate;
 
     const analyser=ctx.createAnalyser();
     analyser.fftSize=256;
     analyser.smoothingTimeConstant=.42;
-    source.connect(analyser);
     analyser.connect(ctx.destination);
 
-    speechStreamSourcesRef.current.add(source);
+    let finished=false;
+    let queueFailed=false;
+    const finish=()=>{
+      if(finished||runId!==speechRunRef.current)return;
+      finished=true;
+      try{analyser.disconnect();}catch{}
+      stopVoiceMotionTracking(speechMotionRafRef);
+      window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
+      onEnd?.();
+    };
+
+    const playBuffer=(buffer:AudioBuffer,startAt:number,isLast:boolean)=>{
+      const source=ctx.createBufferSource();
+      source.buffer=buffer;
+      source.playbackRate.value=voiceRate;
+      source.connect(analyser);
+      speechStreamSourcesRef.current.add(source);
+
+      source.onended=()=>{
+        speechStreamSourcesRef.current.delete(source);
+        if(
+          runId===speechRunRef.current &&
+          (isLast||(queueFailed&&speechStreamSourcesRef.current.size===0))
+        ){
+          finish();
+        }
+      };
+
+      source.start(startAt);
+      return startAt+(buffer.duration/Math.max(.01,voiceRate));
+    };
+
     emitSpeechMood(spoken);
     startVoiceMotionTracking(
       analyser,
       speechMotionRafRef,
-      ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.has(source)
+      ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.size>0
     );
 
-    source.onended=()=>{
-      speechStreamSourcesRef.current.delete(source);
-      try{analyser.disconnect();}catch{}
-      stopVoiceMotionTracking(speechMotionRafRef);
-      window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
-      if(runId===speechRunRef.current)onEnd?.();
-    };
-
-    source.start(0);
+    const firstStart=ctx.currentTime+.025;
+    let nextStart=playBuffer(firstBuffer,firstStart,speechParts.length===1);
     onStart?.();
+
+    if(speechParts.length>1){
+      void (async()=>{
+        try{
+          for(let index=1;index<speechParts.length;index++){
+            const decoded=await fetchSpeechPart(speechParts[index]);
+            if(runId!==speechRunRef.current)return;
+            const startAt=Math.max(nextStart,ctx.currentTime+.025);
+            nextStart=playBuffer(decoded,startAt,index===speechParts.length-1);
+          }
+        }catch(error){
+          if(runId!==speechRunRef.current)return;
+          queueFailed=true;
+          console.error('DAI progressive TTS queue failed',error);
+          setVoiceNotice('الصوت وقف قبل نهاية الرد؛ النص كامل موجود.');
+          if(speechStreamSourcesRef.current.size===0)finish();
+        }
+      })();
+    }
+
     return true;
   }
 
