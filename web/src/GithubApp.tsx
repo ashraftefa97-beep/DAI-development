@@ -662,6 +662,68 @@ export default function GithubApp(){
     return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
+  function splitSpeechText(text:string,maxChars=850){
+    const normalized=text.replace(/\s+/g,' ').trim();
+    if(!normalized)return [];
+    if(normalized.length<=maxChars)return [normalized];
+
+    const sentences=normalized
+      .split(/(?<=[.!؟!?؛])\s+/)
+      .map(part=>part.trim())
+      .filter(Boolean);
+
+    const chunks:string[]=[];
+    let current='';
+    const flush=()=>{
+      if(current.trim())chunks.push(current.trim());
+      current='';
+    };
+
+    for(const sentence of sentences.length?sentences:[normalized]){
+      if(sentence.length>maxChars){
+        flush();
+        let rest=sentence;
+        while(rest.length>maxChars){
+          let cut=rest.lastIndexOf(' ',maxChars);
+          if(cut<Math.floor(maxChars*0.55))cut=maxChars;
+          chunks.push(rest.slice(0,cut).trim());
+          rest=rest.slice(cut).trim();
+        }
+        if(rest)current=rest;
+        continue;
+      }
+
+      const candidate=current?current+' '+sentence:sentence;
+      if(candidate.length>maxChars){
+        flush();
+        current=sentence;
+      }else{
+        current=candidate;
+      }
+    }
+    flush();
+    return chunks;
+  }
+
+  function mergeAudioBuffers(ctx:AudioContext,buffers:AudioBuffer[]){
+    if(!buffers.length)throw new Error('tts-gemini-empty');
+    if(buffers.length===1)return buffers[0];
+
+    const channels=Math.max(...buffers.map(buffer=>buffer.numberOfChannels));
+    const totalFrames=buffers.reduce((sum,buffer)=>sum+buffer.length,0);
+    const merged=ctx.createBuffer(channels,totalFrames,ctx.sampleRate);
+
+    let offset=0;
+    for(const buffer of buffers){
+      for(let channel=0;channel<channels;channel++){
+        const source=buffer.getChannelData(Math.min(channel,buffer.numberOfChannels-1));
+        merged.getChannelData(channel).set(source,offset);
+      }
+      offset+=buffer.length;
+    }
+    return merged;
+  }
+
   async function directSpeech(
     text:string,
     runId:number,
@@ -687,28 +749,38 @@ export default function GithubApp(){
     const token=session?.access_token||'';
     if(!token)throw new Error('tts-session');
 
-    const response=await fetch(
-      supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts',
-      {
-        method:'POST',
-        headers:{
-          Authorization:'Bearer '+token,
-          apikey:supabasePublishableKey,
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({text:spoken})
+    const speechParts=splitSpeechText(spoken);
+    const decodedParts:AudioBuffer[]=[];
+
+    for(const part of speechParts){
+      if(runId!==speechRunRef.current)return false;
+
+      const response=await fetch(
+        supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-gemini',
+        {
+          method:'POST',
+          headers:{
+            Authorization:'Bearer '+token,
+            apikey:supabasePublishableKey,
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({text:part})
+        }
+      );
+
+      const payload=await response.json().catch(()=>null);
+      if(!response.ok||!payload?.audioBase64){
+        throw new Error(String(payload?.code||payload?.error||'tts-gemini-failed'));
       }
-    );
+      if(runId!==speechRunRef.current)return false;
 
-    const payload=await response.json().catch(()=>null);
-    if(!response.ok||!payload?.audioBase64){
-      throw new Error(String(payload?.code||payload?.error||'tts-direct-failed'));
+      const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
+      const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
+      decodedParts.push(decoded);
     }
-    if(runId!==speechRunRef.current)return false;
 
-    const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
-    const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
     if(runId!==speechRunRef.current)return false;
+    const decoded=mergeAudioBuffers(ctx,decodedParts);
 
     stopSpeechAudio();
 
@@ -759,7 +831,7 @@ export default function GithubApp(){
           if(runId!==speechRunRef.current)return;
           clearTimeout(timer.current);
           setDaiState('talk');
-          setVoiceNotice('ضي بتتكلم بصوت Salma المصري.');
+          setVoiceNotice('ضي بتتكلم.');
           onStart?.();
         },
         ()=>{
