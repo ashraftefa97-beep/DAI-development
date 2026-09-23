@@ -326,7 +326,7 @@ Deno.serve(async (req) => {
 
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
           const modelCandidates = [
-            'gemini-3.5-flash-lite',
+            ...(allowWebSearch ? ['gemini-3.8-flash'] : ['gemini-3.5-flash-lite']),
             ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
             'gemini-3.1-flash-lite',
           ].filter((model, index, all) => all.indexOf(model) === index);
@@ -369,7 +369,7 @@ Deno.serve(async (req) => {
                 break;
               }
 
-              if (![404, 429, 503].includes(response.status)) break;
+              if (![404, 429, 503].includes(response.status) && !(allowWebSearch && response.status === 400)) break;
             }
 
             if (!providerResponse?.body) {
