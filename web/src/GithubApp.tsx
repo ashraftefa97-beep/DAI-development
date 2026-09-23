@@ -1960,6 +1960,7 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
+    let streamedUserMessageId='';
     const explicitSpeech=speechMode==='always'||wantsSpokenReply(text);
     const shouldSpeak=explicitSpeech || (
       voiceEnabled && responseMode!=='text' && responseMode==='voice'
@@ -1996,8 +1997,9 @@ export default function GithubApp(){
 
         const row=payload?.userMessage;
         if(row){
+          streamedUserMessageId=String(row.id);
           const userMessage:Message={
-            id:String(row.id),
+            id:streamedUserMessageId,
             role:'user',
             content:String(row.content||text),
             createdAt:new Date(row.created_at).getTime()
@@ -2065,7 +2067,7 @@ export default function GithubApp(){
       if(eventName==='done'){
         doneReceived=true;
         sonicRequestRef.current++;
-        daiSfx.playState('complete');
+        if(!shouldSpeak)daiSfx.playState('complete');
         const row=payload?.assistantMessage;
         if(!row||!conversationId)return;
 
@@ -2113,9 +2115,12 @@ export default function GithubApp(){
                 assistantMessage.content,
                 ()=>{
                   reveal();
+                  daiSfx.playState('responding');
                   setVoiceNotice('ضي بتتكلم.');
                 },
-                undefined,
+                ()=>{
+                  daiSfx.playState('complete');
+                },
                 shouldSpeak,
                 requestId
               );
@@ -2141,6 +2146,15 @@ export default function GithubApp(){
 
       if(eventName==='error'){
         setResearching(false);
+        if(!firstDelta&&streamedUserMessageId&&conversationId){
+          const failedId=streamedUserMessageId;
+          setConversations(prev=>prev.map(item=>
+            item.id===conversationId
+              ? {...item,messages:item.messages.filter(message=>message.id!==failedId)}
+              : item
+          ));
+          streamedUserMessageId='';
+        }
         throw new Error(String(payload?.message||'ضي واجهت مشكلة وهي بتجهز الرد.'));
       }
     };
@@ -2650,13 +2664,15 @@ export default function GithubApp(){
     setResearching(predictedResearch);
     const sonicRequest=++sonicRequestRef.current;
     daiSfx.playState(
-      predictedResearch||predictedComplex?'thinking'
-      : predictedImage||predictedCode?'action'
+      predictedResearch?'action'
+      : predictedComplex?'thinking'
       : 'action'
     );
-    window.setTimeout(()=>{
-      if(sonicRequestRef.current===sonicRequest)daiSfx.playState('thinking');
-    },110);
+    if(!predictedResearch&&!predictedComplex){
+      window.setTimeout(()=>{
+        if(sonicRequestRef.current===sonicRequest&&sending)daiSfx.playState('thinking');
+      },520);
+    }
     if(professional&&proAnimations&&looksLikeAnimationRequest(text)){
       void handleExplicitAnimationRequest(text);
     }
@@ -2771,8 +2787,10 @@ export default function GithubApp(){
           setInput(text);
           setLastFailedText(text);
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
+          animate('error',1150);
+        }else{
+          animate('idle',0);
         }
-        animate('idle',0);
       }finally{
         textRequestAbortRef.current=null;
         streamMessageIdRef.current='';
@@ -2798,9 +2816,12 @@ export default function GithubApp(){
           })));
         }
         if(!aborted){
+          daiSfx.playState('error');
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد الصوتي.'));
+          animate('error',1150);
+        }else{
+          animate('idle',0);
         }
-        animate('idle',0);
       }finally{
         textRequestAbortRef.current=null;
         streamMessageIdRef.current='';
