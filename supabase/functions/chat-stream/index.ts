@@ -206,7 +206,12 @@ function detectGatewayRoute(text: string): DaiTaskRoute {
   if (/(?:\b(?:link|url|website)\b|لينك|رابط)/i.test(normalized)) {
     return 'link';
   }
-  if (/(?:ابحث|دور|دوّري|دوري|دورلي|رشح|رشحي|رشحلي|اختارلي|إيه\s+أفضل|ايه\s+افضل|ما\s+هو\s+أفضل|ما\s+هي\s+أفضل|أفضل|افضل|أحسن|احسن|أنسب|انسب|recommend|best|which\s+(?:is|one)|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|متوفر|متاحة|متاح|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|مراجعة|review|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
+
+  if (/^(?:ازيك|إزيك|اخبارك|أخبارك|عامل\s+ايه|عاملة\s+ايه|عامل\s+إيه|عاملة\s+إيه|صباح\s+الخير|مساء\s+الخير|هاي|hi|hello|هلو|اهلا|أهلا|شكرا|شكرًا|تسلم|تمام)(?:\s+(?:النهارده|اليوم|دلوقتي))?[؟?!.]*$/i.test(normalized)) {
+    return 'chat';
+  }
+
+  if (/(?:ابحث|دور|دوّري|دوري|دورلي|دوريلي|رشح|رشحي|رشحلي|اختارلي|إيه\s+أفضل|ايه\s+افضل|ما\s+هو\s+أفضل|ما\s+هي\s+أفضل|أفضل|افضل|أحسن|احسن|أنسب|انسب|recommend|best|which\s+(?:is|one)|بحث|احدث|أحدث|آخر|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|متوفر|متاحة|متاح|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|مراجعة|review|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
     return 'research';
   }
   if (normalized.length > 900 ||
@@ -1888,6 +1893,13 @@ Deno.serve(async (req) => {
   const requestId = String(body?.requestId || '')
     .replace(/[^a-zA-Z0-9_-]/g, '')
     .slice(0, 120) || crypto.randomUUID();
+  const routeConfidenceRaw=Number(body?.routeConfidence);
+  const routeConfidence=Number.isFinite(routeConfidenceRaw)
+    ? Math.max(0,Math.min(1,routeConfidenceRaw))
+    : null;
+  const clientSource=String(body?.clientSource||'')
+    .replace(/[^a-zA-Z0-9_-]/g,'')
+    .slice(0,32)||null;
   const route = researchOnly ? 'research' : resolveGatewayRoute(message, body?.routeHint);
   const brainProfile = selectBrainProfile(route, message);
   const recordMetric = async(values:{
@@ -1898,6 +1910,8 @@ Deno.serve(async (req) => {
     fastPath?:boolean;
     success?:boolean;
     errorCode?:string;
+    searchEngine?:string;
+    fallbackUsed?:boolean;
   })=>{
     if(!admin)return;
     try{
@@ -1913,6 +1927,10 @@ Deno.serve(async (req) => {
         fast_path:Boolean(values.fastPath),
         success:values.success!==false,
         error_code:values.errorCode?String(values.errorCode).slice(0,80):null,
+        search_engine:values.searchEngine?String(values.searchEngine).slice(0,120):null,
+        fallback_used:Boolean(values.fallbackUsed),
+        route_confidence:routeConfidence,
+        client_source:clientSource,
       });
     }catch(error){
       console.warn('DAI metrics write skipped',String(error||'').slice(0,180));
@@ -1959,6 +1977,8 @@ Deno.serve(async (req) => {
         success:false,
         errorCode:'RESEARCH_FAILED',
         model:research.model,
+        searchEngine:research.model,
+        fallbackUsed:/fallback|degraded|cache/i.test(String(research.model||'')),
       });
       return json({
         ok:false,
@@ -1973,6 +1993,8 @@ Deno.serve(async (req) => {
       searched:true,
       success:true,
       model:research.model,
+      searchEngine:research.model,
+      fallbackUsed:/fallback|degraded|cache/i.test(String(research.model||'')),
     });
     return json({
       ok:true,
@@ -2525,6 +2547,10 @@ Deno.serve(async (req) => {
         }
 
         const totalMs=Math.round(performance.now()-requestStartedAt);
+        const searchEngine=usedModel.startsWith('dai-web-research:')
+          ? usedModel.slice('dai-web-research:'.length)
+          : null;
+        const fallbackUsed=/fallback|degraded|cache/i.test(usedModel);
         await recordMetric({
           model:usedModel,
           firstTokenMs,
@@ -2532,6 +2558,8 @@ Deno.serve(async (req) => {
           searched:groundingSources.size>0||groundingQueries.size>0,
           fastPath:Boolean(instantAnswer),
           success:true,
+          searchEngine:searchEngine||undefined,
+          fallbackUsed,
         });
 
         push('done', {
@@ -2551,6 +2579,10 @@ Deno.serve(async (req) => {
             route,
             brainProfile,
             requestId,
+            searchEngine,
+            fallbackUsed,
+            routeConfidence,
+            clientSource,
           },
         });
         close();
@@ -2570,6 +2602,10 @@ Deno.serve(async (req) => {
           fastPath:Boolean(instantAnswer),
           success:false,
           errorCode,
+          searchEngine:usedModel.startsWith('dai-web-research:')
+            ? usedModel.slice('dai-web-research:'.length)
+            : undefined,
+          fallbackUsed:/fallback|degraded|cache/i.test(usedModel),
         });
         push('error', {
           code: errorCode,
