@@ -2195,7 +2195,7 @@ export default function GithubApp(){
     if(!text||!supabase||loadingData||sending)return;
     const explicitVoiceRequest=wantsSpokenReply(text);
     if(explicitVoiceRequest||responseMode==='voice'||fromVoice){
-      void unlockSpeechAudio();
+      await unlockSpeechAudio();
     }
 
     const gatewayRequest=createDaiRequest(
