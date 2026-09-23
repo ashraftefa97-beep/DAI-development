@@ -144,6 +144,52 @@ function normalizeSearchSources(value:any):SearchSource[]{
   return out;
 }
 
+function renderLinkedText(content:string){
+  const text=String(content||'');
+  if(!text)return text;
+
+  const parts:any[]=[];
+  const pattern=/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/gi;
+  let lastIndex=0;
+  let match:RegExpExecArray|null;
+  let key=0;
+
+  while((match=pattern.exec(text))){
+    if(match.index>lastIndex)parts.push(text.slice(lastIndex,match.index));
+
+    let label=match[1]||'';
+    let url=match[2]||match[3]||'';
+    let trailing='';
+
+    if(!match[2]){
+      const trimmed=url.replace(/[.,!?،؛:]+$/g,'');
+      trailing=url.slice(trimmed.length);
+      url=trimmed;
+      label=url;
+    }
+
+    if(/^https?:\/\//i.test(url)){
+      parts.push(
+        <a
+          className='dai-inline-link'
+          href={url}
+          target='_blank'
+          rel='noopener noreferrer'
+          key={'link-'+key++}
+        >{label||url}</a>
+      );
+      if(trailing)parts.push(trailing);
+    }else{
+      parts.push(match[0]);
+    }
+
+    lastIndex=pattern.lastIndex;
+  }
+
+  if(lastIndex<text.length)parts.push(text.slice(lastIndex));
+  return parts;
+}
+
 export default function GithubApp(){
   const [daiState,setDaiState]=useState<DaiState>('wave');
   const [reduced,setReduced]=useState(()=>{
@@ -3142,7 +3188,7 @@ export default function GithubApp(){
           <strong>ضي</strong>
           <button onClick={()=>setCompanionBubbleOpen(false)} aria-label='إغلاق'><X className='h-4 w-4'/></button>
         </div>
-        <p dir='auto'>{lastAssistant?.content?.slice(0,220)||'أنا هنا… اكتبلي اللي محتاجه.'}</p>
+        <p dir='auto'>{renderLinkedText(lastAssistant?.content?.slice(0,220)||'أنا هنا… اكتبلي اللي محتاجه.')}</p>
         <div className='dai-companion-composer'>
           <input
             value={input}
@@ -3208,7 +3254,7 @@ export default function GithubApp(){
           : (active?.messages||[]).map(m=>
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
-              <p dir='auto'>{m.content}</p>
+              <p dir='auto'>{renderLinkedText(m.content)}</p>
               {m.role==='assistant'&&m.sources&&m.sources.length>0&&
                 <div className='dai-search-sources' aria-label='مصادر بحث ضي'>
                   <span><Search className='h-3.5 w-3.5'/> مصادر البحث</span>
@@ -3248,7 +3294,7 @@ export default function GithubApp(){
         {!voiceSessionActive&&pendingUserMessage&&
           <article className='classic-chat-message user pending' key={pendingUserMessage.id}>
             <strong>أنت</strong>
-            <p dir='auto'>{pendingUserMessage.content}</p>
+            <p dir='auto'>{renderLinkedText(pendingUserMessage.content)}</p>
           </article>
         }
         {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':'ضي بترد…'}</span></div>}
