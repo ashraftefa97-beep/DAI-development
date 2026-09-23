@@ -15,8 +15,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('./sw.js').catch((error) => {
+    const hadController=Boolean(navigator.serviceWorker.controller);
+
+    void navigator.serviceWorker.register('./sw.js').then(registration=>{
+      const check=()=>void registration.update().catch(()=>undefined);
+      const onVisibility=()=>{ if(document.visibilityState==='visible')check(); };
+
+      window.setInterval(check,5*60*1000);
+      document.addEventListener('visibilitychange',onVisibility);
+    }).catch((error) => {
       console.warn('DAI PWA service worker registration failed', error);
+    });
+
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(hadController){
+        window.dispatchEvent(new CustomEvent('dai:update-ready'));
+      }
     });
   });
 }
