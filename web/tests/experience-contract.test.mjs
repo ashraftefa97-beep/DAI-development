@@ -5,6 +5,7 @@ import fs from 'node:fs';
 const app=fs.readFileSync(new URL('../src/GithubApp.tsx',import.meta.url),'utf8');
 const sfx=fs.readFileSync(new URL('../src/daiSfx.ts',import.meta.url),'utf8');
 const motion=fs.readFileSync(new URL('../src/motion.mjs',import.meta.url),'utf8');
+const draw=fs.readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
 
 test('DAI core phase owns soundtrack and choreography',()=>{
   assert.match(app,/DAI_PHASE_SCENES/);
@@ -65,4 +66,21 @@ test('runtime diagnostics expose animation and soundtrack health',()=>{
   assert.match(app,/audioMaxConcurrent/);
   assert.match(app,/audioResumeCount/);
   assert.match(app,/audioContextState/);
+});
+
+
+test('avatar system keeps all styles on the same motion engine',()=>{
+  assert.match(app,/DaiAvatarStyle/);
+  assert.match(app,/dai-avatar-style/);
+  assert.match(app,/dai_preferences/);
+  assert.match(app,/avatar=\{avatarStyle\}/);
+  assert.match(draw,/DAI_AVATAR_STYLES=\['classic','minimal','cute','cyber'\]/);
+  assert.match(draw,/avatarTheme/);
+  assert.match(draw,/export function drawDai\(c,m,w,h,avatar='classic'\)/);
+});
+
+test('avatar picker includes immediate Classic Minimal Cute and Cyber choices',()=>{
+  for(const name of ['Classic DAI','Minimal','Cute','Cyber'])assert.ok(app.includes(name));
+  assert.match(app,/role='radiogroup'/);
+  assert.match(app,/setAvatarStyle\(item\.id\)/);
 });
