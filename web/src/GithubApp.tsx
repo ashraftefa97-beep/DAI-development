@@ -1251,6 +1251,7 @@ export default function GithubApp(){
     let index=0;
     const apply=()=>{
       if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
+      if(!['searching','understanding','working'].includes(corePhaseRef.current))return;
       const next=sequence[index%sequence.length]||'focus';
       setDaiState(next);
       index++;
@@ -1295,6 +1296,7 @@ export default function GithubApp(){
   useEffect(()=>{ animate('welcome_back',1900); return()=>{
     clearTimeout(timer.current);
     clearTimeout(typingTimer.current);
+    clearTimeout(corePhaseTimerRef.current);
     clearTimeout(behaviorCycleTimerRef.current);
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
