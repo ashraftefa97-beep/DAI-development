@@ -562,7 +562,11 @@ export default function GithubApp(){
       quality==='low'?'medium':'high';
 
     const tick=(now:number)=>{
-      if(!document.hidden){
+      if(document.hidden){
+        frames=0;
+        dropped=0;
+        sampleStart=now;
+      }else{
         const delta=now-last;
         frames++;
         if(delta>24){
