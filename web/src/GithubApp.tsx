@@ -1340,12 +1340,18 @@ export default function GithubApp(){
         .order('created_at',{ascending:true});
       if(!alive)return;
       if(error){setErrorText('تعذر تحميل رسائل المحادثة.');return;}
-      const messages=(data||[]).map((m:any)=>({
+      const loadedMessages=(data||[]).map((m:any)=>({
         id:m.id,
         role:m.role as 'user'|'assistant',
         content:m.content,
         createdAt:new Date(m.created_at).getTime()
       }));
+      const messages=loadedMessages.filter((message,index,all)=>{
+        if(index===0||message.role!=='user'||all[index-1]?.role!=='user')return true;
+        const current=String(message.content||'').replace(/\s+/g,' ').trim().toLowerCase();
+        const previous=String(all[index-1]?.content||'').replace(/\s+/g,' ').trim().toLowerCase();
+        return current!==previous;
+      });
       setConversations(prev=>prev.map(c=>c.id===activeId?{...c,messages}:c));
     }
     loadMessages();
@@ -2007,9 +2013,18 @@ export default function GithubApp(){
           setPendingUserMessage(null);
           setConversations(prev=>{
             const existing=prev.find(item=>item.id===conversationId);
-            const base=existing?.messages||[];
+            const incoming=String(userMessage.content||'').replace(/\s+/g,' ').trim().toLowerCase();
+            const withoutSameId=(existing?.messages||[]).filter(message=>message.id!==userMessage.id);
+            const base=[...withoutSameId];
+            while(
+              base.length &&
+              base[base.length-1].role==='user' &&
+              String(base[base.length-1].content||'').replace(/\s+/g,' ').trim().toLowerCase()===incoming
+            ){
+              base.pop();
+            }
             const messages=[
-              ...base.filter(message=>message.id!==userMessage.id),
+              ...base,
               userMessage
             ];
             const updated:Conversation=existing
