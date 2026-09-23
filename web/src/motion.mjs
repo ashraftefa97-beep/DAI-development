@@ -47,7 +47,14 @@ export class DaiMotion {
     this.state = moods[this.gesture] || 'idle';
     this.gestureTime = 0; this.idleUntil = 0; this.caught = false; this.audioEvents = [];
     if (['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(this.gesture)) {
-      this.burst(0,-65,['found','celebrate','success'].includes(this.gesture)?18:10);
+      const burstCount=
+        this.gesture==='celebrate'?16:
+        this.gesture==='success'?12:
+        this.gesture==='found'?10:
+        this.gesture==='response_ready'?5:
+        this.gesture==='idea'?7:
+        6;
+      this.burst(0,-65,burstCount);
     }
   }
   setVoiceLevel(level=0, active=true) {
