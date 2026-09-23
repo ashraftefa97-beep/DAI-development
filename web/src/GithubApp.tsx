@@ -333,7 +333,7 @@ export default function GithubApp(){
   const [avatarStyle,setAvatarStyle]=useState<DaiAvatarStyle>(()=>{
     try{
       const value=localStorage.getItem('dai-avatar-style');
-      return value==='minimal'||value==='cute'||value==='cyber'?value:'classic';
+      return value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'?value:'classic';
     }catch{return 'classic';}
   });
   const [avatarSyncing,setAvatarSyncing]=useState(false);
@@ -569,7 +569,7 @@ export default function GithubApp(){
         if(cancelled)return;
         if(!error&&data?.avatar_style){
           const value=String(data.avatar_style);
-          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'){
+          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'){
             setAvatarStyle(value);
           }
         }else if(!error){
@@ -5100,7 +5100,10 @@ export default function GithubApp(){
                 {id:'classic',label:'Classic DAI',desc:'الشكل الأصلي المتوازن والناعم'},
                 {id:'minimal',label:'Minimal',desc:'أنظف وأهدأ بألوان محايدة'},
                 {id:'cute',label:'Cute',desc:'عيون أكبر ولمسات ألطف ووردية'},
-                {id:'cyber',label:'Cyber',desc:'ستايل مستقبلي بألوان سيان وبنفسجي'}
+                {id:'cyber',label:'Cyber',desc:'ستايل مستقبلي بألوان سيان وبنفسجي'},
+                {id:'soft',label:'Soft',desc:'ألوان باستيل هادية ولمسة دافئة'},
+                {id:'pro',label:'Pro',desc:'ستايل أرقى بلمسات ذهبية وتفاصيل أهدأ'},
+                {id:'hologram',label:'Hologram',desc:'حلقة ضوئية وخطوط مسح بطابع هولوغرام'}
               ] as Array<{id:DaiAvatarStyle;label:string;desc:string}>).map(item=>
                 <button
                   key={item.id}
@@ -5114,6 +5117,9 @@ export default function GithubApp(){
                     <i className='eye left'/><i className='eye right'/><i className='mouth'/>
                     {item.id==='cyber'&&<i className='cyber-mark'/>}
                     {item.id==='cute'&&<i className='cute-spark'>✦</i>}
+                    {item.id==='soft'&&<i className='soft-glow'/>}
+                    {item.id==='pro'&&<i className='pro-mark'/>}
+                    {item.id==='hologram'&&<i className='hologram-ring'/>}
                   </span>
                   <span className='dai-avatar-copy'><strong>{item.label}</strong><small>{item.desc}</small></span>
                   <span className='dai-avatar-selected'>{avatarStyle===item.id?<Check/>:null}</span>
