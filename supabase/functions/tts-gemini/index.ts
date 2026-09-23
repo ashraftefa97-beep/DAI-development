@@ -94,6 +94,13 @@ Deno.serve(async (req) => {
 
   const body = await req.json().catch(() => ({}));
   const text = String(body?.text || '').replace(/\s+/g, ' ').trim();
+  const segmentIndex = Math.max(0, Math.min(8, Number(body?.segmentIndex || 0)));
+  const segmentCount = Math.max(1, Math.min(8, Number(body?.segmentCount || 1)));
+  const previousTail = String(body?.previousTail || '')
+    .replace(/[\u0000-\u001F\u007F]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(-180);
   if (!text) return json({ error: 'Text is required' }, 400);
   if (text.length > 2800) return json({ error: 'Text is too long', code: 'TTS_GEMINI_TOO_LONG' }, 400);
 
@@ -101,9 +108,20 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'Voice service unavailable', code: 'TTS_GEMINI_CONFIG' }, 503);
 
   const voiceName = 'Leda';
+  const continuationRule = segmentCount > 1
+    ? (
+        segmentIndex === 0
+          ? 'ده أول جزء من رد متصل. حافظي على طبقة صوت ثابتة وما تنزليش النبرة في آخر الجزء كأنه نهاية الرد؛ خليه ينتهي طبيعي كأنه هيكمل فورًا. '
+          : 'ده تكملة مباشرة لنفس الرد ونفس المتكلمة. ابدئي بنفس طبقة الصوت والخامة والسرعة من الجزء السابق من غير reset أو تغليظ للصوت. ' +
+            (previousTail ? 'السياق السابق للتناسق فقط، وما تقريهوش: «' + previousTail + '». ' : '')
+      )
+    : '';
+
   const prompt =
     'اقرئي النص التالي فقط باللهجة المصرية الطبيعية. خلي الأداء إنساني وهادئ وواثق، بصوت أنثوي شاب وواضح، ' +
-    'من غير نبرة مذيع أو روبوت، ومن غير مبالغة أو تغيير شخصية الصوت بين الجمل. حافظي على نفس الخامة والسرعة من أول كلمة لآخر كلمة.\n\n' +
+    'من غير نبرة مذيع أو روبوت، ومن غير مبالغة أو تغيير شخصية الصوت بين الجمل. حافظي على نفس الخامة والسرعة وطبقة الصوت من أول كلمة لآخر كلمة. ' +
+    continuationRule +
+    '\n\nالنص المطلوب قراءته فقط:\n' +
     text;
 
   const models = ['gemini-3.1-flash-tts-preview', 'gemini-2.5-flash-preview-tts'];
