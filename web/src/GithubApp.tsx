@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import DaiFace, { type DaiState } from './DaiFace';
+import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
@@ -13,6 +13,18 @@ type Conversation = { id:string; title:string; messages:Message[]; updatedAt:num
 type DaiPlan = 'standard' | 'professional';
 type ResponseMode = 'auto' | 'text' | 'voice';
 type ThemeMode = 'dark' | 'light' | 'system';
+type ExperiencePreset = 'cinematic'|'calm'|'minimal';
+type RuntimePerf = {
+  fps:number;
+  droppedFrames:number;
+  quality:DaiRenderQuality;
+  audioActiveVoices:number;
+  audioMaxConcurrent:number;
+  audioResumeCount:number;
+  audioSuspendCount:number;
+  audioDroppedCueCount:number;
+  audioContextState:string;
+};
 type DiagnosticStatus = 'idle' | 'running' | 'pass' | 'warn' | 'fail';
 type DiagnosticItem = { id:string; label:string; status:DiagnosticStatus; detail:string; latency?:number };
 type RequestMetricRow = {
@@ -39,6 +51,28 @@ type DaiPhaseScene = {
   sonic:DaiSonicState;
   steps:Array<{after:number;state:DaiState}>;
   settleMs?:number;
+};
+
+const DAI_PHASE_PRIORITY:Record<DaiCorePhase,number>={
+  idle:0,
+  listening:72,
+  understanding:56,
+  searching:60,
+  working:62,
+  preparing:70,
+  responding:78,
+  speaking:90,
+  complete:96,
+  error:100
+};
+const DAI_PHASE_MIN_HOLD_MS:Partial<Record<DaiCorePhase,number>>={
+  listening:180,
+  understanding:300,
+  searching:320,
+  working:320,
+  preparing:180,
+  responding:180,
+  speaking:250
 };
 
 const DAI_PHASE_SCENES:Record<DaiCorePhase,DaiPhaseScene>={
@@ -137,7 +171,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.7.2';
+const DAI_WEB_VERSION='1.8.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
