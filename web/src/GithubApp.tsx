@@ -810,7 +810,7 @@ export default function GithubApp(){
       const rms=Math.sqrt(energy/Math.max(1,data.length));
       const raw=Math.max(0,Math.min(1,(rms-.008)*4.8));
       const mapped=Math.pow(raw,.76);
-      smooth+=((mapped>smooth?.48:.20)*(mapped-smooth));
+      smooth+=(mapped>smooth ? .48 : .20)*(mapped-smooth);
 
       if(now-lastEmit>=28){
         emitVoiceMotion(smooth,true);
