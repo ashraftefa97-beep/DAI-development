@@ -72,10 +72,10 @@ function cleanErrorCode(status: number) {
 }
 
 type SearchSource = { title: string; url: string; snippet?: string };
-type DaiTaskRoute = 'command' | 'research' | 'code' | 'image' | 'complex' | 'chat';
+type DaiTaskRoute = 'command' | 'link' | 'research' | 'code' | 'image' | 'complex' | 'chat';
 
 const validRoutes = new Set<DaiTaskRoute>([
-  'command','research','code','image','complex','chat',
+  'command','link','research','code','image','complex','chat',
 ]);
 
 function detectGatewayRoute(text: string): DaiTaskRoute {
@@ -95,7 +95,10 @@ function detectGatewayRoute(text: string): DaiTaskRoute {
       /(?:اكتبلي?\s+كود|اكتب\s+كود|برمج|برمجة|برمجه|debug|refactor|\bhtml\b|\bcss\b|\bjavascript\b|\btypescript\b|\breact\b|\bpython\b|\bsql\b|\bapi\b)/i.test(normalized)) {
     return 'code';
   }
-  if (/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|link|video|price|source|compare|news|release|update)/i.test(normalized)) {
+  if (/(?:\b(?:link|url|website)\b|لينك|رابط)/i.test(normalized)) {
+    return 'link';
+  }
+  if (/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
     return 'research';
   }
   if (normalized.length > 900 ||
@@ -110,6 +113,47 @@ function resolveGatewayRoute(text: string, hint: unknown): DaiTaskRoute {
   if (serverRoute !== 'chat') return serverRoute;
   const requested = String(hint || '') as DaiTaskRoute;
   return validRoutes.has(requested) ? requested : 'chat';
+}
+
+const DAI_WEB_URL = Deno.env.get('DAI_WEB_URL') || 'https://ashraftefa97-beep.github.io/DAI-development/';
+
+function cleanDetectedUrl(value: string) {
+  return String(value || '')
+    .trim()
+    .replace(/[)\]}>,.!؟،؛:]+$/g, '');
+}
+
+function urlsFromText(value: string) {
+  const matches = String(value || '').match(/https?:\/\/[^\s<>"']+/gi) || [];
+  return matches.map(cleanDetectedUrl).filter((url) => /^https?:\/\//i.test(url));
+}
+
+function isGenericContextLinkRequest(text: string) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  return /^(?:(?:هات|هاتي|ابعت|ابعتي|اديني|عايز|عاوز|محتاج|ممكن)\s*)?(?:لي\s*)?(?:ال)?(?:لينك|رابط)(?:\s+(?:الموقع|الصفحة|الصفحه|الفيديو|ده|دا|دي|دول|تاني|نفسه|نفسها|اللي\s+(?:فات|فوق)))?(?:\s+(?:تاني|لو\s+سمحت))?[؟?!.]*$/i.test(normalized);
+}
+
+function resolveContextLink(
+  text: string,
+  history: Array<{ role: string; content: string }>,
+) {
+  if (!isGenericContextLinkRequest(text)) return '';
+
+  for (let index = history.length - 1; index >= 0; index--) {
+    const urls = urlsFromText(history[index]?.content || '');
+    if (urls.length) return urls[urls.length - 1];
+  }
+
+  const recentText = history
+    .slice(-8)
+    .map((item) => String(item.content || ''))
+    .join(' ');
+
+  if (/(?:\bDAI\b|ضي|DAI-development|رفيقة أفكارك)/i.test(recentText)) {
+    return DAI_WEB_URL;
+  }
+
+  return '';
 }
 
 function webSearchAllowed(text: string) {
@@ -694,7 +738,7 @@ Deno.serve(async (req) => {
     : 'لا توجد ذاكرة Professional مفعلة للمستخدم حاليًا.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها، وبعدها ادي حل عملي واضح. لو المستخدم طلب رابط فيديو أو موقع، اختاري نتيجة مناسبة من البحث واذكري إنك لقيتيها. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها، وبعدها ادي حل عملي واضح. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const orderedHistory = historyRows
     .slice()
@@ -705,6 +749,11 @@ Deno.serve(async (req) => {
     role: item.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: String(item.content || '') }],
   }));
+
+  const contextualLink = route === 'link'
+    ? resolveContextLink(message, orderedHistory)
+    : '';
+  const genericLinkRequest = route === 'link' && isGenericContextLinkRequest(message);
 
   const lastHistory = orderedHistory[orderedHistory.length - 1];
   if (!(isRegenerate && lastHistory?.role === 'user' && String(lastHistory.content || '').trim() === message)) {
@@ -755,7 +804,17 @@ Deno.serve(async (req) => {
           answer = instantAnswer;
           firstTokenMs = Math.round(performance.now() - requestStartedAt);
           push('delta', { text: instantAnswer });
-        } else if (allowWebSearch) {
+        } else if (route === 'link' && contextualLink) {
+          answer = 'ده الرابط: ' + contextualLink;
+          usedModel = 'local-link-context';
+          firstTokenMs = Math.round(performance.now() - requestStartedAt);
+          push('delta', { text: answer });
+        } else if (route === 'link' && genericLinkRequest) {
+          answer = 'تقصد لينك أنهي موقع؟';
+          usedModel = 'local-link-clarify';
+          firstTokenMs = Math.round(performance.now() - requestStartedAt);
+          push('delta', { text: answer });
+        } else if (route === 'link' || allowWebSearch) {
           const apiKey = (
             Deno.env.get('GEMINI_API_KEY') ||
             Deno.env.get('AI_API_KEY') ||
