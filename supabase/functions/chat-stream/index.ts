@@ -1890,6 +1890,34 @@ Deno.serve(async (req) => {
     .slice(0, 120) || crypto.randomUUID();
   const route = researchOnly ? 'research' : resolveGatewayRoute(message, body?.routeHint);
   const brainProfile = selectBrainProfile(route, message);
+  const recordMetric = async(values:{
+    model?:string;
+    firstTokenMs?:number|null;
+    totalMs:number;
+    searched?:boolean;
+    fastPath?:boolean;
+    success?:boolean;
+    errorCode?:string;
+  })=>{
+    if(!admin)return;
+    try{
+      await admin.from('dai_request_metrics').insert({
+        user_id:user.id,
+        request_id:requestId,
+        route,
+        brain_profile:brainProfile,
+        model:String(values.model||'').slice(0,120)||null,
+        first_token_ms:Number.isFinite(Number(values.firstTokenMs))?Math.max(0,Math.round(Number(values.firstTokenMs))):null,
+        total_ms:Math.max(0,Math.round(Number(values.totalMs)||0)),
+        searched:Boolean(values.searched),
+        fast_path:Boolean(values.fastPath),
+        success:values.success!==false,
+        error_code:values.errorCode?String(values.errorCode).slice(0,80):null,
+      });
+    }catch(error){
+      console.warn('DAI metrics write skipped',String(error||'').slice(0,180));
+    }
+  };
   const desktopActionResult = String(body?.desktopActionResult || '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .trim()
@@ -1925,6 +1953,13 @@ Deno.serve(async (req) => {
     );
 
     if (!research.ok || !research.answer) {
+      await recordMetric({
+        totalMs:performance.now()-requestStartedAt,
+        searched:true,
+        success:false,
+        errorCode:'RESEARCH_FAILED',
+        model:research.model,
+      });
       return json({
         ok:false,
         code:'RESEARCH_FAILED',
@@ -1933,6 +1968,12 @@ Deno.serve(async (req) => {
       },502);
     }
 
+    await recordMetric({
+      totalMs:performance.now()-requestStartedAt,
+      searched:true,
+      success:true,
+      model:research.model,
+    });
     return json({
       ok:true,
       answer:research.answer,
@@ -2483,6 +2524,16 @@ Deno.serve(async (req) => {
             .eq('conversation_id', conversationId);
         }
 
+        const totalMs=Math.round(performance.now()-requestStartedAt);
+        await recordMetric({
+          model:usedModel,
+          firstTokenMs,
+          totalMs,
+          searched:groundingSources.size>0||groundingQueries.size>0,
+          fastPath:Boolean(instantAnswer),
+          success:true,
+        });
+
         push('done', {
           assistantMessage,
           researched: groundingSources.size > 0 || groundingQueries.size > 0,
@@ -2490,7 +2541,7 @@ Deno.serve(async (req) => {
           searchQueries: [...groundingQueries].slice(0, 6),
           performance: {
             firstTokenMs,
-            totalMs: Math.round(performance.now() - requestStartedAt),
+            totalMs,
             historyMessages: orderedHistory.length,
             fastPath: Boolean(instantAnswer),
             searched: groundingSources.size > 0 || groundingQueries.size > 0,
@@ -2508,8 +2559,18 @@ Deno.serve(async (req) => {
           return;
         }
         if (!answer.trim()) await rollbackFailedTurn();
+        const errorCode=error instanceof DOMException && error.name==='AbortError'?'AI_TIMEOUT':'AI_NETWORK';
+        await recordMetric({
+          model:usedModel,
+          firstTokenMs,
+          totalMs:performance.now()-requestStartedAt,
+          searched:groundingSources.size>0||groundingQueries.size>0,
+          fastPath:Boolean(instantAnswer),
+          success:false,
+          errorCode,
+        });
         push('error', {
-          code: error instanceof DOMException && error.name === 'AbortError' ? 'AI_TIMEOUT' : 'AI_NETWORK',
+          code: errorCode,
           message: 'ضي واجهت مشكلة وهي بتجهز الرد. جرّب تاني.',
         });
         close();
