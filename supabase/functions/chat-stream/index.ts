@@ -768,6 +768,116 @@ async function fallbackBraveHtmlSearch(
   return rankSearchSources(query, sources);
 }
 
+
+async function fallbackSearxSearch(
+  query: string,
+  deadline = Date.now() + 8000,
+  parentSignal?: AbortSignal,
+) {
+  const instances = [
+    'https://search.hbubli.cc',
+    'https://search.inetol.net',
+  ];
+
+  for (const base of instances) {
+    const budget = searchTimeLeft(deadline);
+    if (budget < 700) break;
+
+    // Prefer the documented JSON API when the instance enables it.
+    try {
+      const jsonResponse = await timedFetch(
+        base + '/search?q=' + encodeURIComponent(query) + '&format=json&language=all&safesearch=1',
+        {
+          headers: {
+            'User-Agent': 'DAI-Research/1.0',
+            'Accept': 'application/json,text/plain;q=0.8,*/*;q=0.5',
+          },
+        },
+        Math.min(4500, budget),
+        parentSignal,
+      );
+
+      if (jsonResponse.ok) {
+        const payload = await jsonResponse.json().catch(() => null);
+        const rawResults = Array.isArray(payload?.results) ? payload.results : [];
+        const sources: SearchSource[] = rawResults
+          .slice(0, 12)
+          .map((item:any) => ({
+            title: String(item?.title || 'نتيجة بحث').replace(/\s+/g,' ').trim().slice(0,180),
+            url: String(item?.url || '').trim(),
+            snippet: String(item?.content || '').replace(/\s+/g,' ').trim().slice(0,320) || undefined,
+          }))
+          .filter((item:SearchSource) => /^https?:\/\//i.test(item.url));
+
+        const ranked = rankSearchSources(query, sources);
+        console.log('DAI fallback searx json', base, jsonResponse.status, ranked.length);
+        if (ranked.length) return ranked;
+      } else {
+        console.log('DAI fallback searx json status', base, jsonResponse.status);
+      }
+    } catch (error) {
+      console.log('DAI fallback searx json error', base, String(error || '').slice(0,180));
+    }
+
+    const htmlBudget = searchTimeLeft(deadline);
+    if (htmlBudget < 700) break;
+
+    // Some public instances intentionally disable JSON. Their normal HTML page
+    // still exposes stable result cards, so use it as a second path.
+    try {
+      const htmlResponse = await timedFetch(
+        base + '/search?q=' + encodeURIComponent(query) + '&language=all&safesearch=1',
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+            'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.8,ar;q=0.7',
+          },
+        },
+        Math.min(4500, htmlBudget),
+        parentSignal,
+      );
+
+      if (!htmlResponse.ok) {
+        console.log('DAI fallback searx html status', base, htmlResponse.status);
+        continue;
+      }
+
+      const html = await htmlResponse.text();
+      const sources: SearchSource[] = [];
+      const seen = new Set<string>();
+      const articlePattern = /<article[^>]*class=["'][^"']*\bresult\b[^"']*["'][^>]*>([\s\S]*?)<\/article>/gi;
+      let articleMatch: RegExpExecArray | null;
+
+      while ((articleMatch = articlePattern.exec(html)) && sources.length < 10) {
+        const block = articleMatch[1];
+        const link =
+          block.match(/<h3[^>]*>\s*<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i) ||
+          block.match(/<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+        const url = decodeXml(link?.[1] || '').trim();
+        if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+
+        const title = decodeXml(link?.[2] || '').slice(0,180);
+        const snippetMatch =
+          block.match(/<(?:p|div)[^>]*class=["'][^"']*(?:content|snippet)[^"']*["'][^>]*>([\s\S]*?)<\/(?:p|div)>/i) ||
+          block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+        const snippet = decodeXml(snippetMatch?.[1] || '').slice(0,320);
+
+        seen.add(url);
+        sources.push({ title:title || 'نتيجة بحث', url, snippet:snippet || undefined });
+      }
+
+      const ranked = rankSearchSources(query, sources);
+      console.log('DAI fallback searx html', base, htmlResponse.status, ranked.length);
+      if (ranked.length) return ranked;
+    } catch (error) {
+      console.log('DAI fallback searx html error', base, String(error || '').slice(0,180));
+    }
+  }
+
+  return [] as SearchSource[];
+}
+
 async function fallbackMultiSearch(
   originalQuery: string,
   rewrittenQuery: string,
@@ -782,13 +892,22 @@ async function fallbackMultiSearch(
 
   const searchQueries = queries.slice(0, 2);
   const tasks = searchQueries.map(async (searchQuery) => {
-    const [bingRss, bingHtml, duck, brave] = await Promise.all([
+    const [searx, bingRss, bingHtml, duck, brave] = await Promise.all([
+      fallbackSearxSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
       fallbackRssSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
       fallbackBingHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
       fallbackDuckDuckGoSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
       fallbackBraveHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
     ]);
-    return [...bingRss, ...bingHtml, ...duck, ...brave];
+    console.log('DAI fallback engine counts', {
+      query: searchQuery.slice(0,120),
+      searx: searx.length,
+      bingRss: bingRss.length,
+      bingHtml: bingHtml.length,
+      duck: duck.length,
+      brave: brave.length,
+    });
+    return [...searx, ...bingRss, ...bingHtml, ...duck, ...brave];
   });
 
   const groups = await Promise.all(tasks);
@@ -1208,7 +1327,7 @@ async function directWebResearch(
   }
 
   try {
-    const fallbackDeadline = Math.min(deadline, Date.now() + 9000);
+    const fallbackDeadline = Math.min(deadline, Date.now() + 14000);
     const rewrittenQuery = await rewriteFallbackSearchQuery(
       apiKey,
       configuredModel,
