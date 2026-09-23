@@ -1883,11 +1883,12 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}));
-  const message = String(body?.message || '').trim();
+  const message = String(body?.message || body?.query || '').trim();
+  const researchOnly = Boolean(body?.researchOnly);
   const requestId = String(body?.requestId || '')
     .replace(/[^a-zA-Z0-9_-]/g, '')
     .slice(0, 120) || crypto.randomUUID();
-  const route = resolveGatewayRoute(message, body?.routeHint);
+  const route = researchOnly ? 'research' : resolveGatewayRoute(message, body?.routeHint);
   const brainProfile = selectBrainProfile(route, message);
   const desktopActionResult = String(body?.desktopActionResult || '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
@@ -1899,6 +1900,48 @@ Deno.serve(async (req) => {
   if (!message || message.length > 8000) {
     return json({ error: 'Message is required and must be under 8000 characters' }, 400);
   }
+
+  if (researchOnly) {
+    const apiKey = (
+      Deno.env.get('GEMINI_API_KEY') ||
+      Deno.env.get('AI_API_KEY') ||
+      ''
+    ).trim();
+    if (!apiKey) {
+      return json({
+        ok:false,
+        code:'AI_CONFIG',
+        error:'خدمة البحث غير متاحة حاليًا.'
+      },503);
+    }
+
+    const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
+    const research = await directWebResearch(
+      apiKey,
+      configuredModel,
+      message,
+      req.signal,
+      admin,
+    );
+
+    if (!research.ok || !research.answer) {
+      return json({
+        ok:false,
+        code:'RESEARCH_FAILED',
+        error:'ضي مش قادرة تكمل البحث دلوقتي.',
+        status:research.status,
+      },502);
+    }
+
+    return json({
+      ok:true,
+      answer:research.answer,
+      sources:research.sources,
+      engine:research.model,
+      requestId,
+    });
+  }
+
   if (regenerateAssistantId && !conversationId) {
     return json({ error: 'Conversation is required for regeneration' }, 400);
   }
