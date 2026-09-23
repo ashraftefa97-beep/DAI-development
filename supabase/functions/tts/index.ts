@@ -60,29 +60,6 @@ function pcmBase64ToWavBase64(
   return bytesToBase64(wav);
 }
 
-function findAudioContent(payload: any) {
-  const steps = Array.isArray(payload?.steps) ? payload.steps : [];
-  for (let stepIndex = steps.length - 1; stepIndex >= 0; stepIndex--) {
-    const step = steps[stepIndex];
-    const content = Array.isArray(step?.content) ? step.content : [];
-    for (let contentIndex = content.length - 1; contentIndex >= 0; contentIndex--) {
-      const item = content[contentIndex];
-      if (item?.type === 'audio' && item?.data) return item;
-    }
-  }
-
-  const direct = payload?.output_audio || payload?.outputAudio;
-  if (direct?.data) return {
-    type: 'audio',
-    data: direct.data,
-    mime_type: direct.mime_type || direct.mimeType || 'audio/wav',
-    sample_rate: direct.sample_rate || direct.sampleRate || 24000,
-    channels: direct.channels || 1,
-  };
-
-  return null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -109,10 +86,10 @@ Deno.serve(async (req) => {
     p_window_seconds: 60,
   });
   if (rateError) {
-    return json({ error: 'صوت ضي مشغول حاليًا. جرّب بعد لحظة.', code: 'TTS_RATE_CHECK' }, 503);
+    return json({ error: 'صوت ضي مشغول حاليًا.', code: 'TTS_RATE_CHECK' }, 503);
   }
   if (rateAllowed !== true) {
-    return json({ error: 'طلبات صوت كتير بسرعة. استنى شوية وجرب تاني.', code: 'TTS_RATE_LIMIT' }, 429);
+    return json({ error: 'طلبات صوت كتير بسرعة.', code: 'TTS_RATE_LIMIT' }, 429);
   }
 
   const apiKey = (
@@ -147,34 +124,34 @@ Deno.serve(async (req) => {
 
   for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     try {
       const response = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/interactions',
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
           signal: controller.signal,
           headers: {
             'x-goog-api-key': apiKey,
             'Content-Type': 'application/json',
-            'Api-Revision': '2026-05-20',
           },
           body: JSON.stringify({
-            model,
-            input: prompt,
-            response_format: {
-              type: 'audio',
-              mime_type: 'audio/wav',
-              delivery: 'inline',
-              sample_rate: 24000,
+            contents: [{
+              parts: [{
+                text: prompt,
+              }],
+            }],
+            generationConfig: {
+              responseModalities: ['AUDIO'],
+              speechConfig: {
+                voiceConfig: {
+                  prebuiltVoiceConfig: {
+                    voiceName,
+                  },
+                },
+              },
             },
-            generation_config: {
-              speech_config: [
-                { voice: voiceName },
-              ],
-            },
-            store: false,
           }),
         },
       );
@@ -189,44 +166,32 @@ Deno.serve(async (req) => {
       }
 
       const payload = JSON.parse(responseText || '{}');
-      const audio = findAudioContent(payload);
-      const audioBase64 = String(audio?.data || '');
-      const mimeType = String(audio?.mime_type || audio?.mimeType || 'audio/wav').toLowerCase();
+      const parts = payload?.candidates?.[0]?.content?.parts || [];
+      const part = parts.find((item: any) => {
+        const inline = item?.inlineData || item?.inline_data;
+        return Boolean(inline?.data);
+      });
+      const inline = part?.inlineData || part?.inline_data;
+      const pcmBase64 = String(inline?.data || '');
+      const providerMime = String(
+        inline?.mimeType ||
+        inline?.mime_type ||
+        'audio/pcm;rate=24000',
+      );
+      const rateMatch = providerMime.match(/rate=(\d+)/i);
       const sampleRate = Math.max(
         8000,
-        Math.min(96000, Number(audio?.sample_rate || audio?.sampleRate || 24000)),
+        Math.min(96000, Number(rateMatch?.[1] || 24000)),
       );
-      const channels = Math.max(1, Math.min(2, Number(audio?.channels || 1)));
 
-      if (!audioBase64) {
-        lastStatus = 200;
-        lastDetail = 'Interaction completed without inline audio content';
+      if (!pcmBase64) {
+        lastDetail = 'TTS response did not contain inline audio';
         continue;
       }
 
-      if (mimeType.includes('wav')) {
-        return json({
-          audioBase64,
-          mimeType: 'audio/wav',
-          voice: voiceName,
-          model,
-          sampleRate,
-        });
-      }
-
-      if (mimeType.includes('l16') || mimeType.includes('pcm')) {
-        return json({
-          audioBase64: pcmBase64ToWavBase64(audioBase64, sampleRate, channels),
-          mimeType: 'audio/wav',
-          voice: voiceName,
-          model,
-          sampleRate,
-        });
-      }
-
       return json({
-        audioBase64,
-        mimeType,
+        audioBase64: pcmBase64ToWavBase64(pcmBase64, sampleRate),
+        mimeType: 'audio/wav',
         voice: voiceName,
         model,
         sampleRate,
