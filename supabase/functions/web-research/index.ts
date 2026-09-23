@@ -32,6 +32,9 @@ function decodeHtml(value: string) {
 }
 
 const SEARCH_TOTAL_BUDGET_MS = 30000;
+const SEARCH_BACKOFF_MS = 5 * 60 * 1000;
+let groundingBackoffUntil = 0;
+let synthesisBackoffUntil = 0;
 
 async function timedFetch(
   input: string,
@@ -160,8 +163,10 @@ async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, pa
     const block = itemMatch[1];
     const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/i);
     const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/i);
+    const descriptionMatch = block.match(/<description>([\s\S]*?)<\/description>/i);
     const title = decodeHtml(titleMatch?.[1] || '').slice(0, 180);
     const url = decodeHtml(linkMatch?.[1] || '').trim();
+    const snippet = decodeHtml(descriptionMatch?.[1] || '').slice(0, 320);
 
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
     if (youtubeOnly && !/youtube\.com\/watch/i.test(url)) continue;
@@ -170,10 +175,30 @@ async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, pa
     results.push({
       title: title || 'نتيجة بحث',
       url,
+      snippet: snippet || undefined,
     });
   }
 
   return results;
+}
+
+function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
+  if (!sources.length) return '';
+  if (/(?:يوتيوب|youtube|فيديو)/i.test(query)) {
+    return 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
+  }
+
+  const useful = sources
+    .slice(0, 3)
+    .map((source, index) => {
+      const detail = source.snippet ? ': ' + source.snippet : '';
+      return `${index + 1}) ${source.title}${detail}`;
+    })
+    .join('\n');
+
+  return useful
+    ? 'لقيت النتائج الأقرب لطلبك:\n' + useful
+    : 'لقيت نتائج مرتبطة بطلبك، والمصادر موجودة تحت الرد.';
 }
 
 async function synthesizeFromSources(
@@ -184,9 +209,11 @@ async function synthesizeFromSources(
   parentSignal?: AbortSignal,
 ) {
   if (!sources.length) return '';
+  if (Date.now() < synthesisBackoffUntil) return '';
+
   const sourceText = sources
     .slice(0, 6)
-    .map((source, index) => `${index + 1}. ${source.title}\n${source.url}`)
+    .map((source, index) => `${index + 1}. ${source.title}\n${source.snippet || ''}\n${source.url}`)
     .join('\n\n');
 
   const prompt =
@@ -216,7 +243,11 @@ async function synthesizeFromSources(
         parentSignal,
       );
       if (!response.ok) {
-        if ([400, 404, 429, 503].includes(response.status)) continue;
+        if (response.status === 429) {
+          synthesisBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
+          break;
+        }
+        if ([400, 404, 503].includes(response.status)) continue;
         break;
       }
       const payload = await response.json().catch(() => ({}));
@@ -284,10 +315,10 @@ Deno.serve(async (req) => {
 
   const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
   const modelCandidates = [
+    'gemini-3.8-flash',
     'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.1-flash-lite',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const prompt =
@@ -301,6 +332,7 @@ Deno.serve(async (req) => {
   const groundedDeadline = Math.min(deadline, Date.now() + 19000);
 
   for (const model of modelCandidates) {
+    if (Date.now() < groundingBackoffUntil) break;
     const timeLeft = searchTimeLeft(groundedDeadline);
     if (timeLeft < 700) break;
     try {
@@ -326,7 +358,11 @@ Deno.serve(async (req) => {
       lastStatus = response.status;
       const responseText = await response.text().catch(() => '');
       if (!response.ok) {
-        if ([400, 404, 429, 503].includes(response.status)) continue;
+        if (response.status === 429) {
+          groundingBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
+          break;
+        }
+        if ([400, 404, 503].includes(response.status)) continue;
         break;
       }
 
@@ -370,11 +406,7 @@ Deno.serve(async (req) => {
     const sources = await fallbackWebSearch(query, fallbackDeadline, req.signal);
     if (sources.length) {
       const synthesized = await synthesizeFromSources(apiKey, query, sources, deadline, req.signal);
-      const answer = synthesized || (
-        /(?:يوتيوب|youtube|فيديو)/i.test(query)
-          ? 'لقيتلك نتائج مناسبة على يوتيوب. افتح المصادر واختار الفيديو الأنسب.'
-          : 'لقيت نتائج مرتبطة بطلبك. المصادر موجودة تحت الرد.'
-      );
+      const answer = synthesized || fallbackAnswerFromSources(query, sources);
       return json({
         ok: true,
         answer,
