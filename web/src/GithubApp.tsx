@@ -50,7 +50,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.4.0';
+const DAI_WEB_VERSION='1.5.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -416,6 +416,30 @@ export default function GithubApp(){
     return()=>{
       window.removeEventListener('online',update);
       window.removeEventListener('offline',update);
+    };
+  },[]);
+
+  useEffect(()=>{
+    const viewport=window.visualViewport;
+    const root=document.documentElement;
+    const apply=()=>{
+      const height=Math.max(320,Math.round(viewport?.height||window.innerHeight));
+      root.style.setProperty('--dai-viewport-height',height+'px');
+      const keyboardOpen=Boolean(viewport&&window.innerHeight-viewport.height>160);
+      root.dataset.daiKeyboard=keyboardOpen?'open':'closed';
+    };
+
+    apply();
+    viewport?.addEventListener('resize',apply);
+    viewport?.addEventListener('scroll',apply);
+    window.addEventListener('resize',apply);
+
+    return()=>{
+      viewport?.removeEventListener('resize',apply);
+      viewport?.removeEventListener('scroll',apply);
+      window.removeEventListener('resize',apply);
+      root.style.removeProperty('--dai-viewport-height');
+      delete root.dataset.daiKeyboard;
     };
   },[]);
 
