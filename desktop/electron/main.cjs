@@ -58,7 +58,8 @@ function safeExternalUrl(value) {
 function embeddedBrowserBounds() {
   if (!mainWindow || mainWindow.isDestroyed()) return null;
   const [width, height] = mainWindow.getContentSize();
-  const panelWidth = Math.min(Math.floor(width * 0.48), 760);
+  // Match the React split view: roughly half the app, capped for very wide screens.
+  const panelWidth = Math.min(Math.max(Math.floor(width * 0.50), 420), 920);
   const toolbarHeight = 58;
   return {
     x: Math.max(0, width - panelWidth),
@@ -128,6 +129,7 @@ function createEmbeddedBrowser() {
   });
 
   embeddedBrowserView = view;
+  try { view.setBackgroundColor('#ffffff'); } catch {}
   mainWindow.contentView.addChildView(view);
   layoutEmbeddedBrowser();
 
