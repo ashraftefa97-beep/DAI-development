@@ -84,7 +84,7 @@ type SearchSource = { title: string; url: string; snippet?: string };
 function searchTerms(value: string) {
   const stop = new Set([
     'عاوز','عايز','محتاج','ممكن','افضل','أفضل','احسن','أحسن','لينك','رابط','موقع',
-    'ابحث','دور','دورلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','link','website','the','and','for','with',
+    'ابحث','دور','دورلي','دوري','دوريلي','دوّري','رشح','رشحلي','اختار','اختارلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','link','website','the','and','for','with',
     'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
   ]);
 
@@ -205,7 +205,7 @@ function detectGatewayRoute(text: string): DaiTaskRoute {
   if (/(?:\b(?:link|url|website)\b|لينك|رابط)/i.test(normalized)) {
     return 'link';
   }
-  if (/(?:ابحث|دور|دوّري|دوري|دورلي|رشح|رشحي|رشحلي|اختارلي|إيهs+أفضل|ايهs+افضل|ماs+هوs+أفضل|ماs+هيs+أفضل|أفضل|افضل|أحسن|احسن|أنسب|انسب|recommend|best|whichs+(?:is|one)|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|متوفر|متاحة|متاح|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|مراجعة|review|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
+  if (/(?:ابحث|دور|دوّري|دوري|دورلي|رشح|رشحي|رشحلي|اختارلي|إيه\s+أفضل|ايه\s+افضل|ما\s+هو\s+أفضل|ما\s+هي\s+أفضل|أفضل|افضل|أحسن|احسن|أنسب|انسب|recommend|best|which\s+(?:is|one)|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|متوفر|متاحة|متاح|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|مراجعة|review|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
     return 'research';
   }
   if (normalized.length > 900 ||
@@ -610,6 +610,72 @@ async function fallbackRssSearch(query: string, deadline = Date.now() + 8000, pa
   return rankSearchSources(query, sources);
 }
 
+
+function decodeDuckDuckGoUrl(value: string) {
+  const clean = decodeXml(String(value || '')).trim();
+  if (!clean) return '';
+  try {
+    const absolute = clean.startsWith('//') ? 'https:' + clean : clean;
+    const parsed = new URL(absolute, 'https://duckduckgo.com');
+    const wrapped = parsed.searchParams.get('uddg');
+    if (wrapped) {
+      const decoded = decodeURIComponent(wrapped);
+      return /^https?:\/\//i.test(decoded) ? decoded : '';
+    }
+    return /^https?:\/\//i.test(parsed.href) ? parsed.href : '';
+  } catch {
+    return /^https?:\/\//i.test(clean) ? clean : '';
+  }
+}
+
+async function fallbackDuckDuckGoSearch(
+  query: string,
+  deadline = Date.now() + 8000,
+  parentSignal?: AbortSignal,
+) {
+  const budget = searchTimeLeft(deadline);
+  if (budget < 500) return [] as SearchSource[];
+
+  const response = await timedFetch(
+    'https://html.duckduckgo.com/html/?q=' + encodeURIComponent(query),
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.8,ar;q=0.7',
+      },
+    },
+    Math.min(6000, budget),
+    parentSignal,
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const html = await response.text();
+  const sources: SearchSource[] = [];
+  const seen = new Set<string>();
+  const resultPattern = /<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = resultPattern.exec(html)) && sources.length < 8) {
+    const url = decodeDuckDuckGoUrl(match[1]);
+    if (!url || seen.has(url) || /duckduckgo\.com\//i.test(url)) continue;
+
+    const title = decodeXml(match[2]).slice(0, 180);
+    const nearby = html.slice(match.index, Math.min(html.length, match.index + 2600));
+    const snippetMatch = nearby.match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/(?:a|div)>/i);
+    const snippet = decodeXml(snippetMatch?.[1] || '').slice(0, 320);
+
+    seen.add(url);
+    sources.push({
+      title: title || 'نتيجة بحث',
+      url,
+      snippet: snippet || undefined,
+    });
+  }
+
+  return rankSearchSources(query, sources);
+}
+
 async function fallbackMultiSearch(
   originalQuery: string,
   rewrittenQuery: string,
@@ -622,16 +688,13 @@ async function fallbackMultiSearch(
   const remaining = searchTimeLeft(deadline);
   if (remaining < 700) return [] as SearchSource[];
 
-  const tasks = queries.map(async (searchQuery) => {
-    try {
-      return await fallbackRssSearch(
-        searchQuery,
-        deadline,
-        parentSignal,
-      );
-    } catch {
-      return [] as SearchSource[];
-    }
+  const searchQueries = queries.slice(0, 3);
+  const tasks = searchQueries.map(async (searchQuery) => {
+    const [bing, duck] = await Promise.all([
+      fallbackRssSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+      fallbackDuckDuckGoSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+    ]);
+    return [...bing, ...duck];
   });
 
   const groups = await Promise.all(tasks);
@@ -1275,6 +1338,23 @@ Deno.serve(async (req) => {
     savedUserMessage = data;
   }
 
+  const rollbackFailedTurn = async () => {
+    if (isRegenerate || !savedUserMessage?.id) return;
+    const failedId = String(savedUserMessage.id);
+    savedUserMessage = null;
+    try {
+      const { error } = await supabase
+        .from('dai_messages')
+        .delete()
+        .eq('id', failedId)
+        .eq('conversation_id', conversationId)
+        .eq('user_id', user.id);
+      if (error) console.warn('DAI failed-turn rollback warning', String(error.message || error));
+    } catch (error) {
+      console.warn('DAI failed-turn rollback exception', String(error || ''));
+    }
+  };
+
   const userName = String(
     user.user_metadata?.display_name ||
     user.user_metadata?.full_name ||
@@ -1423,6 +1503,7 @@ Deno.serve(async (req) => {
           ).trim();
 
           if (!apiKey) {
+            await rollbackFailedTurn();
             push('error', {
               code: 'AI_CONFIG',
               message: 'خدمة ضي الذكية غير متاحة حاليًا.',
@@ -1442,9 +1523,12 @@ Deno.serve(async (req) => {
               research.status,
               String(research.detail || '').slice(0, 900),
             );
+            await rollbackFailedTurn();
             push('error', {
               code: 'RESEARCH_FAILED',
-              message: 'ضي مش قادرة تكمل البحث دلوقتي. جرّب تاني.',
+              message: research.status === 429
+                ? 'محرك البحث الأساسي وصل لحده المؤقت، وضي مقدرتش تجيب بديل موثوق في المحاولة دي. جرّب تاني بعد لحظة.'
+                : 'ضي مش قادرة تكمل البحث دلوقتي. جرّب تاني.',
             });
             close();
             return;
@@ -1473,6 +1557,7 @@ Deno.serve(async (req) => {
           ).trim();
 
           if (!apiKey) {
+            await rollbackFailedTurn();
             push('error', { code: 'AI_CONFIG', message: 'خدمة ضي الذكية غير متاحة حاليًا.' });
             close();
             return;
@@ -1525,6 +1610,7 @@ Deno.serve(async (req) => {
             }
 
             if (!providerResponse?.body) {
+              await rollbackFailedTurn();
               push('error', {
                 code: cleanErrorCode(lastStatus),
                 message: 'ضي مش قادرة تجهز الرد دلوقتي. جرّب تاني.',
@@ -1598,6 +1684,7 @@ Deno.serve(async (req) => {
 
         answer = answer.trim();
         if (!answer) {
+          await rollbackFailedTurn();
           push('error', { code: 'AI_EMPTY', message: 'ضي مردتش بشكل كامل. جرّب تاني.' });
           close();
           return;
@@ -1662,6 +1749,7 @@ Deno.serve(async (req) => {
           close();
           return;
         }
+        if (!answer.trim()) await rollbackFailedTurn();
         push('error', {
           code: error instanceof DOMException && error.name === 'AbortError' ? 'AI_TIMEOUT' : 'AI_NETWORK',
           message: 'ضي واجهت مشكلة وهي بتجهز الرد. جرّب تاني.',
