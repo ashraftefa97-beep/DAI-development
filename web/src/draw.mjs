@@ -153,9 +153,6 @@ export function drawDai(c,m,w,h) {
   c.filter=isLight?'brightness(.88) saturate(1.18) contrast(1.10)':'none';
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
-  const g=c.createRadialGradient(0,5,0,0,5,210);
-  g.addColorStop(0,'rgba(171,99,155,.071)');g.addColorStop(.65,'rgba(127,95,170,.020)');g.addColorStop(1,'transparent');
-  ellipse(c,0,5,220,170,g);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   hat(c,m);wand(c,m);fishing(c,m);
   hand(c,q.lx,q.ly,q.lr,q.la,true,q.wand>.3);hand(c,q.rx,q.ry,q.rr,q.ra,false,q.rod>.3);
