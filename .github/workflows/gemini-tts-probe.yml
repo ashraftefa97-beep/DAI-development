@@ -10,11 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Verify Gemini returns real audio
+      - name: Verify Gemini returns a valid WAV
         shell: bash
         run: |
           set -euo pipefail
           URL="https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/tts-gemini-probe"
-          BODY="$(curl -fsS --retry 2 --retry-delay 2 "$URL")"
-          echo "$BODY"
-          echo "$BODY" | jq -e '.ok == true and (.bytes | tonumber) > 1000 and (.mimeType | length) > 0'
+          curl -fsS --retry 2 --retry-delay 2 "$URL" -o probe.json
+          jq -e '.ok == true and (.pcmBytes | tonumber) > 1000 and (.wavBytes | tonumber) > 1044' probe.json
+          jq -r '.wavBase64' probe.json | base64 --decode > probe.wav
+          python3 - <<'PY'
+          import wave
+          with wave.open('probe.wav','rb') as wf:
+              assert wf.getnchannels() == 1, wf.getnchannels()
+              assert wf.getsampwidth() == 2, wf.getsampwidth()
+              assert wf.getframerate() == 24000, wf.getframerate()
+              assert wf.getnframes() > 1000, wf.getnframes()
+              print({
+                  'channels': wf.getnchannels(),
+                  'sample_width': wf.getsampwidth(),
+                  'sample_rate': wf.getframerate(),
+                  'frames': wf.getnframes(),
+                  'duration_seconds': round(wf.getnframes()/wf.getframerate(), 3),
+              })
+          PY
+          jq '{ok,model,voice,mimeType,pcmBytes,wavBytes}' probe.json
