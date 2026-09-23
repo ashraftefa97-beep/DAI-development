@@ -4,12 +4,12 @@ const EXT_SOURCE = 'dai-side-browser-extension';
 function markReady() {
   try {
     const root = document.documentElement;
-    if (root) root.setAttribute('data-dai-side-browser-extension', '1.1.0');
+    if (root) root.setAttribute('data-dai-side-browser-extension', '1.2.0');
   } catch {}
 
   try {
     document.dispatchEvent(new CustomEvent('dai-side-browser-ready', {
-      detail: { version: '1.1.0' }
+      detail: { version: '1.2.0' }
     }));
   } catch {}
 
@@ -17,7 +17,7 @@ function markReady() {
     window.postMessage({
       source: EXT_SOURCE,
       type: 'READY',
-      version: '1.1.0'
+      version: '1.2.0'
     }, window.location.origin);
   } catch {}
 }
@@ -39,7 +39,7 @@ window.addEventListener('message', async (event) => {
     window.postMessage({
       source: EXT_SOURCE,
       type: 'READY',
-      version: '1.1.0',
+      version: '1.2.0',
       requestId: message.requestId || ''
     }, window.location.origin);
     return;
