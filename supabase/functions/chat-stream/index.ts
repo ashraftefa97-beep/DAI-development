@@ -72,6 +72,67 @@ function cleanErrorCode(status: number) {
 }
 
 type SearchSource = { title: string; url: string; snippet?: string };
+
+function searchTerms(value: string) {
+  const stop = new Set([
+    'عاوز','عايز','محتاج','ممكن','افضل','أفضل','احسن','أحسن','لينك','رابط','موقع',
+    'ابحث','دور','بحث','find','search','best','link','website','the','and','for','with',
+    'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
+  ]);
+  return String(value || '')
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(/\s+/)
+    .map((term) => term.trim())
+    .filter((term) => term.length >= 3 && !stop.has(term))
+    .slice(0, 12);
+}
+
+function sourceScore(query: string, source: SearchSource) {
+  let score = 0;
+  const title = String(source.title || '').toLowerCase();
+  const snippet = String(source.snippet || '').toLowerCase();
+  let host = '';
+  try { host = new URL(source.url).hostname.replace(/^www\./, '').toLowerCase(); } catch {}
+
+  const terms = searchTerms(query);
+  for (const term of terms) {
+    if (title.includes(term)) score += 3;
+    if (snippet.includes(term)) score += 1.2;
+    if (host.includes(term)) score += 2.5;
+  }
+
+  if (/\.(gov|edu)(\.|$)/i.test(host)) score += 3.5;
+  if (/^(?:docs\.|developer\.|support\.|help\.)/i.test(host)) score += 2.2;
+  if (/(?:official|رسمي|الرسمية|الرسمى)/i.test(title + ' ' + snippet)) score += 1.5;
+  if (source.snippet) score += 0.8;
+
+  if (/(?:يوتيوب|youtube|فيديو)/i.test(query) && /youtube\.com$/i.test(host)) score += 4;
+  if (/(?:github|جيت هب)/i.test(query) && /github\.com$/i.test(host)) score += 4;
+
+  const currentIntent = /(?:أحدث|احدث|آخر|اليوم|دلوقتي|حالي|latest|today|current|2026)/i.test(query);
+  if (currentIntent && /(?:2026|2025)/.test(title + ' ' + snippet)) score += 1.2;
+
+  if (/(?:pinterest\.|quora\.|medium\.com$)/i.test(host)) score -= 0.8;
+  if (/(?:login|signin|account)/i.test(title)) score -= 1.2;
+
+  return score;
+}
+
+function rankSearchSources(query: string, sources: SearchSource[]) {
+  const seen = new Set<string>();
+  return sources
+    .filter((source) => {
+      if (!source?.url || seen.has(source.url)) return false;
+      seen.add(source.url);
+      return true;
+    })
+    .map((source, index) => ({ source, index, score: sourceScore(query, source) }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.source)
+    .slice(0, 8);
+}
 type DaiTaskRoute = 'command' | 'link' | 'research' | 'code' | 'image' | 'complex' | 'chat';
 
 const validRoutes = new Set<DaiTaskRoute>([
@@ -270,7 +331,7 @@ async function fallbackYoutubeSearch(query: string, timeoutMs = 5500, parentSign
     });
   }
 
-  return sources;
+  return rankSearchSources(query, sources);
 }
 
 async function fallbackRssSearch(query: string, deadline = Date.now() + 8000, parentSignal?: AbortSignal) {
@@ -325,22 +386,35 @@ async function fallbackRssSearch(query: string, deadline = Date.now() + 8000, pa
     sources.push({ title: title || 'نتيجة بحث', url, snippet: snippet || undefined });
   }
 
-  return sources;
+  return rankSearchSources(query, sources);
 }
 
 function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
   if (!sources.length) return '';
+  const ranked = rankSearchSources(query, sources);
+  const best = ranked[0];
+
   if (/(?:يوتيوب|youtube|فيديو)/i.test(query)) {
-    return 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
+    return best
+      ? 'أنسب نتيجة لطلبك عندي هي: ' + best.title + '\n' + best.url
+      : 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
   }
 
-  const useful = sources
+  const recommendationIntent = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|اختار|اختاري|recommend|best|which one)/i.test(query);
+  const useful = ranked
     .slice(0, 3)
     .map((source, index) => {
       const detail = source.snippet ? ': ' + source.snippet : '';
       return `${index + 1}) ${source.title}${detail}`;
     })
     .join('\n');
+
+  if (recommendationIntent && best) {
+    return 'أنسب اختيار حسب مطابقة طلبك وجودة المصدر هو: ' + best.title +
+      (best.snippet ? '\n' + best.snippet : '') +
+      '\n' + best.url +
+      (useful ? '\n\nبدائل قوية:\n' + useful : '');
+  }
 
   return useful
     ? 'لقيت النتائج الأقرب لطلبك:\n' + useful
@@ -365,15 +439,20 @@ async function summarizeFallbackSources(
     'gemini-3.1-flash-lite',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
-  const sourceText = sources
+  const rankedSources = rankSearchSources(query, sources);
+  const sourceText = rankedSources
     .slice(0, 6)
     .map((source, index) => `${index + 1}. ${source.title}\n${source.snippet || ''}\n${source.url}`)
     .join('\n\n');
 
   const prompt =
-    'اعتمد فقط على نتائج البحث التالية. جاوب بالمصري الطبيعي وباختصار مفيد. ' +
-    'لو المستخدم طالب فيديو أو رابط، اختَر أفضل نتيجة مناسبة من القائمة واذكر الرابط. ' +
-    'لو طالب حل مشكلة، لخص الحل العملي بدون اختلاق تفاصيل. الطلب: ' +
+    'اعتمد فقط على نتائج البحث التالية، وهي مرتبة مبدئيًا حسب الصلة وجودة المصدر. ' +
+    'قارن النتائج قبل الرد، وما تعتبرش أول نتيجة هي الأفضل تلقائيًا. ' +
+    'للحقائق فضّل المصادر الأصلية أو الرسمية، وللمقارنات خُد في الاعتبار مصادر مستقلة موثوقة كمان. ' +
+    'لو المستخدم طالب فيديو أو رابط، اختَر الأكثر تطابقًا واذكر الرابط بوضوح. ' +
+    'لو طالب أفضل/أنسب/ترشيح في موضوع غير سياسي، اختَر اختيارًا واحدًا واضحًا واذكر سبب الاختيار ومعيارك باختصار، ثم اذكر بديلًا لو مفيد. ' +
+    'لو الموضوع سياسي أو انتخابي، ما تختارش فائز أو أفضل طرف وما تأيدش اختيار؛ اعرض الحقائق والمقارنة بشكل محايد. ' +
+    'لو طالب حل مشكلة، استخلص الحل العملي الأقوى من النتائج بدون اختلاق تفاصيل. جاوب بالمصري الطبيعي. الطلب: ' +
     query + '\n\nالنتائج:\n' + sourceText;
 
   for (const model of modelCandidates) {
@@ -433,9 +512,12 @@ async function directWebResearch(
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const researchPrompt =
-    'ابحث على الويب عن الطلب التالي، وبعد البحث قدّم إجابة عملية ومباشرة بالمصري الطبيعي. ' +
-    'لو المستخدم طالب رابط أو فيديو، اختَر نتيجة مناسبة فعلًا واذكرها بوضوح. ' +
-    'لو طالب حل مشكلة، لخص السبب الأقرب ثم خطوات الحل. لا تختلق روابط أو مصادر. الطلب: ' +
+    'ابحث على الويب عن الطلب التالي، وقارن أكثر من نتيجة قبل ما تحكم. ' +
+    'قيّم النتائج حسب: مطابقة طلب المستخدم، موثوقية المصدر، كون المصدر أصلي/رسمي عند الحاجة، والحداثة لما السؤال حديث. ' +
+    'لو المستخدم طالب رابط أو فيديو، اختَر الأكثر تطابقًا فعلًا واذكر الرابط بوضوح. ' +
+    'لو طالب أفضل/أنسب/ترشيح في موضوع غير سياسي، اختَر اختيارًا واضحًا مبنيًا على المعايير وقل باختصار ليه هو الأنسب، مع بديل قوي لو مفيد. ' +
+    'لو الموضوع سياسي أو انتخابي، ممنوع تختار فائز أو أفضل طرف أو تدفع المستخدم لاختيار؛ اكتفِ بمقارنة محايدة وموثقة. ' +
+    'لو طالب حل مشكلة، لخص السبب الأقرب ثم أقوى خطوات الحل. لا تختلق روابط أو مصادر. جاوب بالمصري الطبيعي. الطلب: ' +
     query;
 
   let lastStatus = 0;
@@ -505,7 +587,7 @@ async function directWebResearch(
         return {
           ok: true,
           answer,
-          sources,
+          sources: rankSearchSources(query, sources),
           model,
           status: response.status,
         };
@@ -529,7 +611,10 @@ async function directWebResearch(
 
   try {
     const fallbackDeadline = Math.min(deadline, Date.now() + 7500);
-    const sources = await fallbackRssSearch(query, fallbackDeadline, parentSignal);
+    const sources = rankSearchSources(
+      query,
+      await fallbackRssSearch(query, fallbackDeadline, parentSignal),
+    );
     if (sources.length) {
       const summarized = await summarizeFallbackSources(
         apiKey,
@@ -738,7 +823,7 @@ Deno.serve(async (req) => {
     : 'لا توجد ذاكرة Professional مفعلة للمستخدم حاليًا.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها، وبعدها ادي حل عملي واضح. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها بمعايير واضحة، وبعدها ادي حل عملي. في الترشيحات غير السياسية ما تكتفيش بسرد النتائج: اختاري الأنسب للطلب واذكري باختصار ليه هو الأنسب وما المعيار اللي اعتمدتي عليه. في السياسة والانتخابات التزمي بالمقارنة المحايدة وما تختاريش أو تأيدي طرفًا. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const orderedHistory = historyRows
     .slice()
