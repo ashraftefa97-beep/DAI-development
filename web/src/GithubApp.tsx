@@ -5,7 +5,7 @@ import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Cla
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
-import { createDaiRequest, type DaiTaskRoute } from './taskRouter';
+import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -15,6 +15,25 @@ type ResponseMode = 'auto' | 'text' | 'voice';
 type ThemeMode = 'dark' | 'light' | 'system';
 type DiagnosticStatus = 'idle' | 'running' | 'pass' | 'warn' | 'fail';
 type DiagnosticItem = { id:string; label:string; status:DiagnosticStatus; detail:string; latency?:number };
+type RequestMetricRow = {
+  id:string;
+  request_id:string;
+  route:string;
+  brain_profile:string|null;
+  model:string|null;
+  first_token_ms:number|null;
+  total_ms:number;
+  client_first_event_ms:number|null;
+  tts_start_ms:number|null;
+  tts_end_ms:number|null;
+  search_engine:string|null;
+  fallback_used:boolean;
+  route_confidence:number|null;
+  client_source:string|null;
+  success:boolean;
+  error_code:string|null;
+  created_at:string;
+};
 type DaiCorePhase = 'idle'|'listening'|'understanding'|'searching'|'working'|'preparing'|'responding'|'speaking'|'complete'|'error';
 type ProAnimationSpec = {
   id:string;
@@ -210,6 +229,8 @@ export default function GithubApp(){
   const [diagnosticsOpen,setDiagnosticsOpen]=useState(false);
   const [diagnosticsRunning,setDiagnosticsRunning]=useState(false);
   const [diagnostics,setDiagnostics]=useState<DiagnosticItem[]>([]);
+  const [recentRequestMetrics,setRecentRequestMetrics]=useState<RequestMetricRow[]>([]);
+  const [requestMetricsLoading,setRequestMetricsLoading]=useState(false);
   const [feedbackOpen,setFeedbackOpen]=useState(false);
   const [feedbackCategory,setFeedbackCategory]=useState<'voice'|'reply'|'animation'|'interface'|'other'>('voice');
   const [feedbackMessage,setFeedbackMessage]=useState('');
