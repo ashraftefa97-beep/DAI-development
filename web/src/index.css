@@ -3476,3 +3476,47 @@ html[data-dai-theme="light"] .dai-browser-youtube-fallback button {
   opacity: .36;
   cursor: default;
 }
+
+.dai-side-browser-status {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #32364a;
+  background: rgba(23,27,43,.86);
+  color: #a9a4b1;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.dai-side-browser-status.connected {
+  border-color: rgba(92,200,132,.34);
+  background: rgba(36,94,58,.18);
+  color: #9ee8b9;
+}
+.dai-side-browser-status.missing {
+  border-color: rgba(228,109,135,.32);
+  background: rgba(111,37,55,.18);
+  color: #f0a7b8;
+}
+html[data-dai-theme="light"] .dai-side-browser-status {
+  background: #fff;
+  border-color: #ded7df;
+  color: #766d78;
+}
+html[data-dai-theme="light"] .dai-side-browser-status.connected {
+  background: #edf8f1;
+  border-color: #bfe5cb;
+  color: #35744d;
+}
+html[data-dai-theme="light"] .dai-side-browser-status.missing {
+  background: #fff0f3;
+  border-color: #efc3ce;
+  color: #9c4d61;
+}
+@media(max-width: 760px) {
+  .dai-side-browser-status span { display:none; }
+  .dai-side-browser-status { width:32px; padding:0; justify-content:center; }
+}
