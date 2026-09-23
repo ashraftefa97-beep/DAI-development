@@ -2079,11 +2079,18 @@ export default function GithubApp(){
 
         const perf=payload?.performance;
         if(perf&&typeof perf==='object'){
-          console.debug('DAI latency',{
+          const metric={
+            at:Date.now(),
             firstTokenMs:Number(perf.firstTokenMs||0),
             totalMs:Number(perf.totalMs||0),
-            fastPath:Boolean(perf.fastPath)
-          });
+            fastPath:Boolean(perf.fastPath),
+            searched:Boolean(perf.searched),
+            route:String(perf.route||routeHint||'chat'),
+            brainProfile:String(perf.brainProfile||''),
+            model:String(perf.model||'')
+          };
+          console.debug('DAI latency',metric);
+          try{localStorage.setItem('dai-last-performance',JSON.stringify(metric));}catch{}
         }
 
         streamMessageIdRef.current='';
