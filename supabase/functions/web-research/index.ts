@@ -49,30 +49,36 @@ async function fallbackWebSearch(query: string) {
     : query;
 
   const response = await fetch(
-    'https://html.duckduckgo.com/html/?kp=1&q=' + encodeURIComponent(searchQuery),
+    'https://www.bing.com/search?format=rss&q=' + encodeURIComponent(searchQuery),
     {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
-        'Accept': 'text/html,application/xhtml+xml',
+        'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
       },
     },
   );
 
   if (!response.ok) return [] as SearchSource[];
-  const html = await response.text();
+
+  const xml = await response.text();
   const results: SearchSource[] = [];
   const seen = new Set<string>();
+  const itemPattern = /<item>([\s\S]*?)<\/item>/gi;
+  let itemMatch: RegExpExecArray | null;
 
-  const anchorPattern = /<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let match: RegExpExecArray | null;
+  while ((itemMatch = itemPattern.exec(xml)) && results.length < 8) {
+    const block = itemMatch[1];
+    const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/i);
+    const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/i);
+    const title = decodeHtml(titleMatch?.[1] || '').slice(0, 180);
+    const url = decodeHtml(linkMatch?.[1] || '').trim();
 
-  while ((match = anchorPattern.exec(html)) && results.length < 8) {
-    const url = unwrapSearchUrl(match[1]);
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
     if (youtubeOnly && !/youtube\.com\/watch/i.test(url)) continue;
+
     seen.add(url);
     results.push({
-      title: decodeHtml(match[2]).slice(0, 180) || 'نتيجة بحث',
+      title: title || 'نتيجة بحث',
       url,
     });
   }
