@@ -1,6 +1,7 @@
 import { Howl, Howler } from 'howler';
 
 export type DaiSfxMode = 'soft' | 'normal' | 'silent';
+export type DaiSonicState = 'idle' | 'wake' | 'attention' | 'listening' | 'thinking' | 'action' | 'responding' | 'complete' | 'error' | 'speaking';
 
 export type DaiMotionAudioEvent = {
   cue:string;
@@ -69,6 +70,9 @@ class DaiSfxEngine {
   private active:Array<{howl:Howl;id:number}>=[];
   private lastVariant=new Map<Cue,number>();
   private previewTimers:number[]=[];
+  private stateTimers:number[]=[];
+  private lastSonicState:DaiSonicState='idle';
+  private lastSonicAt=0;
 
   private bank:Record<Cue,Howl[]>=Object.fromEntries(
     (Object.entries(CUE_FILES) as Array<[Cue,string[]]>).map(([cue,urls])=>[
@@ -122,13 +126,13 @@ class DaiSfxEngine {
     return variants[index];
   }
 
-  playEvent(event:DaiMotionAudioEvent){
-    if(!this.unlocked||!this.enabled||this.mode==='silent')return false;
-    if(!(event.cue in this.bank))return false;
+  private startEvent(event:DaiMotionAudioEvent){
+    if(!this.unlocked||!this.enabled||this.mode==='silent')return null;
+    if(!(event.cue in this.bank))return null;
 
     const cue=event.cue as Cue;
     const howl=this.choose(cue);
-    if(!howl)return false;
+    if(!howl)return null;
 
     try{
       const id=howl.play();
@@ -140,16 +144,75 @@ class DaiSfxEngine {
       howl.once('end',()=>{
         this.active=this.active.filter(item=>!(item.howl===howl&&item.id===id));
       },id);
-      return true;
+      return {howl,id};
     }catch(error){
       console.debug('DAI Foley cue skipped',cue,error);
-      return false;
+      return null;
+    }
+  }
+
+  playEvent(event:DaiMotionAudioEvent){
+    return Boolean(this.startEvent(event));
+  }
+
+  private transient(event:DaiMotionAudioEvent,maxMs=0){
+    const started=this.startEvent(event);
+    if(!started||maxMs<=0)return Boolean(started);
+    const timer=window.setTimeout(()=>{
+      this.stateTimers=this.stateTimers.filter(value=>value!==timer);
+      try{
+        started.howl.fade(started.howl.volume(started.id) as number,0,70,started.id);
+        window.setTimeout(()=>{ try{started.howl.stop(started.id);}catch{} },75);
+      }catch{
+        try{started.howl.stop(started.id);}catch{}
+      }
+    },maxMs);
+    this.stateTimers.push(timer);
+    return true;
+  }
+
+  playState(next:DaiSonicState){
+    if(!this.unlocked||!this.enabled||this.mode==='silent')return false;
+    const now=performance.now();
+    if(next===this.lastSonicState&&now-this.lastSonicAt<420)return false;
+    this.lastSonicState=next;
+    this.lastSonicAt=now;
+
+    switch(next){
+      case 'wake':
+        this.transient({cue:'swish',volume:.20,rate:.98,pan:-.06},220);
+        this.stateTimers.push(window.setTimeout(()=>this.transient({cue:'glass',volume:.20,rate:1.04},260),85));
+        return true;
+      case 'attention':
+        return this.transient({cue:'click',volume:.24,rate:1.03},190);
+      case 'listening':
+        this.transient({cue:'click',volume:.26,rate:.98,pan:-.04},200);
+        this.stateTimers.push(window.setTimeout(()=>this.transient({cue:'glass',volume:.14,rate:1.02,pan:.04},220),80));
+        return true;
+      case 'thinking':
+        return this.transient({cue:'computer',volume:.11,rate:.98},280);
+      case 'action':
+        return this.transient({cue:'click',volume:.22,rate:1.06},170);
+      case 'responding':
+        return this.transient({cue:'glass',volume:.18,rate:1.00},220);
+      case 'complete':
+        return this.transient({cue:'bell',volume:.30,rate:1.03},420);
+      case 'error':
+        this.transient({cue:'mech',volume:.22,rate:.82},220);
+        this.stateTimers.push(window.setTimeout(()=>this.transient({cue:'click',volume:.12,rate:.78},180),120));
+        return true;
+      case 'speaking':
+      case 'idle':
+      default:
+        return false;
     }
   }
 
   stopAll(){
     for(const timer of this.previewTimers)window.clearTimeout(timer);
+    for(const timer of this.stateTimers)window.clearTimeout(timer);
     this.previewTimers=[];
+    this.stateTimers=[];
     for(const item of this.active){
       try{item.howl.stop(item.id);}catch{}
     }
