@@ -410,6 +410,14 @@ export default function GithubApp(){
   },[]);
 
   useEffect(()=>{
+    const onUpdate=()=>{
+      setPwaNotice('في تحديث جديد لضي جاهز. حدّث الصفحة بعد ما تخلص الرسالة الحالية.');
+    };
+    window.addEventListener('dai:update-ready',onUpdate as EventListener);
+    return()=>window.removeEventListener('dai:update-ready',onUpdate as EventListener);
+  },[]);
+
+  useEffect(()=>{
     const update=()=>setOnline(navigator.onLine);
     window.addEventListener('online',update);
     window.addEventListener('offline',update);
