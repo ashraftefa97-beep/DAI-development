@@ -4504,6 +4504,7 @@ export default function GithubApp(){
       {id:'microphone',label:'الميكروفون',status:'running',detail:'جاري الفحص…'},
       {id:'audio',label:'تشغيل الصوت',status:'running',detail:'جاري الفحص…'},
       {id:'dai-voice',label:'خدمة صوت ضي',status:'running',detail:'جاري الفحص…'},
+      {id:'experience',label:'الحركة والساوند تراك',status:'running',detail:'براجع FPS وAudioContext…'},
       {id:'latency',label:'زمن استجابة ضي',status:'running',detail:'براجع آخر الطلبات…'}
     ];
     setDiagnostics(initial);
@@ -4554,6 +4555,24 @@ export default function GithubApp(){
       update('dai-voice',{status:latency>6000?'warn':'pass',detail:latency>6000?'صوت ضي شغال لكن الاستجابة أبطأ من المعتاد.':'خدمة صوت ضي جاهزة.',latency});
     }catch{
       update('dai-voice',{status:'fail',detail:'خدمة صوت ضي واجهت مشكلة مؤقتة. جرّب إعادة الفحص.'});
+    }
+
+    {
+      const audio=daiSfx.getStats();
+      const lowFps=runtimePerf.fps<42;
+      const audioProblem=audio.contextState==='closed';
+      const status:DiagnosticStatus=audioProblem?'fail':lowFps?'warn':'pass';
+      update('experience',{
+        status,
+        detail:[
+          'FPS '+runtimePerf.fps,
+          'Quality '+renderQuality,
+          'Dropped '+runtimePerf.droppedFrames,
+          'SFX '+audio.activeVoices+'/'+audio.maxConcurrent,
+          'Audio '+audio.contextState,
+          audio.droppedCueCount?'Dropped cues '+audio.droppedCueCount:null
+        ].filter(Boolean).join(' · ')
+      });
     }
 
     try{
