@@ -3128,3 +3128,33 @@ html[data-dai-theme="light"] .dai-search-sources a:hover {
   .dai-search-sources>div { display:grid;grid-template-columns:1fr; }
   .dai-search-sources a { max-width:100%;width:100%; }
 }
+
+/* DAI inline message links */
+.classic-chat-message p .dai-inline-link,
+.dai-companion-bubble p .dai-inline-link {
+  color:#f0a9c4;
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+  text-underline-offset:3px;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  transition:color .16s ease,opacity .16s ease;
+}
+.classic-chat-message p .dai-inline-link:hover,
+.dai-companion-bubble p .dai-inline-link:hover {
+  color:#ffd3e3;
+}
+.classic-chat-message p .dai-inline-link:focus-visible,
+.dai-companion-bubble p .dai-inline-link:focus-visible {
+  outline:2px solid rgba(240,169,196,.45);
+  outline-offset:2px;
+  border-radius:4px;
+}
+html[data-dai-theme="light"] .classic-chat-message p .dai-inline-link,
+html[data-dai-theme="light"] .dai-companion-bubble p .dai-inline-link {
+  color:#9a4269;
+}
+html[data-dai-theme="light"] .classic-chat-message p .dai-inline-link:hover,
+html[data-dai-theme="light"] .dai-companion-bubble p .dai-inline-link:hover {
+  color:#6f2d4c;
+}
