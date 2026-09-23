@@ -84,7 +84,7 @@ type SearchSource = { title: string; url: string; snippet?: string };
 function searchTerms(value: string) {
   const stop = new Set([
     'عاوز','عايز','محتاج','ممكن','افضل','أفضل','احسن','أحسن','لينك','رابط','موقع',
-    'ابحث','دور','دورلي','دوري','دوريلي','دوّري','رشح','رشحلي','اختار','اختارلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','link','website','the','and','for','with',
+    'ابحث','دور','دورلي','دوري','دوريلي','دوّري','رشح','رشحلي','اختار','اختارلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','review','reviews','comparison','compare','current','latest','today','link','website','the','and','for','with',
     'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
   ]);
 
@@ -103,7 +103,7 @@ function searchTerms(value: string) {
     normalized
       .split(/\s+/)
       .map((term) => term.trim())
-      .filter((term) => term.length >= 2 && !stop.has(term))
+      .filter((term) => term.length >= 2 && !/^20\d{2}$/.test(term) && !stop.has(term))
   )].slice(0, 12);
 }
 
@@ -352,7 +352,7 @@ function decodeXml(value: string) {
 
 const SEARCH_TOTAL_BUDGET_MS = 26000;
 const SEARCH_BACKOFF_MS = 3 * 60 * 1000;
-const RESEARCH_CACHE_TTL_MS = 90 * 1000;
+const RESEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const researchCache = new Map<string, {
   at:number;
   value:{
@@ -733,7 +733,7 @@ async function fallbackBraveHtmlSearch(
   if (budget < 500) return [] as SearchSource[];
 
   const response = await timedFetch(
-    'https://search.brave.com/search?q=' + encodeURIComponent(query) + '&source=web',
+    'https://search.brave.com/search?q=' + encodeURIComponent(query),
     {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
@@ -745,27 +745,58 @@ async function fallbackBraveHtmlSearch(
     parentSignal,
   );
 
-  if (!response.ok) return [] as SearchSource[];
+  if (!response.ok) {
+    console.log('DAI fallback brave status', response.status);
+    return [] as SearchSource[];
+  }
+
   const html = await response.text();
   const sources: SearchSource[] = [];
   const seen = new Set<string>();
-  const anchorPattern = /<a[^>]*href=["'](https?:\/\/[^"'#]+)["'][^>]*(?:data-testid=["']result-title-a["']|class=["'][^"']*result-header[^"']*["'])[^>]*>([\s\S]*?)<\/a>/gi;
+
+  // Brave's current SERP wraps each organic result in an <a class="... l1">.
+  // The visible title lives in .search-snippet-title and the excerpt follows it.
+  const anchorPattern =
+    /<a\s+href=["'](https?:\/\/[^"']+)["'][^>]*class=["'][^"']*\bl1\b[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi;
   let match: RegExpExecArray | null;
 
-  while ((match = anchorPattern.exec(html)) && sources.length < 8) {
+  while ((match = anchorPattern.exec(html)) && sources.length < 10) {
     const url = decodeXml(match[1] || '').trim();
-    if (!/^https?:\/\//i.test(url) || seen.has(url) || /search\.brave\.com\//i.test(url)) continue;
+    if (
+      !/^https?:\/\//i.test(url) ||
+      seen.has(url) ||
+      /(?:search|imgs|cdn)\.brave\.com\//i.test(url)
+    ) continue;
 
-    const title = decodeXml(match[2] || '').slice(0,180);
-    const nearby = html.slice(match.index, Math.min(html.length, match.index + 2200));
-    const snippetMatch = nearby.match(/<(?:p|div)[^>]*class=["'][^"']*(?:snippet|description)[^"']*["'][^>]*>([\s\S]*?)<\/(?:p|div)>/i);
-    const snippet = decodeXml(snippetMatch?.[1] || '').slice(0,320);
+    const inside = match[2] || '';
+    const titleAttr = inside.match(
+      /class=["'][^"']*search-snippet-title[^"']*["'][^>]*title=["']([^"']+)["']/i
+    );
+    const titleNode = inside.match(
+      /class=["'][^"']*search-snippet-title[^"']*["'][^>]*>([\s\S]*?)<\/div>/i
+    );
+    const title = decodeXml(titleAttr?.[1] || titleNode?.[1] || '').slice(0,180);
+    if (!title) continue;
+
+    const nearby = html.slice(match.index, Math.min(html.length, match.index + 5200));
+    const snippetMatch =
+      nearby.match(
+        /class=["'][^"']*generic-snippet[^"']*["'][^>]*>[\s\S]*?<div[^>]*class=["'][^"']*content[^"']*["'][^>]*>([\s\S]*?)<\/div>/i
+      ) ||
+      nearby.match(
+        /class=["'][^"']*content desktop-default-regular[^"']*["'][^>]*>([\s\S]*?)<\/div>/i
+      );
+    const snippet = decodeXml(snippetMatch?.[1] || '')
+      .replace(/&nbsp;|&#160;/gi,' ')
+      .slice(0,320);
 
     seen.add(url);
-    sources.push({title:title || 'نتيجة بحث',url,snippet:snippet || undefined});
+    sources.push({ title, url, snippet: snippet || undefined });
   }
 
-  return rankSearchSources(query, sources);
+  const ranked = rankSearchSources(query, sources);
+  console.log('DAI fallback brave parsed', sources.length, ranked.length);
+  return ranked;
 }
 
 
@@ -890,28 +921,34 @@ async function fallbackMultiSearch(
   const remaining = searchTimeLeft(deadline);
   if (remaining < 700) return [] as SearchSource[];
 
-  const searchQueries = queries.slice(0, 2);
-  const tasks = searchQueries.map(async (searchQuery) => {
-    const [searx, bingRss, bingHtml, duck, brave] = await Promise.all([
-      fallbackSearxSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
-      fallbackRssSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
-      fallbackBingHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
-      fallbackDuckDuckGoSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
-      fallbackBraveHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
-    ]);
-    console.log('DAI fallback engine counts', {
-      query: searchQuery.slice(0,120),
-      searx: searx.length,
-      bingRss: bingRss.length,
-      bingHtml: bingHtml.length,
-      duck: duck.length,
-      brave: brave.length,
-    });
-    return [...searx, ...bingRss, ...bingHtml, ...duck, ...brave];
+  const primaryQuery = queries[0] || rewrittenQuery || originalQuery;
+
+  // Primary fallback: Brave currently returns the cleanest organic HTML from
+  // Supabase's egress. Keep this to one request to stay below anti-bot limits.
+  const brave = await fallbackBraveHtmlSearch(
+    primaryQuery,
+    deadline,
+    parentSignal,
+  ).catch(() => [] as SearchSource[]);
+
+  const braveForOriginal = rankSearchSources(originalQuery, brave);
+  if (braveForOriginal.length >= 2) return braveForOriginal;
+
+  // Secondary engines run only when Brave is unavailable/rate-limited.
+  const secondaryQuery = queries[1] || primaryQuery;
+  const [bingHtml, duck] = await Promise.all([
+    fallbackBingHtmlSearch(secondaryQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+    fallbackDuckDuckGoSearch(secondaryQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+  ]);
+
+  console.log('DAI fallback engine counts', {
+    query: primaryQuery.slice(0,120),
+    brave: brave.length,
+    bingHtml: bingHtml.length,
+    duck: duck.length,
   });
 
-  const groups = await Promise.all(tasks);
-  const merged = groups.flat();
+  const merged = [...brave, ...bingHtml, ...duck];
   const byOriginal = rankSearchSources(originalQuery, merged);
   if (byOriginal.length) return byOriginal;
   return rankSearchSources(rewrittenQuery || originalQuery, merged);
