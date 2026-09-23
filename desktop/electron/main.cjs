@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, WebContentsView, ipcMain, shell, dialog, screen, desktopCapturer } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 
@@ -10,6 +10,8 @@ const SUPABASE_PUBLISHABLE_KEY =
   'sb_publishable_uo9ZnHKtD-aDpE_zSJTaJg_inIzQ_Gt';
 let mainWindow = null;
 let companionWindow = null;
+let embeddedBrowserView = null;
+let embeddedBrowserUrl = '';
 let companionWander = false;
 let companionWanderTimer = null;
 let companionMoveTimer = null;
@@ -50,6 +52,138 @@ function safeExternalUrl(value) {
     return url.toString();
   } catch {
     return '';
+  }
+}
+
+function embeddedBrowserBounds() {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const [width, height] = mainWindow.getContentSize();
+  const panelWidth = Math.min(Math.floor(width * 0.48), 760);
+  const toolbarHeight = 58;
+  return {
+    x: Math.max(0, width - panelWidth),
+    y: toolbarHeight,
+    width: panelWidth,
+    height: Math.max(120, height - toolbarHeight),
+  };
+}
+
+function sendEmbeddedBrowserState(extra = {}) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const view = embeddedBrowserView;
+  const state = {
+    open: Boolean(view),
+    url: view && !view.webContents.isDestroyed()
+      ? (view.webContents.getURL() || embeddedBrowserUrl)
+      : embeddedBrowserUrl,
+    loading: Boolean(view && !view.webContents.isDestroyed() && view.webContents.isLoading()),
+    canGoBack: Boolean(view && !view.webContents.isDestroyed() && view.webContents.canGoBack()),
+    canGoForward: Boolean(view && !view.webContents.isDestroyed() && view.webContents.canGoForward()),
+    ...extra,
+  };
+  mainWindow.webContents.send('dai:browser-state', state);
+}
+
+function layoutEmbeddedBrowser() {
+  if (!embeddedBrowserView || !mainWindow || mainWindow.isDestroyed()) return;
+  const bounds = embeddedBrowserBounds();
+  if (!bounds) return;
+  embeddedBrowserView.setBounds(bounds);
+}
+
+function closeEmbeddedBrowser() {
+  const view = embeddedBrowserView;
+  embeddedBrowserView = null;
+  embeddedBrowserUrl = '';
+
+  if (view) {
+    try {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.contentView.removeChildView(view);
+      }
+    } catch {}
+    try {
+      if (!view.webContents.isDestroyed()) view.webContents.close();
+    } catch {}
+  }
+
+  sendEmbeddedBrowserState({ open: false, url: '' });
+}
+
+function createEmbeddedBrowser() {
+  if (embeddedBrowserView && !embeddedBrowserView.webContents.isDestroyed()) {
+    return embeddedBrowserView;
+  }
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+
+  const view = new WebContentsView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      partition: 'persist:dai-browser',
+      spellcheck: true,
+    },
+  });
+
+  embeddedBrowserView = view;
+  mainWindow.contentView.addChildView(view);
+  layoutEmbeddedBrowser();
+
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    const safeUrl = safeExternalUrl(url);
+    if (safeUrl) {
+      embeddedBrowserUrl = safeUrl;
+      void view.webContents.loadURL(safeUrl);
+    }
+    return { action: 'deny' };
+  });
+
+  view.webContents.on('will-navigate', (event, url) => {
+    if (!safeExternalUrl(url)) event.preventDefault();
+  });
+
+  const syncState = () => {
+    if (view.webContents.isDestroyed()) return;
+    embeddedBrowserUrl = view.webContents.getURL() || embeddedBrowserUrl;
+    sendEmbeddedBrowserState();
+  };
+
+  view.webContents.on('did-start-loading', syncState);
+  view.webContents.on('did-stop-loading', syncState);
+  view.webContents.on('did-navigate', syncState);
+  view.webContents.on('did-navigate-in-page', syncState);
+  view.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return;
+    sendEmbeddedBrowserState({
+      error: String(errorDescription || 'تعذر تحميل الصفحة.'),
+      url: validatedURL || embeddedBrowserUrl,
+    });
+  });
+
+  return view;
+}
+
+async function openEmbeddedBrowser(value) {
+  const url = safeExternalUrl(value);
+  if (!url) return { ok: false, message: 'الرابط غير صالح.' };
+  const view = createEmbeddedBrowser();
+  if (!view) return { ok: false, message: 'تعذر فتح المتصفح الداخلي.' };
+
+  embeddedBrowserUrl = url;
+  layoutEmbeddedBrowser();
+  sendEmbeddedBrowserState({ open: true, url, loading: true });
+
+  try {
+    await view.webContents.loadURL(url);
+    return { ok: true, url: view.webContents.getURL() || url };
+  } catch (error) {
+    return {
+      ok: false,
+      url,
+      message: String(error?.message || 'تعذر تحميل الصفحة.').slice(0, 240),
+    };
   }
 }
 
@@ -501,6 +635,10 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.loadURL(APP_URL);
 
+  mainWindow.on('resize', layoutEmbeddedBrowser);
+  mainWindow.on('maximize', layoutEmbeddedBrowser);
+  mainWindow.on('unmaximize', layoutEmbeddedBrowser);
+
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     try {
       if (new URL(url).origin === ALLOWED_ORIGIN) return { action: 'allow' };
@@ -533,7 +671,10 @@ function createWindow() {
     callback(allowed);
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    closeEmbeddedBrowser();
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(async () => {
@@ -548,8 +689,8 @@ app.whenReady().then(async () => {
       owner: desktopEntitlement.owner,
       requiresProfessional: true,
       actions: professional
-        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion','screenSnapshot']
-        : [],
+        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion','screenSnapshot','nativeBrowser']
+        : ['nativeBrowser'],
     };
   });
 
@@ -561,6 +702,62 @@ app.whenReady().then(async () => {
   ipcMain.handle('dai:clear-session', (event) => {
     if (!senderAllowed(event)) return false;
     desktopEntitlement = { token: '', plan: 'standard', owner: false, checkedAt: Date.now() };
+    return true;
+  });
+
+  ipcMain.handle('dai:browser-open', async (event, url) => {
+    if (!senderAllowed(event)) return { ok: false, message: 'غير مسموح.' };
+    if (!actionAllowed(event, 40)) return { ok: false, message: 'طلبات كتير بسرعة.' };
+    return openEmbeddedBrowser(url);
+  });
+
+  ipcMain.handle('dai:browser-close', (event) => {
+    if (!senderAllowed(event)) return false;
+    closeEmbeddedBrowser();
+    return true;
+  });
+
+  ipcMain.handle('dai:browser-reload', (event) => {
+    if (!senderAllowed(event) || !embeddedBrowserView) return false;
+    try {
+      embeddedBrowserView.webContents.reload();
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('dai:browser-back', (event) => {
+    if (!senderAllowed(event) || !embeddedBrowserView) return false;
+    try {
+      if (!embeddedBrowserView.webContents.canGoBack()) return false;
+      embeddedBrowserView.webContents.goBack();
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('dai:browser-forward', (event) => {
+    if (!senderAllowed(event) || !embeddedBrowserView) return false;
+    try {
+      if (!embeddedBrowserView.webContents.canGoForward()) return false;
+      embeddedBrowserView.webContents.goForward();
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('dai:browser-external', async (event) => {
+    if (!senderAllowed(event)) return false;
+    const url = safeExternalUrl(
+      embeddedBrowserView && !embeddedBrowserView.webContents.isDestroyed()
+        ? embeddedBrowserView.webContents.getURL()
+        : embeddedBrowserUrl
+    );
+    if (!url) return false;
+    await shell.openExternal(url);
     return true;
   });
 
