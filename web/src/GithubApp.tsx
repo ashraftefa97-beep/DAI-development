@@ -2024,9 +2024,7 @@ export default function GithubApp(){
       if(eventName==='research'){
         latestSearchSources=normalizeSearchSources(payload?.sources);
         setResearching(true);
-        // Search already owns the initial action cue from sendMessage.
-        // Keep this event visual-only so sound and motion don't double-trigger.
-        if(Date.now()>=animationLockUntilRef.current)animate('search',0);
+        transitionCorePhase('searching');
         return;
       }
 
@@ -2079,13 +2077,12 @@ export default function GithubApp(){
           firstDelta=true;
           sonicRequestRef.current++;
           setResearching(false);
-          daiSfx.playState(shouldSpeak?'thinking':'responding');
           setStreamingText(!shouldSpeak);
           if(shouldSpeak){
-            animate('voicewait',0);
+            transitionCorePhase('preparing');
             setVoiceNotice('ضي بتجهّز الرد والصوت…');
-          }else if(Date.now()>=animationLockUntilRef.current){
-            animate('reply',0);
+          }else{
+            transitionCorePhase('responding');
           }
         }
 
@@ -2117,7 +2114,7 @@ export default function GithubApp(){
       if(eventName==='done'){
         doneReceived=true;
         sonicRequestRef.current++;
-        if(!shouldSpeak)daiSfx.playState('complete');
+        if(!shouldSpeak)transitionCorePhase('complete');
         const row=payload?.assistantMessage;
         if(!row||!conversationId)return;
 
@@ -2150,7 +2147,7 @@ export default function GithubApp(){
         setResearching(false);
 
         if(shouldSpeak){
-          animate('voicewait',0);
+          transitionCorePhase('preparing');
           setVoiceNotice('بجهّز صوت ضي…');
           void (async()=>{
             let revealed=false;
@@ -2165,11 +2162,11 @@ export default function GithubApp(){
                 assistantMessage.content,
                 ()=>{
                   reveal();
-                  daiSfx.playState('responding');
+                  transitionCorePhase('speaking');
                   setVoiceNotice('ضي بتتكلم.');
                 },
                 ()=>{
-                  daiSfx.playState('complete');
+                  transitionCorePhase('complete');
                 },
                 shouldSpeak,
                 requestId
@@ -2181,14 +2178,13 @@ export default function GithubApp(){
             }catch(error){
               console.error('DAI spoken reply failed',error);
               reveal();
-              setDaiState('idle');
+              transitionCorePhase('idle',{silent:true,force:true});
               setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
             }
           })();
           void chooseContextAnimation(text,assistantMessage.content);
         }else{
           revealAssistant(assistantMessage);
-          if(Date.now()>=animationLockUntilRef.current)animate('reply',900);
           void chooseContextAnimation(text,assistantMessage.content);
         }
         return;
@@ -2712,17 +2708,14 @@ export default function GithubApp(){
     setSending(true);
     setStreamingText(false);
     setResearching(predictedResearch);
-    const sonicRequest=++sonicRequestRef.current;
-    daiSfx.playState(
-      predictedResearch?'action'
-      : predictedComplex?'thinking'
-      : 'action'
+    sonicRequestRef.current++;
+    transitionCorePhase(
+      fromVoice?'preparing'
+      : predictedResearch?'searching'
+      : predictedComplex?'understanding'
+      : 'understanding',
+      {force:true}
     );
-    if(!predictedResearch&&!predictedComplex){
-      window.setTimeout(()=>{
-        if(sonicRequestRef.current===sonicRequest&&sending)daiSfx.playState('thinking');
-      },520);
-    }
     if(professional&&proAnimations&&looksLikeAnimationRequest(text)){
       void handleExplicitAnimationRequest(text);
     }
@@ -2734,14 +2727,11 @@ export default function GithubApp(){
       createdAt:Date.now()
     };
     setPendingUserMessage(optimisticMessage);
-    animate(
-      fromVoice?'voicewait'
-      : predictedResearch?'search'
-      : predictedCommand||predictedCode||predictedImage?'working'
-      : predictedComplex?'thinking_deep'
-      : stateForUserText(text),
-      0
-    );
+    if(predictedCommand||predictedCode||predictedImage){
+      if(Date.now()>=animationLockUntilRef.current)animate('working',0);
+    }else if(!predictedResearch&&!predictedComplex&&!fromVoice){
+      if(Date.now()>=animationLockUntilRef.current)animate(stateForUserText(text),0);
+    }
 
     if(!fromVoice&&predictedCode){
       try{
