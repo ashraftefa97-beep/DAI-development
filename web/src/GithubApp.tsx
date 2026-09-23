@@ -853,15 +853,6 @@ export default function GithubApp(){
     }
   }
 
-  function stateForUserText(text:string):DaiState{
-    if(/شكرا|شكرًا|تسلم|حلو|جميل|ممتاز|فرح|مبسوط/i.test(text))return 'happy';
-    if(/بحب|حب|قلب|وحشت/i.test(text))return 'heart';
-    if(/نعسان|نوم|نامي|تصبحي|تصبح/i.test(text))return 'sleep';
-    if(/فكرة|اقتراح|صمم|اعمل|نخطط|خطة|ابداع/i.test(text))return 'idea';
-    if(/بحث|دور|ابحث|مين|امتى|متى|فين|أين|اين|كام|كم|آخر|احدث|أحدث|search|latest/i.test(text))return 'search';
-    return 'typing';
-  }
-
   function wantsSpokenReply(text:string){
     return /(?:قولي|قول|اتكلمي|اتكلم|ردي|رد|اقري|اقرئي|انطقي|انطق|اسمع|سمعني|عاوز اسمع|عايز اسمع|بصوتك|بالصوت|صوتي|voice|speak|say it aloud|read it aloud)/i.test(text);
   }
