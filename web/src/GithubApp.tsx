@@ -5,6 +5,7 @@ import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Datab
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
+import { routeDaiTask } from './taskRouter';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -149,7 +150,7 @@ function renderLinkedText(content:string){
   if(!text)return text;
 
   const parts:any[]=[];
-  const pattern=/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/gi;
+  const pattern=/\[DAI_IMAGE\]\((https?:\/\/[^\s)]+)\)|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"']+)/gi;
   let lastIndex=0;
   let match:RegExpExecArray|null;
   let key=0;
@@ -157,11 +158,26 @@ function renderLinkedText(content:string){
   while((match=pattern.exec(text))){
     if(match.index>lastIndex)parts.push(text.slice(lastIndex,match.index));
 
-    let label=match[1]||'';
-    let url=match[2]||match[3]||'';
+    if(match[1]){
+      const imageUrl=match[1];
+      parts.push(
+        <a
+          className='dai-generated-image'
+          href={imageUrl}
+          target='_blank'
+          rel='noopener noreferrer'
+          key={'image-'+key++}
+        ><img src={imageUrl} alt='صورة أنشأتها ضي' loading='lazy'/></a>
+      );
+      lastIndex=pattern.lastIndex;
+      continue;
+    }
+
+    let label=match[2]||'';
+    let url=match[3]||match[4]||'';
     let trailing='';
 
-    if(!match[2]){
+    if(!match[3]){
       const trimmed=url.replace(/[.,!?،؛:]+$/g,'');
       trailing=url.slice(trimmed.length);
       url=trimmed;
@@ -274,6 +290,9 @@ export default function GithubApp(){
   const [researching,setResearching]=useState(false);
   const [codeEnginePhase,setCodeEnginePhase]=useState<'idle'|'loading'|'coding'>('idle');
   const [codeEngineProgress,setCodeEngineProgress]=useState(0);
+  const [generalEnginePhase,setGeneralEnginePhase]=useState<'idle'|'loading'|'thinking'>('idle');
+  const [generalEngineProgress,setGeneralEngineProgress]=useState(0);
+  const [imageGenerating,setImageGenerating]=useState(false);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined'?true:navigator.onLine);
@@ -319,6 +338,7 @@ export default function GithubApp(){
   const speechRunRef=useRef(0);
   const textRequestAbortRef=useRef<AbortController|null>(null);
   const localCoderStopRef=useRef<(()=>void)|null>(null);
+  const localGeneralStopRef=useRef<(()=>void)|null>(null);
   const streamMessageIdRef=useRef('');
   const chatScrollRef=useRef<HTMLElement|null>(null);
   const recognitionRef=useRef<any>(null);
@@ -469,13 +489,11 @@ export default function GithubApp(){
   }
 
   function looksLikeResearchRequest(text:string){
-    return /(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|سعر|اسعار|أسعار|لينك|رابط|فيديو|يوتيوب|youtube|موقع|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|حل مشكلة|حل للمشكلة|راجعلي|تحقق|اتأكد|تأكد|latest|search|find|link|video|price|source|compare)/i.test(text);
+    return routeDaiTask(text).route==='research';
   }
 
   function looksLikeCodeRequest(text:string){
-    const normalized=text.trim();
-    if(/(?:كود خصم|promo code|discount code|رمز تحقق|verification code|باركود|barcode|qr code)/i.test(normalized))return false;
-    return /(?:اكتبلي?\s+كود|اكتب\s+كود|برمج|برمجة|برمجه|مطور|تطوير\s+(?:موقع|تطبيق)|اعمل\s+(?:موقع|صفحة|صفحه|تطبيق|سكريبت)|صلح\s+(?:الكود|الخطأ|البج)|عدل\s+(?:الكود|الموقع|الصفحة|الصفحه)|كود\s+(?:html|css|javascript|typescript|react|python|sql)|\bhtml\b|\bcss\b|\bjavascript\b|\btypescript\b|\breact\b|\bnode(?:\.js)?\b|\bpython\b|\bsql\b|\bapi\b|\bregex\b|\bdebug\b|\brefactor\b|\bfunction\b|\bclass\b|\bcomponent\b|github\s+(?:repo|repository)|سكريبت|بايثون|جافاسكريبت|تايب سكريبت|ريأكت|رياكت|قاعدة بيانات|داتابيز)/i.test(normalized);
+    return routeDaiTask(text).route==='code';
   }
 
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
@@ -1464,9 +1482,14 @@ export default function GithubApp(){
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
     localCoderStopRef.current?.();
+    localGeneralStopRef.current?.();
     localCoderStopRef.current=null;
+    localGeneralStopRef.current=null;
     setCodeEnginePhase('idle');
     setCodeEngineProgress(0);
+    setGeneralEnginePhase('idle');
+    setGeneralEngineProgress(0);
+    setImageGenerating(false);
     const tempId=streamMessageIdRef.current;
     if(tempId){
       setConversations(prev=>prev.map(conversation=>({
