@@ -1773,20 +1773,75 @@ Deno.serve(async (req) => {
               research.status,
               String(research.detail || '').slice(0, 900),
             );
-            await rollbackFailedTurn();
-            push('error', {
-              code: 'RESEARCH_FAILED',
-              message: research.status === 429
-                ? 'محرك البحث الأساسي وصل لحده المؤقت، وضي مقدرتش تجيب بديل موثوق في المحاولة دي. جرّب تاني بعد لحظة.'
-                : 'ضي مش قادرة تكمل البحث دلوقتي. جرّب تاني.',
-            });
-            close();
-            return;
-          }
 
-          answer = research.answer;
-          usedModel = 'dai-web-research:' + research.model;
-          firstTokenMs = Math.round(performance.now() - requestStartedAt);
+            // Do not turn a temporary search-provider outage into a dead chat.
+            // Fall back to DAI's normal reasoning model, but explicitly forbid
+            // pretending that live web verification happened.
+            const degradedPrompt =
+              systemPrompt +
+              '\nالبحث المباشر على الويب غير متاح مؤقتًا. جاوب من معرفتك فقط، ولا تدّعي إنك بحثت أو تحققت لحظيًا. ' +
+              'لو السؤال يعتمد على معلومات حديثة أو أسعار/توفر، وضّح باختصار إن الجزء ده غير متحقق لحظيًا.';
+
+            let degradedAnswer = '';
+            let degradedModel = '';
+            for (const model of modelCandidatesForBrain('smart', configuredModel)) {
+              try {
+                const response = await timedFetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+                  {
+                    method:'POST',
+                    headers:{
+                      'x-goog-api-key':apiKey,
+                      'Content-Type':'application/json',
+                    },
+                    body:JSON.stringify({
+                      systemInstruction:{parts:[{text:degradedPrompt}]},
+                      contents,
+                      generationConfig:{
+                        maxOutputTokens:520,
+                        temperature:0.35,
+                        thinkingConfig:{thinkingLevel:thinkingLevelForModel(model,'smart')},
+                      },
+                    }),
+                  },
+                  9000,
+                  req.signal,
+                );
+                if(!response.ok)continue;
+                const payload=await response.json().catch(()=>({}));
+                degradedAnswer=String(
+                  payload?.candidates?.[0]?.content?.parts
+                    ?.map((part:any)=>part?.text||'')
+                    ?.join('')||''
+                ).trim();
+                if(degradedAnswer){
+                  degradedModel=model;
+                  break;
+                }
+              }catch{
+                if(req.signal.aborted)break;
+              }
+            }
+
+            if(!degradedAnswer){
+              await rollbackFailedTurn();
+              push('error', {
+                code: 'RESEARCH_FAILED',
+                message: 'ضي مش قادرة تكمل البحث أو تجهز بديل دلوقتي. جرّب تاني بعد شوية.',
+              });
+              close();
+              return;
+            }
+
+            answer = degradedAnswer;
+            usedModel = 'research-degraded:' + degradedModel;
+            firstTokenMs = Math.round(performance.now() - requestStartedAt);
+            push('delta', { text: answer });
+          } else {
+            answer = research.answer;
+            usedModel = 'dai-web-research:' + research.model;
+            firstTokenMs = Math.round(performance.now() - requestStartedAt);
+          }
 
           for (const source of research.sources) {
             groundingSources.set(source.url, source);
