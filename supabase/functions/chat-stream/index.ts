@@ -1097,6 +1097,306 @@ function storeResearchCache(query: string, value: {
   }
 }
 
+
+async function persistentCachedResearch(admin:any, query:string) {
+  if (!admin) return null;
+  const key = normalizedResearchKey(query);
+  if (!key) return null;
+
+  try {
+    const { data, error } = await admin
+      .from('dai_search_cache')
+      .select('answer,sources,engine,status,expires_at,hits')
+      .eq('cache_key', key)
+      .gt('expires_at', new Date().toISOString())
+      .maybeSingle();
+
+    if (error || !data?.answer) return null;
+
+    const sources = rankSearchSources(
+      query,
+      Array.isArray(data.sources) ? data.sources : []
+    );
+
+    void admin
+      .from('dai_search_cache')
+      .update({ hits: Number(data.hits || 0) + 1, updated_at: new Date().toISOString() })
+      .eq('cache_key', key);
+
+    return {
+      ok:true,
+      answer:String(data.answer),
+      sources,
+      model:String(data.engine || 'persistent-cache') + ':cache',
+      status:Number(data.status || 200),
+      detail:'',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function storePersistentResearchCache(
+  admin:any,
+  query:string,
+  value:{
+    ok:boolean;
+    answer:string;
+    sources:SearchSource[];
+    model:string;
+    status:number;
+    detail:string;
+  },
+  ttlMs=30*60*1000,
+) {
+  if (!admin || !value.ok || !value.answer) return;
+  const key = normalizedResearchKey(query);
+  if (!key) return;
+
+  try {
+    const now = Date.now();
+    await admin.from('dai_search_cache').upsert({
+      cache_key:key,
+      query_text:String(query || '').slice(0,1200),
+      answer:value.answer,
+      sources:value.sources.slice(0,8),
+      engine:value.model || 'research',
+      status:value.status || 200,
+      updated_at:new Date(now).toISOString(),
+      expires_at:new Date(now + ttlMs).toISOString(),
+    },{onConflict:'cache_key'});
+  } catch (error) {
+    console.warn('DAI persistent search cache warning', String(error || '').slice(0,240));
+  }
+}
+
+function isPoliticalResearchQuery(query:string) {
+  return /(?:انتخاب|انتخابات|مرشح|مرشحين|حزب|أحزاب|رئيس|برلمان|كونغرس|مجلس الشيوخ|حكومة|وزير|سياسة|سياسي|politic|election|candidate|party|president|parliament|congress|senate|minister|ballot|referendum)/i.test(query);
+}
+
+function safePublicHttpUrl(value:string) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (!['http:','https:'].includes(url.protocol)) return '';
+    if (url.username || url.password) return '';
+    if (url.port && !['80','443'].includes(url.port)) return '';
+
+    const host = url.hostname.toLowerCase().replace(/^\[|\]$/g,'');
+    if (!host) return '';
+    if (
+      host === 'localhost' ||
+      host === '::1' ||
+      host === '0:0:0:0:0:0:0:1' ||
+      host.endsWith('.localhost') ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      host === 'metadata.google.internal'
+    ) return '';
+
+    if (/^(?:127\.|10\.|0\.|169\.254\.|192\.168\.)/.test(host)) return '';
+    const private172 = host.match(/^172\.(\d+)\./);
+    if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return '';
+
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+async function readTextLimited(response:Response, maxBytes=220000) {
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = '';
+
+  try {
+    while (total < maxBytes) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (!value?.byteLength) continue;
+
+      const take = Math.min(value.byteLength, maxBytes - total);
+      text += decoder.decode(value.subarray(0,take), {stream:true});
+      total += take;
+
+      if (take < value.byteLength || total >= maxBytes) {
+        try { await reader.cancel(); } catch {}
+        break;
+      }
+    }
+  } catch {
+    // Keep partial text.
+  }
+
+  text += decoder.decode();
+  return text;
+}
+
+function extractPageSnippet(html:string, query:string) {
+  const meta =
+    html.match(/<meta[^>]*(?:name|property)=["'](?:description|og:description|twitter:description)["'][^>]*content=["']([^"']+)["'][^>]*>/i) ||
+    html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*(?:name|property)=["'](?:description|og:description|twitter:description)["'][^>]*>/i);
+
+  const withoutNoise = html
+    .replace(/<script[\s\S]*?<\/script>/gi,' ')
+    .replace(/<style[\s\S]*?<\/style>/gi,' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi,' ');
+
+  const visible = decodeXml(withoutNoise).slice(0,70000);
+  const terms = searchTerms(query);
+  let focus = '';
+
+  for (const term of terms) {
+    const index = visible.toLowerCase().indexOf(term.toLowerCase());
+    if (index < 0) continue;
+    focus = visible
+      .slice(Math.max(0,index-240), Math.min(visible.length,index+760))
+      .replace(/\s+/g,' ')
+      .trim();
+    if (focus) break;
+  }
+
+  const metaText = decodeXml(meta?.[1] || '').slice(0,360);
+  return [metaText, focus]
+    .filter(Boolean)
+    .join(' — ')
+    .slice(0,900);
+}
+
+async function fetchCandidateSource(
+  rawUrl:string,
+  query:string,
+  deadline:number,
+  parentSignal?:AbortSignal,
+) {
+  const url = safePublicHttpUrl(rawUrl);
+  if (!url || searchTimeLeft(deadline) < 700) return null;
+
+  try {
+    const response = await timedFetch(
+      url,
+      {
+        method:'GET',
+        redirect:'follow',
+        headers:{
+          'User-Agent':'Mozilla/5.0 (compatible; DAI-Research/2.0)',
+          'Accept':'text/html,application/xhtml+xml,text/plain;q=0.8,*/*;q=0.2',
+          'Accept-Language':'ar,en-US;q=0.9,en;q=0.8',
+        },
+      },
+      Math.min(5200, searchTimeLeft(deadline)),
+      parentSignal,
+    );
+
+    const finalUrl = safePublicHttpUrl(response.url || url);
+    if (!response.ok || !finalUrl) return null;
+
+    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('text/html') && !contentType.includes('text/plain')) return null;
+
+    const html = await readTextLimited(response, 220000);
+    if (!html) return null;
+
+    const titleMatch =
+      html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["'][^>]*>/i) ||
+      html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = decodeXml(titleMatch?.[1] || '').slice(0,180) || new URL(finalUrl).hostname;
+    const snippet = extractPageSnippet(html, query);
+
+    const ranked = rankSearchSources(query,[{title,url:finalUrl,snippet:snippet || undefined}]);
+    return ranked[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+async function discoverAndValidateSources(
+  apiKey:string,
+  configuredModel:string,
+  query:string,
+  deadline:number,
+  parentSignal?:AbortSignal,
+) {
+  if (!apiKey || isPoliticalResearchQuery(query) || searchTimeLeft(deadline) < 1500) {
+    return [] as SearchSource[];
+  }
+
+  const models = [
+    'gemini-3.5-flash-lite',
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-3.1-flash-lite',
+  ].filter((model,index,all)=>all.indexOf(model)===index);
+
+  const prompt =
+    'You are a URL discovery helper, not a search engine. ' +
+    'For the user request below, propose 8 to 10 likely PUBLIC HTTPS pages that can verify the answer. ' +
+    'Prioritize official sites plus reputable independent publications/reviews when relevant. ' +
+    'Use canonical pages you are reasonably confident exist. ' +
+    'Do NOT return search-engine result pages, social feeds, localhost/private-network URLs, or invented-looking domains. ' +
+    'Return strict JSON only as {"urls":["https://..."]}. User request: ' + query;
+
+  let candidates:string[] = [];
+
+  for (const model of models) {
+    if (searchTimeLeft(deadline) < 1200) break;
+    try {
+      const response = await timedFetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method:'POST',
+          headers:{
+            'x-goog-api-key':apiKey,
+            'Content-Type':'application/json',
+          },
+          body:JSON.stringify({
+            contents:[{role:'user',parts:[{text:prompt}]}],
+            generationConfig:{
+              maxOutputTokens:360,
+              temperature:0.15,
+              responseMimeType:'application/json',
+            },
+          }),
+        },
+        Math.min(4200, searchTimeLeft(deadline)),
+        parentSignal,
+      );
+
+      if (!response.ok) continue;
+      const payload = await response.json().catch(()=>({}));
+      const raw = String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part:any)=>part?.text||'')
+          ?.join('') || ''
+      ).trim();
+
+      let parsed:any = null;
+      try { parsed = JSON.parse(raw); } catch {}
+      const urls = Array.isArray(parsed?.urls) ? parsed.urls : [];
+      candidates = urls
+        .map((item:any)=>safePublicHttpUrl(String(item||'')))
+        .filter(Boolean)
+        .filter((value:string,index:number,all:string[])=>all.indexOf(value)===index)
+        .slice(0,10);
+
+      if (candidates.length) break;
+    } catch {
+      if (parentSignal?.aborted) break;
+    }
+  }
+
+  if (!candidates.length || searchTimeLeft(deadline) < 900) return [] as SearchSource[];
+
+  const results = await Promise.all(
+    candidates.slice(0,8).map((url)=>fetchCandidateSource(url,query,deadline,parentSignal))
+  );
+
+  return rankSearchSources(
+    query,
+    results.filter(Boolean) as SearchSource[],
+  ).slice(0,6);
+}
+
 async function interactionGroundedResearch(
   apiKey: string,
   query: string,
