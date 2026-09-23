@@ -203,9 +203,14 @@ class DaiSfxEngine {
     }
   }
 
-  setScene(next:DaiSonicState){
+  setScene(next:DaiSonicState,options:{cue?:boolean}={}){
     this.ambienceState=next;
     this.refreshAmbience(next==='speaking'?80:next==='idle'?260:180);
+    if(options.cue===false){
+      this.lastSonicState=next;
+      this.lastSonicAt=performance.now();
+      return false;
+    }
     return this.playState(next);
   }
 
