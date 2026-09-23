@@ -244,6 +244,8 @@ export default function GithubApp(){
   const [speakingMessageId,setSpeakingMessageId]=useState('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
+  const sfxWakePlayedRef=useRef(false);
+  const sonicRequestRef=useRef(0);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAudioUnlockedRef=useRef(false);
@@ -482,10 +484,12 @@ export default function GithubApp(){
   }
 
   function handleInputChange(value:string){
+    const wasEmpty=!input.trim();
     setInput(value);
     if(listening||sending)return;
     clearTimeout(typingTimer.current);
     if(value.trim()){
+      if(wasEmpty)daiSfx.playState('attention');
       setDaiState('typing');
       typingTimer.current=window.setTimeout(()=>setDaiState('idle'),850);
     }else if(daiState==='typing'){
@@ -662,7 +666,15 @@ export default function GithubApp(){
   useEffect(()=>{
     const unlock=()=>{
       void unlockSpeechAudio();
-      void daiSfx.unlock();
+      if(!sfxWakePlayedRef.current){
+        sfxWakePlayedRef.current=true;
+        void daiSfx.unlock().then(ok=>{
+          if(ok)daiSfx.playState('wake');
+          else sfxWakePlayedRef.current=false;
+        });
+      }else{
+        void daiSfx.unlock();
+      }
     };
     window.addEventListener('pointerdown',unlock,{capture:true,passive:true});
     window.addEventListener('touchend',unlock,{capture:true,passive:true});
@@ -1496,6 +1508,8 @@ export default function GithubApp(){
 
         if(!firstDelta){
           firstDelta=true;
+          sonicRequestRef.current++;
+          daiSfx.playState(shouldSpeak?'thinking':'responding');
           setStreamingText(!shouldSpeak);
           if(shouldSpeak){
             animate('voicewait',0);
@@ -1532,6 +1546,8 @@ export default function GithubApp(){
 
       if(eventName==='done'){
         doneReceived=true;
+        sonicRequestRef.current++;
+        daiSfx.playState('complete');
         const row=payload?.assistantMessage;
         if(!row||!conversationId)return;
 
@@ -1700,6 +1716,11 @@ export default function GithubApp(){
     setErrorText('');
     setSending(true);
     setStreamingText(false);
+    const sonicRequest=++sonicRequestRef.current;
+    daiSfx.playState('action');
+    window.setTimeout(()=>{
+      if(sonicRequestRef.current===sonicRequest)daiSfx.playState('thinking');
+    },110);
     if(professional&&proAnimations&&looksLikeAnimationRequest(text)){
       void handleExplicitAnimationRequest(text);
     }
@@ -1723,6 +1744,8 @@ export default function GithubApp(){
         await streamTypedReply(text,desktopActionResult,'','auto');
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
+        sonicRequestRef.current++;
+        if(!aborted)daiSfx.playState('error');
         const tempId=streamMessageIdRef.current;
         if(tempId){
           setConversations(prev=>prev.map(item=>({
@@ -1905,6 +1928,7 @@ export default function GithubApp(){
     liveBargeFramesRef.current=0;
     liveInputPcmBufferRef.current=new Float32Array(0);
     setVoiceSessionStatus('listening');
+    daiSfx.playState('listening');
     animate('listen',0);
   }
 
@@ -1929,7 +1953,10 @@ export default function GithubApp(){
     if(!samples.length)return;
 
     liveTurnCompleteRef.current=false;
-    if(!liveSpeakingStartedAtRef.current)liveSpeakingStartedAtRef.current=Date.now();
+    if(!liveSpeakingStartedAtRef.current){
+      liveSpeakingStartedAtRef.current=Date.now();
+      daiSfx.playState('responding');
+    }
 
     const sampleRate=liveOutputRate(mimeType);
     const buffer=ctx.createBuffer(1,samples.length,sampleRate);
@@ -2049,6 +2076,7 @@ export default function GithubApp(){
     setListening(true);
     setVoiceSessionStatus('listening');
     setVoiceNotice('الميكروفون شغال والصوت جاهز.');
+    daiSfx.playState('listening');
     animate('listen',0);
   }
 
@@ -2608,6 +2636,7 @@ export default function GithubApp(){
     if(!supabase)return;
     setVoiceNoteProcessing(true);
     setVoiceNotice('ضي بتفهم التسجيل…');
+    daiSfx.playState('thinking');
     animate('search',0);
     try{
       if(blob.size<350)throw new Error('empty-recording');
@@ -2634,6 +2663,7 @@ export default function GithubApp(){
         setErrorText('ضي مقدرتش تفهم التسجيل ده. جرّب تسجله تاني.');
       }
       setVoiceNotice('التسجيل ماوصلش بشكل سليم.');
+      daiSfx.playState('error');
       animate('error',1500);
     }finally{
       setVoiceNoteProcessing(false);
@@ -2651,6 +2681,7 @@ export default function GithubApp(){
     setErrorText('');
     setVoiceNotice('بسجّل… اضغط الميكروفون تاني للإرسال.');
     setVoiceNoteSeconds(0);
+    daiSfx.playState('attention');
     animate('listen',0);
 
     try{
@@ -2687,6 +2718,7 @@ export default function GithubApp(){
 
       recorder.start(500);
       setVoiceNoteRecording(true);
+      daiSfx.playState('listening');
       voiceRecorderTimerRef.current=window.setInterval(()=>{
         setVoiceNoteSeconds(current=>{
           const next=current+1;
@@ -2701,6 +2733,7 @@ export default function GithubApp(){
       cleanupVoiceRecorder();
       setErrorText('ضي مش قادرة تفتح الميكروفون. اسمح بالميكروفون للموقع وجرب تاني.');
       setVoiceNotice('الميكروفون مش متاح.');
+      daiSfx.playState('error');
       animate('error',1500);
     }
   }
@@ -2709,6 +2742,7 @@ export default function GithubApp(){
     const recorder=voiceRecorderRef.current;
     if(!recorder||recorder.state!=='recording')return;
     setVoiceNotice('بجهّز التسجيل للإرسال…');
+    daiSfx.playState('action');
     try{recorder.stop();}catch{
       cleanupVoiceRecorder();
       setErrorText('التسجيل وقف بشكل غير متوقع. جرّب تاني.');
@@ -2969,6 +3003,16 @@ export default function GithubApp(){
       return b.updatedAt-a.updatedAt;
     });
 
+  const daiPhase=
+    errorText?'error'
+    : voiceSessionStatus==='speaking'||Boolean(speakingMessageId)||daiState==='talk'?'speaking'
+    : voiceNoteRecording||(voiceSessionActive&&voiceSessionStatus==='listening')||daiState==='listen'?'listening'
+    : ['success','found','response_ready'].includes(daiState)?'complete'
+    : voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
+    : streamingText||daiState==='reply'?'responding'
+    : input.trim()||daiState==='typing'?'attention'
+    : 'idle';
+
   const daiStatusLabel=!online
     ? 'مفيش اتصال'
     : loadingData
@@ -2989,7 +3033,7 @@ export default function GithubApp(){
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
-    return <main className='dai-companion-shell' dir='rtl' data-state={daiState}>
+    return <main className='dai-companion-shell' dir='rtl' data-state={daiState} data-ai-phase={daiPhase}>
       <div className='dai-companion-halo'/>
       <button
         className='dai-companion-face'
@@ -3022,7 +3066,7 @@ export default function GithubApp(){
     </main>;
   }
 
-  return <main className='classic-shell' dir='rtl'>
+  return <main className='classic-shell' dir='rtl' data-ai-phase={daiPhase}>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
