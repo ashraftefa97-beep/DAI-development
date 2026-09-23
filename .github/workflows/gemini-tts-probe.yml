@@ -1,0 +1,20 @@
+name: Gemini TTS Probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/gemini-tts-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify Gemini returns real audio
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/tts-gemini-probe"
+          BODY="$(curl -fsS --retry 2 --retry-delay 2 "$URL")"
+          echo "$BODY"
+          echo "$BODY" | jq -e '.ok == true and (.bytes | tonumber) > 1000 and (.mimeType | length) > 0'
