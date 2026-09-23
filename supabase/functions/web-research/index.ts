@@ -127,8 +127,15 @@ function decodeHtml(value: string) {
     .trim();
 }
 
-const SEARCH_TOTAL_BUDGET_MS = 30000;
-const SEARCH_BACKOFF_MS = 5 * 60 * 1000;
+const SEARCH_TOTAL_BUDGET_MS = 26000;
+const SEARCH_BACKOFF_MS = 3 * 60 * 1000;
+const RESEARCH_CACHE_TTL_MS = 90 * 1000;
+const researchCache = new Map<string, {
+  at:number;
+  answer:string;
+  sources:SearchSource[];
+  engine:string;
+}>();
 let groundingBackoffUntil = 0;
 let synthesisBackoffUntil = 0;
 
@@ -525,6 +532,103 @@ async function synthesizeFromSources(
   return '';
 }
 
+function researchCacheKey(query: string) {
+  return String(query || '').toLowerCase().replace(/\s+/g,' ').trim().slice(0,500);
+}
+
+function getResearchCache(query: string) {
+  const key=researchCacheKey(query);
+  const cached=researchCache.get(key);
+  if(!cached)return null;
+  if(Date.now()-cached.at>RESEARCH_CACHE_TTL_MS){
+    researchCache.delete(key);
+    return null;
+  }
+  return cached;
+}
+
+function setResearchCache(query: string, answer: string, sources: SearchSource[], engine: string) {
+  if(!answer)return;
+  researchCache.set(researchCacheKey(query),{at:Date.now(),answer,sources,engine});
+  if(researchCache.size>40){
+    const oldest=[...researchCache.entries()]
+      .sort((a,b)=>a[1].at-b[1].at)
+      .slice(0,researchCache.size-40);
+    for(const [key] of oldest)researchCache.delete(key);
+  }
+}
+
+async function interactionGroundedSearch(
+  apiKey:string,
+  query:string,
+  prompt:string,
+  deadline:number,
+  parentSignal?:AbortSignal,
+){
+  if(Date.now()<groundingBackoffUntil||searchTimeLeft(deadline)<1000)return null;
+
+  try{
+    const response=await timedFetch(
+      'https://generativelanguage.googleapis.com/v1beta/interactions',
+      {
+        method:'POST',
+        headers:{
+          'x-goog-api-key':apiKey,
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({
+          model:'gemini-3.8-flash',
+          input:prompt,
+          tools:[{type:'google_search'}],
+          generation_config:{
+            thinking_level:'low',
+            max_output_tokens:640,
+          },
+        }),
+      },
+      Math.min(9000,searchTimeLeft(deadline)),
+      parentSignal,
+    );
+
+    const responseText=await response.text().catch(()=> '');
+    if(!response.ok){
+      if(response.status===429)groundingBackoffUntil=Date.now()+SEARCH_BACKOFF_MS;
+      return null;
+    }
+
+    const payload=JSON.parse(responseText||'{}');
+    const answerParts:string[]=[];
+    const sourceMap=new Map<string,SearchSource>();
+
+    for(const step of payload?.steps||[]){
+      if(step?.type!=='model_output')continue;
+      for(const block of step?.content||[]){
+        if(block?.type!=='text')continue;
+        const text=String(block?.text||'').trim();
+        if(text)answerParts.push(text);
+        for(const annotation of block?.annotations||[]){
+          if(annotation?.type!=='url_citation')continue;
+          const url=String(annotation?.url||'').trim();
+          if(!/^https?:\/\//i.test(url)||sourceMap.has(url))continue;
+          sourceMap.set(url,{
+            title:String(annotation?.title||'مصدر').trim().slice(0,180)||'مصدر',
+            url,
+          });
+        }
+      }
+    }
+
+    const answer=answerParts.join('\n').trim();
+    const sources=[...sourceMap.values()].slice(0,8);
+    const recommendation=/(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
+    if(!answer||(recommendation?sources.length<2:sources.length<1))return null;
+
+    return {answer,sources};
+  }catch{
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -589,6 +693,34 @@ Deno.serve(async (req) => {
     'لو الموضوع سياسي أو انتخابي، ممنوع تختار فائز أو أفضل طرف أو تدفع المستخدم لاختيار؛ اعرض مقارنة محايدة فقط. ' +
     'لا تذكر اسم مزود الذكاء أو تفاصيل تقنية عن أداة البحث. جاوب بالمصري الطبيعي. الطلب: ' + query;
 
+  const cached=getResearchCache(query);
+  if(cached){
+    return json({
+      ok:true,
+      answer:cached.answer,
+      sources:cached.sources,
+      engine:cached.engine+':cache',
+    });
+  }
+
+  const interactionDeadline=Date.now()+10000;
+  const interaction=await interactionGroundedSearch(
+    apiKey,
+    query,
+    prompt,
+    interactionDeadline,
+    req.signal,
+  );
+  if(interaction){
+    setResearchCache(query,interaction.answer,interaction.sources,'interactions-google-search');
+    return json({
+      ok:true,
+      answer:interaction.answer,
+      sources:interaction.sources,
+      engine:'interactions-google-search',
+    });
+  }
+
   let lastStatus = 0;
   const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
   const groundedDeadline = Math.min(deadline, Date.now() + 19000);
@@ -648,12 +780,17 @@ Deno.serve(async (req) => {
       }
 
       if (answer && sources.length) {
-        return json({
-          ok: true,
-          answer,
-          sources: rankSearchSources(query, sources),
-          engine: 'grounded'
-        });
+        const ranked=rankSearchSources(query,sources);
+        const recommendation=/(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
+        if(!recommendation||ranked.length>=2){
+          setResearchCache(query,answer,ranked,'grounded');
+          return json({
+            ok:true,
+            answer,
+            sources:ranked,
+            engine:'grounded'
+          });
+        }
       }
       if (answer && !/(?:لينك|رابط|فيديو|مصدر|source|link|video)/i.test(query)) {
         return json({ ok: true, answer, sources: [], engine: 'grounded-no-links' });
@@ -695,11 +832,13 @@ Deno.serve(async (req) => {
     if (sources.length) {
       const synthesized = await synthesizeFromSources(apiKey, query, sources, deadline, req.signal);
       const answer = synthesized || fallbackAnswerFromSources(query, sources);
+      const safeSources=sources.slice(0,6).map(({title,url})=>({title,url}));
+      setResearchCache(query,answer,safeSources,'fallback-web');
       return json({
-        ok: true,
+        ok:true,
         answer,
-        sources: sources.slice(0, 6).map(({ title, url }) => ({ title, url })),
-        engine: 'fallback-web',
+        sources:safeSources,
+        engine:'fallback-web',
       });
     }
   } catch (error) {
