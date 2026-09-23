@@ -5056,7 +5056,7 @@ export default function GithubApp(){
             <small className='dai-sfx-preset-note'>{experiencePreset==='cinematic'?'النمط السينمائي يستخدم إعداداتك اليدوية.':experiencePreset==='calm'?'النمط الهادئ يقلل المؤثرات والمستوى تلقائيًا.':'Minimal يوقف المؤثرات الخلفية ويحافظ على الصوت الأساسي فقط.'}</small>
             <button
               className='dai-sfx-preview'
-              disabled={!sfxEnabled||sfxMode==='silent'}
+              disabled={!sfxEnabled||sfxMode==='silent'||experiencePreset==='minimal'}
               onClick={async()=>{
                 await daiSfx.unlock();
                 const played=daiSfx.preview();
@@ -5114,7 +5114,7 @@ export default function GithubApp(){
 
     {capabilitiesOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setCapabilitiesOpen(false)}}>
       <section className='dai-web-panel dai-capabilities-panel'>
-        <div className='classic-drawer-head'><div><span>DAI Web 1.7</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
+        <div className='classic-drawer-head'><div><span>DAI Web 1.8</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
         <p className='dai-panel-intro'>نسخة الويب مركزة على المحادثة والصوت والذاكرة وتجربة ضي. صلاحيات Windows الكاملة تفضل لتطبيق DAI Desktop.</p>
         <div className='dai-capability-grid'>
           <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>ردود Streaming وسجل محادثات وتجربة سريعة للمحادثة اليومية.</small></article>
