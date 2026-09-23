@@ -4824,7 +4824,7 @@ export default function GithubApp(){
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
-    return <main className='dai-companion-shell' dir='rtl' data-state={daiState} data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset}>
+    return <main className='dai-companion-shell' dir='rtl' data-state={daiState} data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset} data-avatar={avatarStyle}>
       <div className='dai-companion-halo'/>
       <button
         className='dai-companion-face'
@@ -4857,7 +4857,7 @@ export default function GithubApp(){
     </main>;
   }
 
-  return <main className={'classic-shell '+(desktopMode&&browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset}>
+  return <main className={'classic-shell '+(desktopMode&&browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset} data-avatar={avatarStyle}>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
@@ -5086,6 +5086,43 @@ export default function GithubApp(){
             <div className='dai-setting-grid'>
               <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
               <label className='classic-setting compact'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>تقليل الحركة يدويًا</strong><small>يفرض أقل حركة بغض النظر عن أداء الجهاز.</small></span></label>
+            </div>
+          </div>
+        </section>
+
+        <section className='dai-settings-section'>
+          <div className='dai-settings-section-title'>
+            <div><Eye/><span><strong>الأفاتار والشخصية</strong><small>اختار شكل ضي — نفس العقل والحركة بصيغة بصرية مختلفة</small></span></div>
+          </div>
+          <div className='dai-settings-card'>
+            <div className='dai-avatar-grid' role='radiogroup' aria-label='اختيار أفاتار ضي'>
+              {([
+                {id:'classic',label:'Classic DAI',desc:'الشكل الأصلي المتوازن والناعم'},
+                {id:'minimal',label:'Minimal',desc:'أنظف وأهدأ بألوان محايدة'},
+                {id:'cute',label:'Cute',desc:'عيون أكبر ولمسات ألطف ووردية'},
+                {id:'cyber',label:'Cyber',desc:'ستايل مستقبلي بألوان سيان وبنفسجي'}
+              ] as Array<{id:DaiAvatarStyle;label:string;desc:string}>).map(item=>
+                <button
+                  key={item.id}
+                  type='button'
+                  role='radio'
+                  aria-checked={avatarStyle===item.id}
+                  className={'dai-avatar-choice '+item.id+(avatarStyle===item.id?' active':'')}
+                  onClick={()=>setAvatarStyle(item.id)}
+                >
+                  <span className='dai-avatar-preview' aria-hidden='true'>
+                    <i className='eye left'/><i className='eye right'/><i className='mouth'/>
+                    {item.id==='cyber'&&<i className='cyber-mark'/>}
+                    {item.id==='cute'&&<i className='cute-spark'>✦</i>}
+                  </span>
+                  <span className='dai-avatar-copy'><strong>{item.label}</strong><small>{item.desc}</small></span>
+                  <span className='dai-avatar-selected'>{avatarStyle===item.id?<Check/>:null}</span>
+                </button>
+              )}
+            </div>
+            <div className='dai-avatar-sync'>
+              <span>{avatarSyncing?'بزامن اختيارك…':'الاختيار بيتطبق فورًا على ضي وكل الأنيميشن.'}</span>
+              <button type='button' onClick={()=>setAvatarStyle('classic')} disabled={avatarStyle==='classic'}>الافتراضي</button>
             </div>
           </div>
         </section>
