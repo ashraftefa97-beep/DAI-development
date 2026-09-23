@@ -85,6 +85,105 @@ function collectGrounding(
   }
 }
 
+
+async function directWebResearch(
+  apiKey: string,
+  configuredModel: string,
+  query: string,
+) {
+  const modelCandidates = [
+    'gemini-3.5-flash-lite',
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  const researchPrompt =
+    'ابحث على الويب عن الطلب التالي، وبعد البحث قدّم إجابة عملية ومباشرة بالمصري الطبيعي. ' +
+    'لو المستخدم طالب رابط أو فيديو، اختَر نتيجة مناسبة فعلًا واذكرها بوضوح. ' +
+    'لو طالب حل مشكلة، لخص السبب الأقرب ثم خطوات الحل. لا تختلق روابط أو مصادر. الطلب: ' +
+    query;
+
+  let lastStatus = 0;
+  let lastDetail = '';
+
+  for (const model of modelCandidates) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 24000);
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: 'POST',
+          signal: controller.signal,
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: researchPrompt }] }],
+            tools: [{ google_search: {} }],
+            generationConfig: { maxOutputTokens: 520 },
+          }),
+        },
+      );
+
+      lastStatus = response.status;
+      const responseText = await response.text().catch(() => '');
+      lastDetail = responseText.slice(0, 1200);
+
+      if (!response.ok) {
+        if ([400, 404, 429, 503].includes(response.status)) continue;
+        break;
+      }
+
+      const payload = JSON.parse(responseText || '{}');
+      const candidate = payload?.candidates?.[0];
+      const answer = String(
+        candidate?.content?.parts
+          ?.map((part: any) => part?.text || '')
+          ?.join('') || ''
+      ).trim();
+
+      const sources: SearchSource[] = [];
+      const seen = new Set<string>();
+      for (const chunk of candidate?.groundingMetadata?.groundingChunks || []) {
+        const url = String(chunk?.web?.uri || '').trim();
+        if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+        seen.add(url);
+        sources.push({
+          title: String(chunk?.web?.title || 'مصدر').trim().slice(0, 180) || 'مصدر',
+          url,
+        });
+        if (sources.length >= 8) break;
+      }
+
+      if (answer) {
+        return {
+          ok: true,
+          answer,
+          sources,
+          model,
+          status: response.status,
+        };
+      }
+    } catch (error) {
+      lastDetail = String(error || '').slice(0, 1200);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return {
+    ok: false,
+    answer: '',
+    sources: [] as SearchSource[],
+    model: '',
+    status: lastStatus,
+    detail: lastDetail,
+  };
+}
+
 Deno.serve(async (req) => {
   const requestStartedAt = performance.now();
 
@@ -312,23 +411,30 @@ Deno.serve(async (req) => {
           firstTokenMs = Math.round(performance.now() - requestStartedAt);
           push('delta', { text: instantAnswer });
         } else if (allowWebSearch) {
-          const researchUrl =
-            (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '') +
-            '/functions/v1/web-research';
+          const apiKey = (
+            Deno.env.get('GEMINI_API_KEY') ||
+            Deno.env.get('AI_API_KEY') ||
+            ''
+          ).trim();
 
-          const researchResponse = await fetch(researchUrl, {
-            method: 'POST',
-            signal: req.signal,
-            headers: {
-              Authorization: authorization,
-              apikey: publicKey,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ query: message }),
-          });
+          if (!apiKey) {
+            push('error', {
+              code: 'AI_CONFIG',
+              message: 'خدمة ضي الذكية غير متاحة حاليًا.',
+            });
+            close();
+            return;
+          }
 
-          const researchPayload = await researchResponse.json().catch(() => null);
-          if (!researchResponse.ok || !researchPayload?.answer) {
+          const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
+          const research = await directWebResearch(apiKey, configuredModel, message);
+
+          if (!research.ok || !research.answer) {
+            console.error(
+              'DAI direct research failed',
+              research.status,
+              String(research.detail || '').slice(0, 900),
+            );
             push('error', {
               code: 'RESEARCH_FAILED',
               message: 'ضي مش قادرة تكمل البحث دلوقتي. جرّب تاني.',
@@ -337,25 +443,18 @@ Deno.serve(async (req) => {
             return;
           }
 
-          answer = String(researchPayload.answer || '').trim();
-          usedModel = 'dai-web-research';
+          answer = research.answer;
+          usedModel = 'dai-web-research:' + research.model;
           firstTokenMs = Math.round(performance.now() - requestStartedAt);
 
-          const sources = Array.isArray(researchPayload?.sources)
-            ? researchPayload.sources
-                .map((item: any) => ({
-                  title: String(item?.title || 'مصدر').trim().slice(0, 180) || 'مصدر',
-                  url: String(item?.url || '').trim(),
-                }))
-                .filter((item: any) => /^https?:\/\//i.test(item.url))
-                .slice(0, 8)
-            : [];
+          for (const source of research.sources) {
+            groundingSources.set(source.url, source);
+          }
 
-          for (const source of sources) groundingSources.set(source.url, source);
           researchAnnounced = true;
           push('research', {
             queries: [message],
-            sources,
+            sources: research.sources,
           });
 
           push('delta', { text: answer });
