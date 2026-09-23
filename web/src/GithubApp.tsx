@@ -3315,7 +3315,7 @@ export default function GithubApp(){
         let response:Response;
         try{
           response=await fetch(
-            supabaseUrl.replace(/\/$/,'')+'/functions/v1/web-research',
+            supabaseUrl.replace(/\/$/,'')+'/functions/v1/chat-stream',
             {
               method:'POST',
               signal:researchController.signal,
@@ -3324,7 +3324,13 @@ export default function GithubApp(){
                 apikey:supabasePublishableKey,
                 'Content-Type':'application/json'
               },
-              body:JSON.stringify({query})
+              body:JSON.stringify({
+                query,
+                message:query,
+                researchOnly:true,
+                routeHint:'research',
+                requestId:'tool-'+Date.now().toString(36)
+              })
             }
           );
         }finally{
