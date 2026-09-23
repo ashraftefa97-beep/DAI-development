@@ -311,6 +311,54 @@ Deno.serve(async (req) => {
           answer = instantAnswer;
           firstTokenMs = Math.round(performance.now() - requestStartedAt);
           push('delta', { text: instantAnswer });
+        } else if (allowWebSearch) {
+          const researchUrl =
+            (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '') +
+            '/functions/v1/web-research';
+
+          const researchResponse = await fetch(researchUrl, {
+            method: 'POST',
+            signal: req.signal,
+            headers: {
+              Authorization: authorization,
+              apikey: publicKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query: message }),
+          });
+
+          const researchPayload = await researchResponse.json().catch(() => null);
+          if (!researchResponse.ok || !researchPayload?.answer) {
+            push('error', {
+              code: 'RESEARCH_FAILED',
+              message: 'ضي مش قادرة تكمل البحث دلوقتي. جرّب تاني.',
+            });
+            close();
+            return;
+          }
+
+          answer = String(researchPayload.answer || '').trim();
+          usedModel = 'dai-web-research';
+          firstTokenMs = Math.round(performance.now() - requestStartedAt);
+
+          const sources = Array.isArray(researchPayload?.sources)
+            ? researchPayload.sources
+                .map((item: any) => ({
+                  title: String(item?.title || 'مصدر').trim().slice(0, 180) || 'مصدر',
+                  url: String(item?.url || '').trim(),
+                }))
+                .filter((item: any) => /^https?:\/\//i.test(item.url))
+                .slice(0, 8)
+            : [];
+
+          for (const source of sources) groundingSources.set(source.url, source);
+          researchAnnounced = true;
+          push('research', {
+            queries: [message],
+            sources,
+          });
+
+          push('delta', { text: answer });
         } else {
           const apiKey = (
             Deno.env.get('GEMINI_API_KEY') ||
@@ -326,7 +374,7 @@ Deno.serve(async (req) => {
 
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
           const modelCandidates = [
-            ...(allowWebSearch ? ['gemini-3.8-flash'] : ['gemini-3.5-flash-lite']),
+            'gemini-3.5-flash-lite',
             ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
             'gemini-3.1-flash-lite',
           ].filter((model, index, all) => all.indexOf(model) === index);
@@ -354,7 +402,6 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({
                   systemInstruction: { parts: [{ text: systemPrompt }] },
                   contents,
-                  ...(allowWebSearch ? { tools: [{ google_search: {} }] } : {}),
                   generationConfig: {
                     maxOutputTokens,
                     thinkingConfig: { thinkingLevel: 'minimal' },
@@ -369,7 +416,7 @@ Deno.serve(async (req) => {
                 break;
               }
 
-              if (![404, 429, 503].includes(response.status) && !(allowWebSearch && response.status === 400)) break;
+              if (![404, 429, 503].includes(response.status)) break;
             }
 
             if (!providerResponse?.body) {
