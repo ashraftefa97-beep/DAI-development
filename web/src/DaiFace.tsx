@@ -25,7 +25,7 @@ export default function DaiFace({state='idle', reduced=false, quality='high'}: {
       window.removeEventListener('dai:voice-level',onVoice as EventListener);
       window.removeEventListener('dai:speech-mood',onMood as EventListener);
     };
-  },[quality]);
+  },[]);
   useEffect(()=>{
     const m=motion.current, query=matchMedia('(prefers-reduced-motion: reduce)');
     const update=()=>{ m.reduced=reduced||query.matches; if(m.reduced)m.particles=[]; };
@@ -86,6 +86,6 @@ export default function DaiFace({state='idle', reduced=false, quality='high'}: {
     events.forEach(([name,fn])=>node.addEventListener(name,fn));
     frame=requestAnimationFrame(tick);
     return ()=>{cancelAnimationFrame(frame);observer.disconnect();events.forEach(([name,fn])=>node.removeEventListener(name,fn));m.dragging=false;};
-  },[]);
+  },[quality]);
   return <canvas ref={canvas} className='dai-canvas' role='img' aria-label={'ضي — وجه عائم — '+state} data-state={'dai_'+(state==='idle'?'idle_soft':state)}>ضي</canvas>;
 }
