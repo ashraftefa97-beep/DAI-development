@@ -91,3 +91,28 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: End-to-end deployment smoke
+        env:
+          DAI_PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+          DAI_SUPABASE_URL: https://buenonmbyudjhpedmoqk.supabase.co
+        run: |
+          set -euo pipefail
+
+          echo "Checking deployed DAI page: ${DAI_PAGE_URL}"
+          curl -fsSL --retry 5 --retry-delay 2 "${DAI_PAGE_URL}" -o /tmp/dai-page.html
+          grep -q "DAI AI" /tmp/dai-page.html
+
+          curl -fsSL --retry 5 --retry-delay 2 "${DAI_PAGE_URL%/}/sw.js" -o /tmp/dai-sw.js
+          grep -q "networkFirst" /tmp/dai-sw.js
+
+          chat_status="$(curl -sS -o /tmp/chat-unauth.json -w "%{http_code}"             -X POST "${DAI_SUPABASE_URL}/functions/v1/chat-stream"             -H "content-type: application/json"             --data '{"message":"health-check"}')"
+          test "${chat_status}" = "401"
+
+          research_status="$(curl -sS -o /tmp/research-unauth.json -w "%{http_code}"             -X POST "${DAI_SUPABASE_URL}/functions/v1/web-research"             -H "content-type: application/json"             --data '{"query":"health-check"}')"
+          test "${research_status}" = "401"
+
+          options_status="$(curl -sS -o /tmp/chat-options.txt -w "%{http_code}"             -X OPTIONS "${DAI_SUPABASE_URL}/functions/v1/chat-stream")"
+          test "${options_status}" = "200"
+
+          echo "DAI public deployment and edge gateway smoke checks passed."
