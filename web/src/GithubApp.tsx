@@ -2815,7 +2815,7 @@ export default function GithubApp(){
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         sonicRequestRef.current++;
-        if(!aborted)daiSfx.playState('error');
+        if(!aborted)transitionCorePhase('error');
         const tempId=streamMessageIdRef.current;
         if(tempId){
           setConversations(prev=>prev.map(item=>({
@@ -2827,9 +2827,8 @@ export default function GithubApp(){
           setInput(text);
           setLastFailedText(text);
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
-          animate('error',1150);
         }else{
-          animate('idle',0);
+          transitionCorePhase('idle',{silent:true,force:true});
         }
       }finally{
         textRequestAbortRef.current=null;
@@ -2856,11 +2855,10 @@ export default function GithubApp(){
           })));
         }
         if(!aborted){
-          daiSfx.playState('error');
+          transitionCorePhase('error');
           setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد الصوتي.'));
-          animate('error',1150);
         }else{
-          animate('idle',0);
+          transitionCorePhase('idle',{silent:true,force:true});
         }
       }finally{
         textRequestAbortRef.current=null;
@@ -2873,74 +2871,6 @@ export default function GithubApp(){
       return;
     }
 
-    try {
-      const { data, error } = await supabase.functions.invoke('chat', {
-        body: {
-          conversationId: activeId || null,
-          message: text,
-          desktopActionResult: desktopActionResult || null,
-        },
-      });
-
-      if(error) throw error;
-      if(!data?.assistantMessage) throw new Error('empty');
-
-      const conversationId=String(data.conversationId);
-      const userRow=data.userMessage;
-      const assistantRow=data.assistantMessage;
-      const userMessage:Message={
-        id:userRow.id,
-        role:'user',
-        content:userRow.content,
-        createdAt:new Date(userRow.created_at).getTime()
-      };
-      const assistantMessage:Message={
-        id:assistantRow.id,
-        role:'assistant',
-        content:assistantRow.content,
-        createdAt:new Date(assistantRow.created_at).getTime(),
-        sources:normalizeSearchSources(data?.sources)
-      };
-
-      setPendingUserMessage(null);
-      setActiveId(conversationId);
-
-      setConversations(prev=>{
-        const existing=prev.find(item=>item.id===conversationId);
-        const baseMessages=existing?.messages||[];
-        const withoutDuplicate=baseMessages.filter(message=>message.id!==userMessage.id&&message.id!==assistantMessage.id);
-        const updated:Conversation=existing
-          ? {...existing,messages:[...withoutDuplicate,userMessage],updatedAt:Date.now()}
-          : {id:conversationId,title:text.slice(0,48)||'محادثة جديدة',messages:[userMessage],updatedAt:Date.now()};
-        return [updated,...prev.filter(item=>item.id!==conversationId)];
-      });
-
-      let revealed=false;
-      const revealAssistant=()=>{
-        if(revealed)return;
-        revealed=true;
-        setConversations(prev=>prev.map(item=>
-          item.id===conversationId && !item.messages.some(message=>message.id===assistantMessage.id)
-            ? {...item,messages:[...item.messages,assistantMessage],updatedAt:Date.now()}
-            : item
-        ));
-      };
-
-      if(voiceEnabled){
-        animate('voicewait',0);
-        const speaking=await speakReply(assistantMessage.content,revealAssistant);
-        if(!speaking)revealAssistant();
-      }else{
-        revealAssistant();
-      }
-    } catch (error) {
-      console.error('DAI chat failed', error);
-      setPendingUserMessage(null);
-      setErrorText(await explainChatError(error));
-      animate('idle',0);
-    } finally {
-      setSending(false);
-    }
   }
 
   function pcm16ToBase64(samples:Float32Array){
