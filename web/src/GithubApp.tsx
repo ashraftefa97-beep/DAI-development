@@ -15,7 +15,7 @@ type ResponseMode = 'auto' | 'text' | 'voice';
 type ThemeMode = 'dark' | 'light' | 'system';
 type DiagnosticStatus = 'idle' | 'running' | 'pass' | 'warn' | 'fail';
 type DiagnosticItem = { id:string; label:string; status:DiagnosticStatus; detail:string; latency?:number };
-type DaiCorePhase = 'idle'|'listening'|'understanding'|'searching'|'preparing'|'responding'|'speaking'|'complete'|'error';
+type DaiCorePhase = 'idle'|'listening'|'understanding'|'searching'|'working'|'preparing'|'responding'|'speaking'|'complete'|'error';
 type ProAnimationSpec = {
   id:string;
   gesture:DaiState;
@@ -50,7 +50,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.5.0';
+const DAI_WEB_VERSION='1.6.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -305,6 +305,7 @@ export default function GithubApp(){
   const sfxWakePlayedRef=useRef(false);
   const sonicRequestRef=useRef(0);
   const corePhaseRef=useRef<DaiCorePhase>('idle');
+  const corePhaseTimerRef=useRef<number|undefined>(undefined);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAnalyserRef=useRef<AnalyserNode|null>(null);
@@ -551,7 +552,6 @@ export default function GithubApp(){
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
-    daiSfx.setDucked(animationAudioBusy());
     setDaiState(state);
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
   }
@@ -562,6 +562,10 @@ export default function GithubApp(){
   ){
     const previous=corePhaseRef.current;
     if(!options.force&&previous===phase)return;
+    if(corePhaseTimerRef.current){
+      window.clearTimeout(corePhaseTimerRef.current);
+      corePhaseTimerRef.current=undefined;
+    }
     corePhaseRef.current=phase;
     const locked=Date.now()<animationLockUntilRef.current;
 
@@ -572,7 +576,7 @@ export default function GithubApp(){
     if(!options.silent){
       if(phase==='listening')daiSfx.playState('listening');
       else if(phase==='understanding'||phase==='preparing')daiSfx.playState('thinking');
-      else if(phase==='searching')daiSfx.playState('action');
+      else if(phase==='searching'||phase==='working')daiSfx.playState('action');
       else if(phase==='responding')daiSfx.playState('responding');
       else if(phase==='speaking')daiSfx.playState('speaking');
       else if(phase==='complete')daiSfx.playState('complete');
@@ -585,11 +589,23 @@ export default function GithubApp(){
     else if(phase==='listening')animate('listen',0);
     else if(phase==='understanding')animate('thinking_deep',0);
     else if(phase==='searching')animate('search',0);
+    else if(phase==='working')animate('working',0);
     else if(phase==='preparing')animate('voicewait',0);
     else if(phase==='responding')animate('reply',0);
     else if(phase==='speaking')animate('talk',0);
-    else if(phase==='complete')animate('success',1000);
-    else if(phase==='error')animate('error',1200);
+    else if(phase==='complete'){
+      animate('success',1000);
+      corePhaseTimerRef.current=window.setTimeout(()=>{
+        if(corePhaseRef.current==='complete')corePhaseRef.current='idle';
+        corePhaseTimerRef.current=undefined;
+      },1050);
+    }else if(phase==='error'){
+      animate('error',1200);
+      corePhaseTimerRef.current=window.setTimeout(()=>{
+        if(corePhaseRef.current==='error')corePhaseRef.current='idle';
+        corePhaseTimerRef.current=undefined;
+      },1250);
+    }
   }
 
   function animationSpecById(id:string){
@@ -2456,7 +2472,7 @@ export default function GithubApp(){
     setResearching(false);
     setGeneralEnginePhase('loading');
     setGeneralEngineProgress(0);
-    animate('thinking_deep',0);
+    transitionCorePhase('understanding',{force:true});
 
     const general=await import('./localGeneral');
     localGeneralStopRef.current=general.stopLocalGeneral;
@@ -2511,8 +2527,7 @@ export default function GithubApp(){
         tempAssistantId
       );
 
-      daiSfx.playState('complete');
-      animate('success',1500);
+      transitionCorePhase('complete',{force:true});
       return true;
     }finally{
       localGeneralStopRef.current=null;
@@ -2533,7 +2548,7 @@ export default function GithubApp(){
   async function runImageReply(text:string){
     if(!supabase||!userId)return false;
     setImageGenerating(true);
-    animate('working',0);
+    transitionCorePhase('working',{force:true});
     try{
       const {data,error}=await supabase.functions.invoke('image-generate',{
         body:{prompt:text,aspect:imageAspectForText(text)}
@@ -2547,8 +2562,7 @@ export default function GithubApp(){
         answer,
         text.slice(0,48)||'صورة من ضي'
       );
-      daiSfx.playState('complete');
-      animate('success',1600);
+      transitionCorePhase('complete',{force:true});
       return true;
     }finally{
       setImageGenerating(false);
@@ -2575,7 +2589,7 @@ export default function GithubApp(){
     setResearching(false);
     setCodeEnginePhase('loading');
     setCodeEngineProgress(0);
-    animate('working',0);
+    transitionCorePhase('working',{force:true});
 
     const coder=await import('./localCoder');
     localCoderStopRef.current=coder.stopLocalCoder;
@@ -2685,8 +2699,7 @@ export default function GithubApp(){
         return [updated,...prev.filter(item=>item.id!==conversationId)];
       });
 
-      daiSfx.playState('complete');
-      animate('success',1500);
+      transitionCorePhase('complete',{force:true});
       return true;
     }finally{
       localCoderStopRef.current=null;
@@ -2754,7 +2767,7 @@ export default function GithubApp(){
     };
     setPendingUserMessage(optimisticMessage);
     if(predictedCommand||predictedCode||predictedImage){
-      if(Date.now()>=animationLockUntilRef.current)animate('working',0);
+      transitionCorePhase('working',{force:true});
     }else if(!predictedResearch&&!predictedComplex&&!fromVoice){
       if(Date.now()>=animationLockUntilRef.current)animate(stateForUserText(text),0);
     }
@@ -2825,7 +2838,7 @@ export default function GithubApp(){
         setLastFailedText(text);
         setErrorText('ضي مقدرتش تجهز الصورة دلوقتي. جرّب تاني بعد شوية.');
         setSending(false);
-        animate('idle',0);
+        transitionCorePhase('error',{force:true});
         return;
       }
     }
