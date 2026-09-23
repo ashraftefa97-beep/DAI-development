@@ -324,6 +324,32 @@ export default function GithubApp(){
     }catch{return .72;}
   });
   const [sfxNotice,setSfxNotice]=useState('');
+  const [experiencePreset,setExperiencePreset]=useState<ExperiencePreset>(()=>{
+    try{
+      const value=localStorage.getItem('dai-experience-preset');
+      return value==='calm'||value==='minimal'?value:'cinematic';
+    }catch{return 'cinematic';}
+  });
+  const [renderQuality,setRenderQuality]=useState<DaiRenderQuality>(()=>{
+    try{
+      const memory=Number((navigator as Navigator & {deviceMemory?:number}).deviceMemory||0);
+      const cores=Number(navigator.hardwareConcurrency||0);
+      if((memory&&memory<=3)||(cores&&cores<=4))return 'low';
+      if((memory&&memory<=6)||(cores&&cores<=6))return 'medium';
+    }catch{}
+    return 'high';
+  });
+  const [runtimePerf,setRuntimePerf]=useState<RuntimePerf>({
+    fps:60,
+    droppedFrames:0,
+    quality:'high',
+    audioActiveVoices:0,
+    audioMaxConcurrent:0,
+    audioResumeCount:0,
+    audioSuspendCount:0,
+    audioDroppedCueCount:0,
+    audioContextState:'unknown'
+  });
   const [input,setInput]=useState('');
   const [historyOpen,setHistoryOpen]=useState(false);
   const [settingsOpen,setSettingsOpen]=useState(false);
@@ -428,6 +454,8 @@ export default function GithubApp(){
   const sfxWakePlayedRef=useRef(false);
   const sonicRequestRef=useRef(0);
   const corePhaseRef=useRef<DaiCorePhase>('idle');
+  const corePhaseStartedAtRef=useRef(performance.now());
+  const workPhaseStartedAtRef=useRef(0);
   const corePhaseTimerRef=useRef<number|undefined>(undefined);
   const phaseChoreographyTimersRef=useRef<number[]>([]);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
@@ -476,6 +504,7 @@ export default function GithubApp(){
   const pendingAutoAnimationRef=useRef('');
   const lastAnimationRequestRef=useRef('');
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
+  const perfQualityVotesRef=useRef({down:0,up:0});
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -485,14 +514,28 @@ export default function GithubApp(){
   },[responseMode]);
 
   useEffect(()=>{
-    daiSfx.configure({enabled:sfxEnabled,volume:sfxVolume,mode:sfxMode});
+    const effectiveMode:DaiSfxMode=
+      experiencePreset==='minimal'?'silent':
+      experiencePreset==='calm'?'soft':
+      sfxMode;
+    const effectiveVolume=
+      experiencePreset==='calm'?sfxVolume*.76:
+      experiencePreset==='minimal'?0:
+      sfxVolume;
+    daiSfx.configure({enabled:sfxEnabled,volume:effectiveVolume,mode:effectiveMode});
     try{
       localStorage.setItem('dai-sfx-enabled',sfxEnabled?'1':'0');
       localStorage.setItem('dai-sfx-volume',String(sfxVolume));
       localStorage.setItem('dai-sfx-mode',sfxMode);
       localStorage.setItem('dai-sfx-tone-migrated','1');
     }catch{}
-  },[sfxEnabled,sfxVolume,sfxMode]);
+  },[sfxEnabled,sfxVolume,sfxMode,experiencePreset]);
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-experience-preset',experiencePreset);}catch{}
+    document.documentElement.dataset.daiExperience=experiencePreset;
+    return()=>{delete document.documentElement.dataset.daiExperience;};
+  },[experiencePreset]);
 
   useEffect(()=>{
     try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
