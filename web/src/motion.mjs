@@ -31,6 +31,7 @@ export class DaiMotion {
     this.reduced = false;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
+    this.speechMood = 'neutral';
     this.nextBlink = 2.5; this.blinkTime = 1;
     this.nextIdle = 3.5; this.idleUntil = 0; this.idleAction = 'look'; this.idleSide = 1;
     this.pointer = {x:0,y:0}; this.mouseInside = this.dragging = false;
@@ -48,6 +49,16 @@ export class DaiMotion {
     if (['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(this.gesture)) {
       this.burst(0,-65,['found','celebrate','success'].includes(this.gesture)?18:10);
     }
+  }
+  setVoiceLevel(level=0, active=true) {
+    const value=clamp(Number(level)||0,0,1);
+    this.voiceDriven=Boolean(active);
+    this.voiceTarget=active?value:0;
+    if(!active)this.voice=0;
+  }
+  setSpeechMood(mood='neutral') {
+    const allowed=new Set(['neutral','warm','happy','curious','calm','serious']);
+    this.speechMood=allowed.has(mood)?mood:'neutral';
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
@@ -118,9 +129,51 @@ export class DaiMotion {
       if(active==='found') set({happy:1,smile:1,mouth:.26,cheek:.8,tilt:-3,sy:1.03,bob:-5,gaze_y:-2});
     } else if(active==='talk'||this.state==='talking') {
       let beat=this.voice;
-      if(!this.voiceDriven) beat=this.reduced?.3:(.5+.5*Math.sin(e*13))*(.55+.45*Math.sin(e*4.1)**2);
-      set({ra:.95,rx:119,ry:57-beat*14,rr:6-beat*12,mouth:.025+beat*.72,smile:.6,cheek:.23});
-      if(!this.reduced) { p.tilt+=Math.sin(e*2)*2.5; p.sy+=beat*.018; }
+      if(!this.voiceDriven) {
+        beat=this.reduced?.22:(.20+.34*(.5+.5*Math.sin(e*8.6)))*(.70+.30*Math.sin(e*2.3)**2);
+      }
+      beat=clamp(beat,0,1);
+      const emphasis=clamp((beat-.34)/.66,0,1);
+      const phrase=this.reduced?0:Math.sin(e*1.25);
+      const micro=this.reduced?0:Math.sin(e*2.1+.7);
+
+      let speechSmile=.48;
+      let speechCheek=.14;
+      let speechLeft=.92;
+      let speechRight=.94;
+      let speechTilt=phrase*1.15;
+
+      if(this.speechMood==='warm') {
+        speechSmile=.68; speechCheek=.28; speechLeft=.86; speechRight=.90; speechTilt=-2+phrase*.9;
+      } else if(this.speechMood==='happy') {
+        speechSmile=.86; speechCheek=.48; speechLeft=.78; speechRight=.82; speechTilt=-2.6+phrase*1.2;
+      } else if(this.speechMood==='curious') {
+        speechSmile=.40; speechCheek=.12; speechLeft=1.04; speechRight=.78; speechTilt=5+phrase*1.4;
+      } else if(this.speechMood==='calm') {
+        speechSmile=.42; speechCheek=.12; speechLeft=.82; speechRight=.86; speechTilt=-1+phrase*.6;
+      } else if(this.speechMood==='serious') {
+        speechSmile=.20; speechCheek=.05; speechLeft=.88; speechRight=.90; speechTilt=phrase*.45;
+      }
+
+      const hand=emphasis*emphasis;
+      set({
+        left:speechLeft,
+        right:speechRight,
+        smile:speechSmile,
+        cheek:speechCheek,
+        mouth:.018+Math.pow(beat,.78)*.66,
+        tilt:speechTilt,
+        gaze_x:phrase*1.7,
+        gaze_y:-1.2+micro*.45,
+        ra:.08+hand*.58,
+        rx:112+phrase*2.4,
+        ry:78-hand*38,
+        rr:-3-phrase*3-hand*8
+      });
+      if(!this.reduced) {
+        p.bob+=micro*.45+beat*.55;
+        p.sy+=beat*.008;
+      }
     } else if(active==='happy'||active==='wave') {
       const wave=this.reduced?0:Math.sin(e*9);
       set({ra:1,rx:126+wave*9,ry:54-91*enter,rr:wave*22,smile:.95,cheek:.65,happy:.86,tilt:-5});
@@ -607,13 +660,14 @@ export class DaiMotion {
     this.blinkTime+=elapsedDt;
     if(this.elapsed>this.nextIdle&&this.state==='idle'&&this.gesture==='idle'&&!this.dragging&&!this.reduced) {
       const v=this.random()*100;
-      this.idleAction=v<35?'look':v<58?'smile':v<78?'tilt':v<87?'wave':v<95?'stretch':'sleepy';
+      this.idleAction=v<39?'look':v<66?'smile':v<88?'tilt':v<96?'stretch':'sleepy';
       this.idleSide=this.random()<.5?-1:1;
       this.idleUntil=this.elapsed+1.7; this.nextIdle=this.elapsed+5+this.random()*3;
     }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
     this.voice=mix(this.voice,this.voiceTarget,18); this.audio=mix(this.audio,this.audioTarget,12);
+    if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*2.2);
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
     for(const key of Object.keys(this.pose)) this.pose[key]=mix(this.pose[key],target[key],this.reduced?22:['mouth','left','right','gaze_x','gaze_y'].includes(key)?10:6.2);
