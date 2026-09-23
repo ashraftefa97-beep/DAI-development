@@ -69,7 +69,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.6.0';
+const DAI_WEB_VERSION='1.7.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -3081,8 +3081,6 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
-    liveNoiseFloorRef.current=.012;
-    liveLastSpeechAtRef.current=0;
     liveInputPcmBufferRef.current=new Float32Array(0);
     setVoiceSessionStatus('listening');
     transitionCorePhase('listening');
@@ -3588,6 +3586,8 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
+    liveNoiseFloorRef.current=.012;
+    liveLastSpeechAtRef.current=0;
 
     try{
       const outputCtx=new AudioContext();
@@ -4690,7 +4690,7 @@ export default function GithubApp(){
 
     {capabilitiesOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setCapabilitiesOpen(false)}}>
       <section className='dai-web-panel dai-capabilities-panel'>
-        <div className='classic-drawer-head'><div><span>DAI Web 1.4</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
+        <div className='classic-drawer-head'><div><span>DAI Web 1.7</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
         <p className='dai-panel-intro'>نسخة الويب مركزة على المحادثة والصوت والذاكرة وتجربة ضي. صلاحيات Windows الكاملة تفضل لتطبيق DAI Desktop.</p>
         <div className='dai-capability-grid'>
           <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>ردود Streaming وسجل محادثات وتجربة سريعة للمحادثة اليومية.</small></article>
