@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.github.json --noEmit",
     "security-check": "node scripts/security-check.mjs",
-    "test": "node --import tsx --test src/taskRouter.test.ts",
+    "test": "node --import tsx --test src/taskRouter.test.ts tests/*.test.mjs",
     "architecture-check": "node scripts/architecture-check.mjs"
   },
   "dependencies": {
