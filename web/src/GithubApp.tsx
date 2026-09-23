@@ -1103,8 +1103,7 @@ export default function GithubApp(){
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
-    const responseState=stateForAssistantText(text);
-    animate('voicewait',0);
+    transitionCorePhase('preparing',{force:true});
     setVoiceNotice('بجهّز صوت ضي…');
 
     const runId=++speechRunRef.current;
@@ -1122,22 +1121,20 @@ export default function GithubApp(){
         ()=>{
           if(runId!==speechRunRef.current)return;
           clearTimeout(timer.current);
-          setDaiState('talk');
+          transitionCorePhase('speaking');
           setVoiceNotice('ضي بتتكلم.');
           onStart?.();
         },
         ()=>{
           if(runId!==speechRunRef.current)return;
-          const finishState=responseState==='talk'?'idle':responseState;
-          if(finishState==='idle')setDaiState('idle');
-          else animate(finishState,1100);
+          transitionCorePhase('complete');
           setVoiceNotice('الصوت خلص.');
           onEnd?.();
         }
       );
 
       if(!played&&runId===speechRunRef.current){
-        setDaiState('idle');
+        transitionCorePhase('idle',{silent:true,force:true});
         setVoiceNotice('صوت ضي متعطل مؤقتًا.');
       }
       return played;
@@ -1145,7 +1142,7 @@ export default function GithubApp(){
       if(runId!==speechRunRef.current)return false;
       const code=String((error as Error)?.message||'tts-gemini-failed');
       console.error('DAI Gemini voice failed',error);
-      setDaiState('idle');
+      transitionCorePhase('error',{force:true});
       setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+code);
       setErrorText('تشخيص الصوت: '+code);
       return false;
@@ -3821,8 +3818,7 @@ export default function GithubApp(){
     if(!supabase)return;
     setVoiceNoteProcessing(true);
     setVoiceNotice('ضي بتفهم التسجيل…');
-    daiSfx.playState('thinking');
-    animate('search',0);
+    transitionCorePhase('understanding',{force:true});
     try{
       if(blob.size<350)throw new Error('empty-recording');
       if(blob.size>6_500_000)throw new Error('recording-too-large');
@@ -3848,8 +3844,7 @@ export default function GithubApp(){
         setErrorText('ضي مقدرتش تفهم التسجيل ده. جرّب تسجله تاني.');
       }
       setVoiceNotice('التسجيل ماوصلش بشكل سليم.');
-      daiSfx.playState('error');
-      animate('error',1500);
+      transitionCorePhase('error',{force:true});
     }finally{
       setVoiceNoteProcessing(false);
     }
@@ -3866,8 +3861,7 @@ export default function GithubApp(){
     setErrorText('');
     setVoiceNotice('بسجّل… اضغط الميكروفون تاني للإرسال.');
     setVoiceNoteSeconds(0);
-    daiSfx.playState('attention');
-    animate('listen',0);
+    transitionCorePhase('listening',{force:true});
 
     try{
       const stream=await navigator.mediaDevices.getUserMedia({
@@ -3891,6 +3885,7 @@ export default function GithubApp(){
         cleanupVoiceRecorder();
         setErrorText('حصل خطأ في تسجيل الصوت. جرّب تاني.');
         setVoiceNotice('التسجيل وقف بسبب خطأ.');
+        transitionCorePhase('error',{force:true});
       };
 
       recorder.onstop=()=>{
@@ -3903,7 +3898,6 @@ export default function GithubApp(){
 
       recorder.start(500);
       setVoiceNoteRecording(true);
-      daiSfx.playState('listening');
       voiceRecorderTimerRef.current=window.setInterval(()=>{
         setVoiceNoteSeconds(current=>{
           const next=current+1;
@@ -3918,8 +3912,7 @@ export default function GithubApp(){
       cleanupVoiceRecorder();
       setErrorText('ضي مش قادرة تفتح الميكروفون. اسمح بالميكروفون للموقع وجرب تاني.');
       setVoiceNotice('الميكروفون مش متاح.');
-      daiSfx.playState('error');
-      animate('error',1500);
+      transitionCorePhase('error',{force:true});
     }
   }
 
@@ -3927,7 +3920,7 @@ export default function GithubApp(){
     const recorder=voiceRecorderRef.current;
     if(!recorder||recorder.state!=='recording')return;
     setVoiceNotice('بجهّز التسجيل للإرسال…');
-    daiSfx.playState('action');
+    transitionCorePhase('understanding',{force:true});
     try{recorder.stop();}catch{
       cleanupVoiceRecorder();
       setErrorText('التسجيل وقف بشكل غير متوقع. جرّب تاني.');
