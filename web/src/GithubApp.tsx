@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, Eye, Gamepad2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
+import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
@@ -145,7 +145,7 @@ function normalizeSearchSources(value:any):SearchSource[]{
   return out;
 }
 
-function renderLinkedText(content:string){
+function renderLinkedText(content:string,onOpenLink?:(url:string)=>void){
   const text=String(content||'');
   if(!text)return text;
 
@@ -189,8 +189,9 @@ function renderLinkedText(content:string){
         <a
           className='dai-inline-link'
           href={url}
-          target='_blank'
+          target={onOpenLink?undefined:'_blank'}
           rel='noopener noreferrer'
+          onClick={onOpenLink?(event)=>{event.preventDefault();onOpenLink(url)}:undefined}
           key={'link-'+key++}
         >{label||url}</a>
       );
@@ -328,6 +329,9 @@ export default function GithubApp(){
   const [voiceNoteProcessing,setVoiceNoteProcessing]=useState(false);
   const [voiceNoteSeconds,setVoiceNoteSeconds]=useState(0);
   const [speakingMessageId,setSpeakingMessageId]=useState('');
+  const [browserUrl,setBrowserUrl]=useState('');
+  const [browserReloadKey,setBrowserReloadKey]=useState(0);
+  const [browserLoaded,setBrowserLoaded]=useState(false);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
@@ -446,6 +450,15 @@ export default function GithubApp(){
   },[]);
 
   useEffect(()=>{
+    if(!browserUrl)return;
+    const onKeyDown=(event:KeyboardEvent)=>{
+      if(event.key==='Escape')closeDaiBrowser();
+    };
+    window.addEventListener('keydown',onKeyDown);
+    return()=>window.removeEventListener('keydown',onKeyDown);
+  },[browserUrl]);
+
+  useEffect(()=>{
     let alive=true;
     async function detectDesktop(){
       if(!window.daiDesktop)return;
@@ -460,6 +473,37 @@ export default function GithubApp(){
     detectDesktop();
     return()=>{alive=false;};
   },[]);
+
+  function openDaiBrowser(rawUrl:string){
+    try{
+      const url=new URL(String(rawUrl||'').trim());
+      if(!['http:','https:'].includes(url.protocol))return;
+      setBrowserLoaded(false);
+      setBrowserUrl(url.toString());
+      setBrowserReloadKey(value=>value+1);
+    }catch{}
+  }
+
+  function closeDaiBrowser(){
+    setBrowserUrl('');
+    setBrowserLoaded(false);
+  }
+
+  function refreshDaiBrowser(){
+    if(!browserUrl)return;
+    setBrowserLoaded(false);
+    setBrowserReloadKey(value=>value+1);
+  }
+
+  function openBrowserExternally(){
+    if(!browserUrl)return;
+    window.open(browserUrl,'_blank','noopener,noreferrer');
+  }
+
+  function browserDisplayHost(){
+    try{return new URL(browserUrl).hostname.replace(/^www\./,'');}
+    catch{return 'المتصفح';}
+  }
 
   function animate(state:DaiState,duration=2200){
     clearTimeout(timer.current);
@@ -4046,7 +4090,7 @@ export default function GithubApp(){
     </main>;
   }
 
-  return <main className='classic-shell' dir='rtl' data-ai-phase={daiPhase}>
+  return <main className={'classic-shell '+(browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase}>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
@@ -4095,7 +4139,7 @@ export default function GithubApp(){
           : (active?.messages||[]).map(m=>
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
-              <p dir='auto'>{renderLinkedText(m.content)}</p>
+              <p dir='auto'>{renderLinkedText(m.content,openDaiBrowser)}</p>
               {m.role==='assistant'&&m.sources&&m.sources.length>0&&
                 <div className='dai-search-sources' aria-label='مصادر بحث ضي'>
                   <span><Search className='h-3.5 w-3.5'/> مصادر البحث</span>
@@ -4104,9 +4148,9 @@ export default function GithubApp(){
                       <a
                         key={source.url}
                         href={source.url}
-                        target='_blank'
                         rel='noreferrer'
                         title={source.title}
+                        onClick={event=>{event.preventDefault();openDaiBrowser(source.url)}}
                       >{index+1}. {source.title}</a>
                     )}
                   </div>
@@ -4135,7 +4179,7 @@ export default function GithubApp(){
         {!voiceSessionActive&&pendingUserMessage&&
           <article className='classic-chat-message user pending' key={pendingUserMessage.id}>
             <strong>أنت</strong>
-            <p dir='auto'>{renderLinkedText(pendingUserMessage.content)}</p>
+            <p dir='auto'>{renderLinkedText(pendingUserMessage.content,openDaiBrowser)}</p>
           </article>
         }
         {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':imageGenerating?'ضي بتجهز الصورة…':codeEnginePhase==='loading'?'ضي بتحضر محرك الكود… '+codeEngineProgress+'%':codeEnginePhase==='coding'?'ضي بتبرمج…':generalEnginePhase==='loading'?'ضي بتحضر محرك التفكير… '+generalEngineProgress+'%':generalEnginePhase==='thinking'?'ضي بتحلل…':'ضي بترد…'}</span></div>}
@@ -4179,6 +4223,43 @@ export default function GithubApp(){
         </div>
       </div>
     </section>
+
+    {browserUrl&&<aside className='dai-browser-panel' aria-label='متصفح ضي'>
+      <header className='dai-browser-toolbar'>
+        <button className='dai-browser-tool-button close' onClick={closeDaiBrowser} aria-label='إغلاق المتصفح' title='إغلاق'>
+          <X className='h-4 w-4'/>
+        </button>
+        <div className='dai-browser-address' title={browserUrl}>
+          <Globe2 className='h-4 w-4'/>
+          <div>
+            <strong>{browserDisplayHost()}</strong>
+            <span>{browserUrl}</span>
+          </div>
+        </div>
+        <button className='dai-browser-tool-button' onClick={refreshDaiBrowser} aria-label='تحديث الصفحة' title='تحديث'>
+          <RefreshCw className='h-4 w-4'/>
+        </button>
+        <button className='dai-browser-tool-button' onClick={openBrowserExternally} aria-label='فتح في تبويب جديد' title='فتح خارجي'>
+          <ExternalLink className='h-4 w-4'/>
+        </button>
+      </header>
+      <div className='dai-browser-content'>
+        {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
+        <iframe
+          key={browserReloadKey}
+          src={browserUrl}
+          title={'متصفح ضي — '+browserDisplayHost()}
+          referrerPolicy='strict-origin-when-cross-origin'
+          sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads'
+          allow='autoplay; clipboard-read; clipboard-write; fullscreen'
+          onLoad={()=>setBrowserLoaded(true)}
+        />
+        <div className='dai-browser-embed-note'>
+          بعض المواقع تمنع العرض داخل التطبيقات.
+          <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح خارجي</button>
+        </div>
+      </div>
+    </aside>}
 
     {historyOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setHistoryOpen(false)}}>
       <aside className='classic-drawer'>
