@@ -77,8 +77,8 @@ function sendEmbeddedBrowserState(extra = {}) {
       ? (view.webContents.getURL() || embeddedBrowserUrl)
       : embeddedBrowserUrl,
     loading: Boolean(view && !view.webContents.isDestroyed() && view.webContents.isLoading()),
-    canGoBack: Boolean(view && !view.webContents.isDestroyed() && view.webContents.canGoBack()),
-    canGoForward: Boolean(view && !view.webContents.isDestroyed() && view.webContents.canGoForward()),
+    canGoBack: Boolean(view && !view.webContents.isDestroyed() && view.webContents.navigationHistory.canGoBack()),
+    canGoForward: Boolean(view && !view.webContents.isDestroyed() && view.webContents.navigationHistory.canGoForward()),
     ...extra,
   };
   mainWindow.webContents.send('dai:browser-state', state);
@@ -730,8 +730,9 @@ app.whenReady().then(async () => {
   ipcMain.handle('dai:browser-back', (event) => {
     if (!senderAllowed(event) || !embeddedBrowserView) return false;
     try {
-      if (!embeddedBrowserView.webContents.canGoBack()) return false;
-      embeddedBrowserView.webContents.goBack();
+      const history = embeddedBrowserView.webContents.navigationHistory;
+      if (!history.canGoBack()) return false;
+      history.goBack();
       return true;
     } catch {
       return false;
@@ -741,8 +742,9 @@ app.whenReady().then(async () => {
   ipcMain.handle('dai:browser-forward', (event) => {
     if (!senderAllowed(event) || !embeddedBrowserView) return false;
     try {
-      if (!embeddedBrowserView.webContents.canGoForward()) return false;
-      embeddedBrowserView.webContents.goForward();
+      const history = embeddedBrowserView.webContents.navigationHistory;
+      if (!history.canGoForward()) return false;
+      history.goForward();
       return true;
     } catch {
       return false;
