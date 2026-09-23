@@ -336,6 +336,9 @@ export default function GithubApp(){
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
+  const speechMotionRafRef=useRef<number|undefined>(undefined);
+  const liveSpeechMotionRafRef=useRef<number|undefined>(undefined);
+  const liveOutputAnalyserRef=useRef<AnalyserNode|null>(null);
   const textRequestAbortRef=useRef<AbortController|null>(null);
   const gatewayRequestRef=useRef('');
   const localCoderStopRef=useRef<(()=>void)|null>(null);
@@ -370,6 +373,7 @@ export default function GithubApp(){
   const animationCooldownUntilRef=useRef(0);
   const pendingAutoAnimationRef=useRef('');
   const lastAnimationRequestRef=useRef('');
+  const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -495,13 +499,23 @@ export default function GithubApp(){
     if(!spec)return false;
 
     if(animationAudioBusy()){
-      if(source==='auto')pendingAutoAnimationRef.current=id;
+      if(source==='auto')pendingAutoAnimationRef.current='';
       return false;
     }
 
-    if(source==='auto'&&Date.now()<animationCooldownUntilRef.current){
-      pendingAutoAnimationRef.current='';
-      return false;
+    if(source==='auto'){
+      const now=Date.now();
+      if(now<animationCooldownUntilRef.current){
+        pendingAutoAnimationRef.current='';
+        return false;
+      }
+      recentAutoAnimationsRef.current=recentAutoAnimationsRef.current
+        .filter(item=>now-item.at<45000)
+        .slice(-4);
+      if(recentAutoAnimationsRef.current.some(item=>item.id===id)){
+        pendingAutoAnimationRef.current='';
+        return false;
+      }
     }
 
     const duration=Math.max(900,Math.round((spec.duration>0?spec.duration:3.2)*1000));
@@ -509,7 +523,10 @@ export default function GithubApp(){
       animationLockUntilRef.current=Date.now()+duration;
     }
     if(source==='auto'){
-      animationCooldownUntilRef.current=Date.now()+8000;
+      const now=Date.now();
+      animationCooldownUntilRef.current=now+12000;
+      recentAutoAnimationsRef.current.push({id,at:now});
+      recentAutoAnimationsRef.current=recentAutoAnimationsRef.current.slice(-5);
       pendingAutoAnimationRef.current='';
     }
 
@@ -548,15 +565,27 @@ export default function GithubApp(){
     return played;
   }
 
+  function contextAnimationWorthPlaying(userText:string,assistantText:string){
+    const combined=(userText+' '+assistantText).toLowerCase();
+    return /(?:أهل[ًاا]|اهل[ًاا]|صباح|مساء|مع السلامة|باي|شكرا|شكرًا|تسلم|مبروك|نجح|نجاح|تمام جدًا|ممتاز|رائع|حلو جدًا|لقيت|وجدت|فكرة|للأسف|آسف|اسف|خطأ|مشكلة|مفاجأة|مفاجاه|واو|ههه|😂|🎉|❤️|\?|؟)/i.test(combined);
+  }
+
   async function chooseContextAnimation(userText:string,assistantText:string){
     if(!professional||!proAnimations||looksLikeAnimationRequest(userText))return;
     if(Date.now()<animationCooldownUntilRef.current)return;
+    if(!contextAnimationWorthPlaying(userText,assistantText))return;
+
     const id=await requestAnimationDecision('auto',userText,assistantText);
     if(!id)return;
-    if(animationAudioBusy()||sending){
-      pendingAutoAnimationRef.current=id;
-      return;
-    }
+
+    const spec=animationSpecById(id);
+    if(!spec)return;
+    const greetingContext=/(?:أهل[ًاا]|اهل[ًاا]|صباح|مساء|مع السلامة|باي|hello|hi|bye)/i.test(userText+' '+assistantText);
+    if(['wave','double_wave','hello_shy','goodbye','salute'].includes(spec.gesture)&&!greetingContext)return;
+
+    // While DAI is speaking, expression and gesture are driven by the actual audio.
+    // Do not queue an unrelated full-body animation to fire immediately afterwards.
+    if(animationAudioBusy()||sending)return;
     executeSelectedAnimation(id,'auto');
   }
 
@@ -649,6 +678,7 @@ export default function GithubApp(){
   }
 
   function stopSpeechAudio(){
+    stopVoiceMotionTracking(speechMotionRafRef);
     for(const source of speechStreamSourcesRef.current){
       try{source.stop();}catch{}
     }
@@ -722,6 +752,74 @@ export default function GithubApp(){
       offset+=buffer.length;
     }
     return merged;
+  }
+
+  function speechMoodForText(text:string){
+    const value=String(text||'');
+    if(/(?:مبروك|نجح|نجاح|رائع|ممتاز|فرح|سعيد|جميل جدًا|حلو جدًا|ههه|😂|🎉)/i.test(value))return 'happy';
+    if(/(?:شكرا|شكرًا|تسلم|أهلًا|اهلا|صباح|مساء|منور|يسعد)/i.test(value))return 'warm';
+    if(/(?:للأسف|خطأ|مشكلة|فشل|تحذير|مش قادر|مقدرش|تعذر)/i.test(value))return 'serious';
+    if(/(?:حدوتة|حكاية|قبل النوم|هادئ|بهدوء|استرخ)/i.test(value))return 'calm';
+    if(/[؟?]|(?:ليه|إزاي|ازاي|هل|فين|إمتى|امتى|ممكن)/i.test(value))return 'curious';
+    return 'neutral';
+  }
+
+  function emitSpeechMood(text:string){
+    window.dispatchEvent(new CustomEvent('dai:speech-mood',{
+      detail:{mood:speechMoodForText(text)}
+    }));
+  }
+
+  function emitVoiceMotion(level:number,active=true){
+    window.dispatchEvent(new CustomEvent('dai:voice-level',{
+      detail:{level:Math.max(0,Math.min(1,level)),active}
+    }));
+  }
+
+  function stopVoiceMotionTracking(ref:{current:number|undefined}){
+    if(ref.current!==undefined){
+      cancelAnimationFrame(ref.current);
+      ref.current=undefined;
+    }
+    emitVoiceMotion(0,false);
+  }
+
+  function startVoiceMotionTracking(
+    analyser:AnalyserNode,
+    ref:{current:number|undefined},
+    isActive:()=>boolean
+  ){
+    stopVoiceMotionTracking(ref);
+    const data=new Uint8Array(analyser.fftSize);
+    let smooth=0;
+    let lastEmit=0;
+
+    const tick=(now:number)=>{
+      if(!isActive()){
+        ref.current=undefined;
+        emitVoiceMotion(0,false);
+        return;
+      }
+
+      analyser.getByteTimeDomainData(data);
+      let energy=0;
+      for(let index=0;index<data.length;index++){
+        const sample=(data[index]-128)/128;
+        energy+=sample*sample;
+      }
+      const rms=Math.sqrt(energy/Math.max(1,data.length));
+      const raw=Math.max(0,Math.min(1,(rms-.008)*4.8));
+      const mapped=Math.pow(raw,.76);
+      smooth+=((mapped>smooth?.48:.20)*(mapped-smooth));
+
+      if(now-lastEmit>=28){
+        emitVoiceMotion(smooth,true);
+        lastEmit=now;
+      }
+      ref.current=requestAnimationFrame(tick);
+    };
+
+    ref.current=requestAnimationFrame(tick);
   }
 
   async function directSpeech(
@@ -800,10 +898,26 @@ export default function GithubApp(){
     const source=ctx.createBufferSource();
     source.buffer=decoded;
     source.playbackRate.value=voiceRate;
-    source.connect(ctx.destination);
+
+    const analyser=ctx.createAnalyser();
+    analyser.fftSize=256;
+    analyser.smoothingTimeConstant=.42;
+    source.connect(analyser);
+    analyser.connect(ctx.destination);
+
     speechStreamSourcesRef.current.add(source);
+    emitSpeechMood(spoken);
+    startVoiceMotionTracking(
+      analyser,
+      speechMotionRafRef,
+      ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.has(source)
+    );
+
     source.onended=()=>{
       speechStreamSourcesRef.current.delete(source);
+      try{analyser.disconnect();}catch{}
+      stopVoiceMotionTracking(speechMotionRafRef);
+      window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
       if(runId===speechRunRef.current)onEnd?.();
     };
 
@@ -864,8 +978,8 @@ export default function GithubApp(){
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
-      const code=String((error as Error)?.message||'tts-salma-failed');
-      console.error('DAI Salma voice failed',error);
+      const code=String((error as Error)?.message||'tts-gemini-failed');
+      console.error('DAI Gemini voice failed',error);
       setDaiState('idle');
       setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+code);
       setErrorText('تشخيص الصوت: '+code);
@@ -2664,10 +2778,13 @@ export default function GithubApp(){
   }
 
   function stopLivePlayback(){
+    stopVoiceMotionTracking(liveSpeechMotionRafRef);
     for(const source of liveOutputSourcesRef.current){
       try{source.stop();}catch{}
     }
     liveOutputSourcesRef.current.clear();
+    try{liveOutputAnalyserRef.current?.disconnect();}catch{}
+    liveOutputAnalyserRef.current=null;
     liveNextPlayTimeRef.current=0;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
@@ -2694,15 +2811,36 @@ export default function GithubApp(){
     buffer.copyToChannel(samples,0);
     const source=ctx.createBufferSource();
     source.buffer=buffer;
-    source.connect(ctx.destination);
+
+    let analyser=liveOutputAnalyserRef.current;
+    if(!analyser){
+      analyser=ctx.createAnalyser();
+      analyser.fftSize=256;
+      analyser.smoothingTimeConstant=.42;
+      analyser.connect(ctx.destination);
+      liveOutputAnalyserRef.current=analyser;
+    }
+    source.connect(analyser);
 
     const startAt=Math.max(ctx.currentTime+.02,liveNextPlayTimeRef.current||0);
     source.start(startAt);
     liveNextPlayTimeRef.current=startAt+buffer.duration;
     liveOutputSourcesRef.current.add(source);
+
+    if(liveSpeechMotionRafRef.current===undefined){
+      emitSpeechMood(liveOutputTranscriptRef.current);
+      startVoiceMotionTracking(
+        analyser,
+        liveSpeechMotionRafRef,
+        ()=>voiceSessionActiveRef.current&&liveOutputSourcesRef.current.size>0
+      );
+    }
+
     source.onended=()=>{
       liveOutputSourcesRef.current.delete(source);
       if(!liveOutputSourcesRef.current.size){
+        stopVoiceMotionTracking(liveSpeechMotionRafRef);
+        window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
         liveNextPlayTimeRef.current=0;
         settleLiveListening();
       }
@@ -3124,6 +3262,7 @@ export default function GithubApp(){
       const outputCtx=new AudioContext();
       await outputCtx.resume();
       liveOutputContextRef.current=outputCtx;
+      liveOutputAnalyserRef.current=null;
 
       const {data,error}=await supabase.functions.invoke('live-token',{body:{}});
       if(error||!data?.token)throw error||new Error('voice-token');
@@ -3356,7 +3495,12 @@ export default function GithubApp(){
         }
 
         const outputText=String(server?.outputTranscription?.text||'');
-        if(outputText)liveOutputTranscriptRef.current+=outputText;
+        if(outputText){
+          liveOutputTranscriptRef.current+=outputText;
+          if(voiceSessionStatus==='speaking'||liveOutputSourcesRef.current.size>0){
+            emitSpeechMood(liveOutputTranscriptRef.current);
+          }
+        }
 
         const parts=server?.modelTurn?.parts||[];
         for(const part of parts){
