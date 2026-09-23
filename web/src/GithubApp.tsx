@@ -4966,9 +4966,24 @@ export default function GithubApp(){
             <div><Settings/><span><strong>المظهر والحركة</strong><small>شكل ضي وطريقة الحركة داخل الواجهة</small></span></div>
           </div>
           <div className='dai-settings-card'>
+            <div className='dai-experience-presets' aria-label='نمط تجربة ضي'>
+              <button className={experiencePreset==='cinematic'?'active':''} onClick={()=>setExperiencePreset('cinematic')}>
+                <Sparkles/><span><strong>سينمائي</strong><small>كل التفاصيل والحركة والصوت الديناميكي</small></span>
+              </button>
+              <button className={experiencePreset==='calm'?'active':''} onClick={()=>setExperiencePreset('calm')}>
+                <Orbit/><span><strong>هادئ</strong><small>حركات أبطأ وصوت أخف مع نفس التعبيرات</small></span>
+              </button>
+              <button className={experiencePreset==='minimal'?'active':''} onClick={()=>setExperiencePreset('minimal')}>
+                <Eye/><span><strong>Minimal</strong><small>الوجه الأساسي فقط وأقل مؤثرات ممكنة</small></span>
+              </button>
+            </div>
+            <div className='dai-quality-status'>
+              <span>الجودة التلقائية</span>
+              <strong>{renderQuality==='high'?'High':renderQuality==='medium'?'Medium':'Low'} · {runtimePerf.fps} FPS</strong>
+            </div>
             <div className='dai-setting-grid'>
               <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
-              <label className='classic-setting compact'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>حركة هادية</strong><small>تقلل سرعة وحدّة الأنيميشن.</small></span></label>
+              <label className='classic-setting compact'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>تقليل الحركة يدويًا</strong><small>يفرض أقل حركة بغض النظر عن أداء الجهاز.</small></span></label>
             </div>
           </div>
         </section>
@@ -5008,9 +5023,10 @@ export default function GithubApp(){
               <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
             </div>
             <div className='dai-sfx-controls'>
-              <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>هادئ</option><option value='normal'>سينمائي</option><option value='silent'>بدون مؤثرات</option></select></label>
-              <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
+              <label><span>النمط اليدوي</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled||experiencePreset!=='cinematic'}><option value='soft'>هادئ</option><option value='normal'>سينمائي</option><option value='silent'>بدون مؤثرات</option></select></label>
+              <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'||experiencePreset==='minimal'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
             </div>
+            <small className='dai-sfx-preset-note'>{experiencePreset==='cinematic'?'النمط السينمائي يستخدم إعداداتك اليدوية.':experiencePreset==='calm'?'النمط الهادئ يقلل المؤثرات والمستوى تلقائيًا.':'Minimal يوقف المؤثرات الخلفية ويحافظ على الصوت الأساسي فقط.'}</small>
             <button
               className='dai-sfx-preview'
               disabled={!sfxEnabled||sfxMode==='silent'}
@@ -5102,6 +5118,22 @@ export default function GithubApp(){
             <div><strong>{item.label}</strong><small>{item.detail}{typeof item.latency==='number'?' · '+item.latency+'ms':''}</small></div>
             <b>{item.status==='running'?'…':item.status==='pass'?'جاهز':item.status==='warn'?'بطيء':'مشكلة'}</b>
           </article>)}
+        </div>
+        <div className='dai-runtime-health'>
+          <div className='dai-metrics-head'>
+            <div><strong>أداء الحركة والصوت</strong><small>قياس مباشر من الجهاز الحالي</small></div>
+            <span className={'dai-quality-badge '+renderQuality}>{renderQuality.toUpperCase()}</span>
+          </div>
+          <div className='dai-runtime-grid'>
+            <div><small>FPS</small><strong>{runtimePerf.fps}</strong></div>
+            <div><small>Dropped frames</small><strong>{runtimePerf.droppedFrames}</strong></div>
+            <div><small>SFX الآن</small><strong>{runtimePerf.audioActiveVoices}</strong></div>
+            <div><small>أقصى SFX متزامنة</small><strong>{runtimePerf.audioMaxConcurrent}</strong></div>
+            <div><small>AudioContext</small><strong>{runtimePerf.audioContextState}</strong></div>
+            <div><small>Resume / Suspend</small><strong>{runtimePerf.audioResumeCount} / {runtimePerf.audioSuspendCount}</strong></div>
+            <div><small>مؤثرات تم إسقاطها</small><strong>{runtimePerf.audioDroppedCueCount}</strong></div>
+            <div><small>Preset</small><strong>{experiencePreset}</strong></div>
+          </div>
         </div>
         <div className='dai-metrics-dashboard'>
           <div className='dai-metrics-head'>
