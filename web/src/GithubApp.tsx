@@ -360,6 +360,8 @@ export default function GithubApp(){
   const liveTurnCompleteRef=useRef(false);
   const liveSpeakingStartedAtRef=useRef(0);
   const liveBargeFramesRef=useRef(0);
+  const liveNoiseFloorRef=useRef(.012);
+  const liveLastSpeechAtRef=useRef(0);
   const liveInputPcmBufferRef=useRef<Float32Array>(new Float32Array(0));
   const voiceRecorderRef=useRef<MediaRecorder|null>(null);
   const voiceRecorderStreamRef=useRef<MediaStream|null>(null);
@@ -3079,10 +3081,11 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
+    liveNoiseFloorRef.current=.012;
+    liveLastSpeechAtRef.current=0;
     liveInputPcmBufferRef.current=new Float32Array(0);
     setVoiceSessionStatus('listening');
-    daiSfx.playState('listening');
-    animate('listen',0);
+    transitionCorePhase('listening');
   }
 
   function stopLivePlayback(){
@@ -3111,7 +3114,6 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     if(!liveSpeakingStartedAtRef.current){
       liveSpeakingStartedAtRef.current=Date.now();
-      daiSfx.playState('responding');
     }
 
     const sampleRate=liveOutputRate(mimeType);
@@ -3155,7 +3157,7 @@ export default function GithubApp(){
     };
 
     setVoiceSessionStatus('speaking');
-    animate('talk',0);
+    transitionCorePhase('speaking');
   }
 
   async function startLiveCapture(socket:WebSocket){
@@ -3196,31 +3198,46 @@ export default function GithubApp(){
 
       const channel=event.inputBuffer.getChannelData(0);
       const outputSpeaking=liveOutputSourcesRef.current.size>0;
+      const level=audioRms(channel);
 
       if(outputSpeaking){
         const speakingFor=Date.now()-liveSpeakingStartedAtRef.current;
-        if(speakingFor<650){
+        if(speakingFor<450){
           liveBargeFramesRef.current=0;
           return;
         }
 
-        const level=audioRms(channel);
-        if(level<0.085){
-          liveBargeFramesRef.current=0;
+        // Adaptive interruption threshold: learn the room noise while DAI is not
+        // speaking, then require a clear sustained rise over that floor.
+        const threshold=Math.max(.038,Math.min(.105,liveNoiseFloorRef.current*3.15));
+        if(level<threshold){
+          liveBargeFramesRef.current=Math.max(0,liveBargeFramesRef.current-1);
           return;
         }
 
+        liveLastSpeechAtRef.current=Date.now();
         liveBargeFramesRef.current++;
-        if(liveBargeFramesRef.current<3)return;
+        const requiredFrames=level>threshold*1.7?2:3;
+        if(liveBargeFramesRef.current<requiredFrames)return;
 
-        // A sustained voice over DAI's output is treated as a real interruption.
         liveBargeFramesRef.current=0;
         liveTurnCompleteRef.current=false;
         stopLivePlayback();
         setVoiceSessionStatus('listening');
-        animate('listen',0);
+        transitionCorePhase('listening',{force:true});
       }else{
         liveBargeFramesRef.current=0;
+        const now=Date.now();
+        if(now-liveLastSpeechAtRef.current>320){
+          const ceiling=Math.max(.055,liveNoiseFloorRef.current*2.8);
+          if(level<ceiling){
+            liveNoiseFloorRef.current=
+              liveNoiseFloorRef.current*.965+
+              Math.max(.003,level)*.035;
+          }else{
+            liveLastSpeechAtRef.current=now;
+          }
+        }
       }
 
       const resampled=resampleMono(channel,ctx.sampleRate,16000);
@@ -3254,8 +3271,7 @@ export default function GithubApp(){
     setListening(true);
     setVoiceSessionStatus('listening');
     setVoiceNotice('الميكروفون شغال والصوت جاهز.');
-    daiSfx.playState('listening');
-    animate('listen',0);
+    transitionCorePhase('listening',{force:true});
   }
 
   async function persistVoiceTranscript(turns:Array<{role:'user'|'assistant';content:string}>){
@@ -3376,7 +3392,7 @@ export default function GithubApp(){
 
     const turns=[...voiceSessionTurnsRef.current];
     voiceSessionTurnsRef.current=[];
-    animate('idle',0);
+    transitionCorePhase('idle',{silent:true,force:true});
 
     if(turns.length){
       try{
@@ -3752,8 +3768,8 @@ export default function GithubApp(){
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-                prefixPaddingMs:80,
-                silenceDurationMs:600
+                prefixPaddingMs:120,
+                silenceDurationMs:520
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
@@ -3808,7 +3824,7 @@ export default function GithubApp(){
           liveTurnCompleteRef.current=false;
           stopLivePlayback();
           setVoiceSessionStatus('listening');
-          animate('listen',0);
+          transitionCorePhase('listening',{force:true});
         }
 
         const inputText=String(server?.inputTranscription?.text||'');
