@@ -81,8 +81,9 @@ Deno.serve(async (req) => {
   if (!apiKey) return json({ error: 'خدمة فهم الصوت غير متاحة حاليًا.', code: 'VOICE_CONFIG' }, 503);
 
   const models = [
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
     'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
   ];
 
   const instruction =
@@ -95,29 +96,40 @@ Deno.serve(async (req) => {
 
   for (const model of models) {
     try {
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          method: 'POST',
-          headers: {
-            'x-goog-api-key': apiKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              role: 'user',
-              parts: [
-                { text: instruction },
-                { inlineData: { mimeType, data: audioBase64 } },
-              ],
-            }],
-            generationConfig: {
-              maxOutputTokens: 700,
-              thinkingConfig: { thinkingLevel: 'minimal' },
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      let response: Response;
+      try {
+        response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+          {
+            method: 'POST',
+            signal: controller.signal,
+            headers: {
+              'x-goog-api-key': apiKey,
+              'Content-Type': 'application/json',
             },
-          }),
-        },
-      );
+            body: JSON.stringify({
+              contents: [{
+                role: 'user',
+                parts: [
+                  { text: instruction },
+                  { inlineData: { mimeType, data: audioBase64 } },
+                ],
+              }],
+              generationConfig: {
+                maxOutputTokens: 700,
+                temperature: 0.1,
+                thinkingConfig: {
+                  thinkingLevel: /gemini-3\.8-flash/i.test(model) ? 'low' : 'minimal',
+                },
+              },
+            }),
+          },
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
 
       lastStatus = response.status;
       const responseText = await response.text().catch(() => '');
