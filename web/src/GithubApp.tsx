@@ -15,6 +15,7 @@ type ResponseMode = 'auto' | 'text' | 'voice';
 type ThemeMode = 'dark' | 'light' | 'system';
 type DiagnosticStatus = 'idle' | 'running' | 'pass' | 'warn' | 'fail';
 type DiagnosticItem = { id:string; label:string; status:DiagnosticStatus; detail:string; latency?:number };
+type DaiCorePhase = 'idle'|'listening'|'understanding'|'searching'|'preparing'|'responding'|'speaking'|'complete'|'error';
 type ProAnimationSpec = {
   id:string;
   gesture:DaiState;
@@ -344,6 +345,7 @@ export default function GithubApp(){
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
   const sonicRequestRef=useRef(0);
+  const corePhaseRef=useRef<DaiCorePhase>('idle');
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAudioUnlockedRef=useRef(false);
@@ -560,6 +562,38 @@ export default function GithubApp(){
     daiSfx.setDucked(animationAudioBusy());
     setDaiState(state);
     if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
+  }
+
+  function transitionCorePhase(
+    phase:DaiCorePhase,
+    options:{silent?:boolean;force?:boolean}={}
+  ){
+    const previous=corePhaseRef.current;
+    if(!options.force&&previous===phase)return;
+    corePhaseRef.current=phase;
+    const locked=Date.now()<animationLockUntilRef.current;
+
+    if(!options.silent){
+      if(phase==='listening')daiSfx.playState('listening');
+      else if(phase==='understanding'||phase==='preparing')daiSfx.playState('thinking');
+      else if(phase==='searching')daiSfx.playState('action');
+      else if(phase==='responding')daiSfx.playState('responding');
+      else if(phase==='speaking')daiSfx.playState('speaking');
+      else if(phase==='complete')daiSfx.playState('complete');
+      else if(phase==='error')daiSfx.playState('error');
+    }
+
+    if(locked&&phase!=='error'&&phase!=='speaking')return;
+
+    if(phase==='idle')animate('idle',0);
+    else if(phase==='listening')animate('listen',0);
+    else if(phase==='understanding')animate('thinking_deep',0);
+    else if(phase==='searching')animate('search',0);
+    else if(phase==='preparing')animate('voicewait',0);
+    else if(phase==='responding')animate('reply',0);
+    else if(phase==='speaking')animate('talk',0);
+    else if(phase==='complete')animate('success',1000);
+    else if(phase==='error')animate('error',1200);
   }
 
   function animationSpecById(id:string){
