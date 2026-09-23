@@ -4722,7 +4722,7 @@ export default function GithubApp(){
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
-    return <main className='dai-companion-shell' dir='rtl' data-state={daiState} data-ai-phase={daiPhase}>
+    return <main className='dai-companion-shell' dir='rtl' data-state={daiState} data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset}>
       <div className='dai-companion-halo'/>
       <button
         className='dai-companion-face'
@@ -4731,7 +4731,7 @@ export default function GithubApp(){
         aria-label='ضي — دبل كليك لفتح البابل'
         title='دبل كليك للكتابة'
       >
-        <DaiFaceBoundary><DaiFace state={daiState} reduced={reduced}/></DaiFaceBoundary>
+        <DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality}/></DaiFaceBoundary>
       </button>
       {companionBubbleOpen&&<section className='dai-companion-bubble' onDoubleClick={e=>e.stopPropagation()}>
         <div className='dai-companion-bubble-head'>
@@ -4755,7 +4755,7 @@ export default function GithubApp(){
     </main>;
   }
 
-  return <main className={'classic-shell '+(desktopMode&&browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase}>
+  return <main className={'classic-shell '+(desktopMode&&browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase} data-quality={renderQuality} data-experience={experiencePreset}>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
@@ -4773,7 +4773,7 @@ export default function GithubApp(){
     </header>
 
     <section className='classic-stage'>
-      <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced}/></DaiFaceBoundary></div>
+      <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality}/></DaiFaceBoundary></div>
 
       <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
         {voiceSessionActive&&
