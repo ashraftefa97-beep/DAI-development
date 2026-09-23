@@ -504,15 +504,27 @@ export default function GithubApp(){
     try{
       const url=new URL(String(rawUrl||'').trim());
       if(!['http:','https:'].includes(url.protocol))return;
-      setBrowserLoaded(false);
-      setBrowserUrl(url.toString());
-      setBrowserReloadKey(value=>value+1);
 
       if(desktopMode&&window.daiDesktop?.browserOpen){
+        setBrowserLoaded(false);
+        setBrowserUrl(url.toString());
+        setBrowserReloadKey(value=>value+1);
         void window.daiDesktop.browserOpen(url.toString()).then(result=>{
           if(!result?.ok)setErrorText(result?.message||'تعذر فتح الموقع داخل ضي.');
         }).catch(()=>setErrorText('تعذر فتح الموقع داخل ضي.'));
+        return;
       }
+
+      // Browsers block many external sites from iframes via X-Frame-Options/CSP.
+      // On the web build, open external origins normally so every valid link remains usable.
+      if(url.origin!==window.location.origin){
+        window.open(url.toString(),'_blank','noopener,noreferrer');
+        return;
+      }
+
+      setBrowserLoaded(false);
+      setBrowserUrl(url.toString());
+      setBrowserReloadKey(value=>value+1);
     }catch{}
   }
 
@@ -3360,7 +3372,8 @@ export default function GithubApp(){
       if(name==='open_website'){
         const url=String(args?.url||'').trim();
         if(!/^https?:\/\//i.test(url))return {ok:false,message:'الرابط غير صحيح.'};
-        return await bridge.execute({type:'openExternal',url});
+        openDaiBrowser(url);
+        return {ok:true,message:desktopMode?'فتحت الموقع داخل ضي.':'فتحت الموقع في تبويب جديد.'};
       }
       if(name==='open_local_file'){
         return await bridge.pickAndOpenFile();
@@ -3523,7 +3536,7 @@ export default function GithubApp(){
             },
             {
               name:'open_website',
-              description:'افتح رابط http أو https في المتصفح الافتراضي.',
+              description:'افتح رابط http أو https. في تطبيق Windows يفتح داخل متصفح ضي، وعلى الويب يفتح بشكل آمن في تبويب جديد.',
               parameters:{type:'OBJECT',properties:{url:{type:'STRING'}},required:['url']}
             },
             {
