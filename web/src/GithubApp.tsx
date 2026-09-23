@@ -1676,7 +1676,7 @@ export default function GithubApp(){
   },[userId,plan]);
 
   useEffect(()=>{
-    if(errorText)animate('error',1500);
+    if(errorText)transitionCorePhase('error',{force:true});
   },[errorText]);
 
   useEffect(()=>{
@@ -2083,7 +2083,7 @@ export default function GithubApp(){
     setStreamingText(false);
     setResearching(false);
     setSending(false);
-    animate('idle',0);
+    transitionCorePhase('idle',{silent:true,force:true});
   }
 
   async function streamTypedReply(
@@ -2131,7 +2131,7 @@ export default function GithubApp(){
     let latestSearchSources:SearchSource[]=[];
     const predictedResearch=routeHint==='research';
     setResearching(predictedResearch);
-    if(predictedResearch&&Date.now()>=animationLockUntilRef.current)animate('search',0);
+    if(predictedResearch)transitionCorePhase('searching');
 
     let {data:{session}}=await supabase.auth.getSession();
     if(!session){
@@ -2936,8 +2936,6 @@ export default function GithubApp(){
     setPendingUserMessage(optimisticMessage);
     if(predictedCommand||predictedCode||predictedImage){
       transitionCorePhase('working',{force:true});
-    }else if(!predictedResearch&&!predictedComplex&&!fromVoice){
-      if(Date.now()>=animationLockUntilRef.current)animate(stateForUserText(text),0);
     }
 
     if(!fromVoice&&predictedCode){
