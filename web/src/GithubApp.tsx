@@ -2256,6 +2256,34 @@ export default function GithubApp(){
   }
 
   async function executeLiveDesktopTool(name:string,args:any){
+    if(name==='web_research'){
+      if(!supabase)return {ok:false,message:'البحث غير متاح دلوقتي.'};
+      const query=String(args?.query||'').trim();
+      if(!query)return {ok:false,message:'طلب البحث ناقص.'};
+      setResearching(true);
+      daiSfx.playState('thinking');
+      if(Date.now()>=animationLockUntilRef.current)animate('search',0);
+      try{
+        const {data,error}=await supabase.functions.invoke('web-research',{body:{query}});
+        if(error||!data?.answer){
+          return {ok:false,message:'ضي مقدرتش تكمل البحث دلوقتي.'};
+        }
+        const sourceText=normalizeSearchSources(data?.sources)
+          .slice(0,4)
+          .map((source,index)=>`${index+1}. ${source.title} — ${source.url}`)
+          .join('\n');
+        return {
+          ok:Boolean(data?.ok),
+          message:String(data.answer)+(sourceText?'\nمصادر البحث:\n'+sourceText:'')
+        };
+      }catch(error){
+        console.error('DAI live research failed',error);
+        return {ok:false,message:'ضي واجهت مشكلة وهي بتبحث.'};
+      }finally{
+        setResearching(false);
+      }
+    }
+
     if(name==='perform_animation'){
       if(!professional||!proAnimations)return {ok:false,message:'مكتبة الحركات الكاملة تحتاج Professional.'};
       const id=String(args?.id||'');
@@ -2376,6 +2404,20 @@ export default function GithubApp(){
       liveSocketRef.current=socket;
 
       socket.onopen=()=>{
+        const researchToolDeclarations=[{
+          functionDeclarations:[{
+            name:'web_research',
+            description:'ابحث على الويب عندما يحتاج السؤال معلومات حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يعتمد على معلومات حالية. استخدم البحث بدل التخمين.',
+            parameters:{
+              type:'OBJECT',
+              properties:{
+                query:{type:'STRING',description:'سؤال البحث بصياغة واضحة ومختصرة'}
+              },
+              required:['query']
+            }
+          }]
+        }];
+
         const animationToolDeclarations=professional&&proAnimations ? [{
           functionDeclarations:[{
             name:'perform_animation',
@@ -2502,6 +2544,7 @@ export default function GithubApp(){
           (professional&&proAnimations
             ? 'عندك أداة perform_animation مرتبطة بمكتبة ضي الفعلية المكونة من 84 حركة. لو المستخدم طلب حركة استخدمي الأداة بدل ما تقولي إنك مش قادرة تتحرك. وممكن تختاري حركة من نفسك أحيانًا لما تكون مناسبة جدًا للسياق، لكن بشكل خفيف ومش مع كل رد، ومن غير حركات احتفالية في المواقف الجادة أو الحساسة. '
             : '')+
+          'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي أداة web_research بدل التخمين أو القول إن التصفح غير متاح. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
@@ -2516,9 +2559,11 @@ export default function GithubApp(){
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
-            ...((animationToolDeclarations||desktopToolDeclarations)
-              ? {tools:[...(animationToolDeclarations||[]),...(desktopToolDeclarations||[])]}
-              : {}),
+            tools:[
+              ...researchToolDeclarations,
+              ...(animationToolDeclarations||[]),
+              ...(desktopToolDeclarations||[])
+            ],
             inputAudioTranscription:{},
             outputAudioTranscription:{}
           }
