@@ -13,35 +13,54 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+async function networkFirst(request, fallbackKey) {
+  try {
+    const response = await fetch(request, { cache: 'no-store' });
+    if (response.ok) {
+      const copy = response.clone();
+      void caches.open(CACHE_NAME).then(cache => cache.put(fallbackKey || request, copy));
+    }
+    return response;
+  } catch {
+    return (await caches.match(fallbackKey || request)) || Response.error();
+  }
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   if (request.method !== 'GET') return;
+
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          const copy = response.clone();
-          void caches.open(CACHE_NAME).then(cache => cache.put('./', copy));
-          return response;
-        })
-        .catch(() => caches.match('./'))
-    );
+    event.respondWith(networkFirst(request, './'));
+    return;
+  }
+
+  const destination = request.destination;
+  const dynamicAsset =
+    destination === 'script' ||
+    destination === 'style' ||
+    destination === 'worker' ||
+    destination === 'document' ||
+    /\.(?:js|mjs|css|html)(?:$|\?)/i.test(url.pathname + url.search);
+
+  if (dynamicAsset) {
+    event.respondWith(networkFirst(request));
     return;
   }
 
   event.respondWith(
     caches.match(request).then(cached => {
-      const network = fetch(request).then(response => {
+      if (cached) return cached;
+      return fetch(request).then(response => {
         if (response.ok) {
           const copy = response.clone();
           void caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
         }
         return response;
-      }).catch(() => cached);
-      return cached || network;
+      }).catch(() => Response.error());
     })
   );
 });
