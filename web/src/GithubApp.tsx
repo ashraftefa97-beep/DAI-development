@@ -2410,7 +2410,9 @@ export default function GithubApp(){
         oldAssistant.id,
         'auto',
         gatewayRequest.decision.route,
-        gatewayRequest.id
+        gatewayRequest.id,
+        gatewayRequest.decision.confidence,
+        'text'
       );
     }catch(error){
       if((error as Error)?.name!=='AbortError'){
@@ -2794,9 +2796,20 @@ export default function GithubApp(){
       await unlockSpeechAudio();
     }
 
+    const contextMessages=(conversations.find(item=>item.id===activeIdRef.current)?.messages||[]).slice(-8);
+    const previousUser=[...contextMessages].reverse().find(item=>item.role==='user');
+    const previousAssistant=[...contextMessages].reverse().find(item=>item.role==='assistant');
+    const previousRoute=previousUser
+      ? routeDaiTask(previousUser.content).route
+      : undefined;
     const gatewayRequest=createDaiRequest(
       text,
-      fromVoice?'voice':desktopMode?'desktop':'text'
+      fromVoice?'voice':desktopMode?'desktop':'text',
+      {
+        previousUserText:previousUser?.content,
+        previousAssistantText:previousAssistant?.content,
+        previousRoute
+      }
     );
     gatewayRequestRef.current=gatewayRequest.id;
     // A new request owns every response surface. Stop stale speech immediately,
@@ -2925,7 +2938,16 @@ export default function GithubApp(){
 
     if(!fromVoice){
       try{
-        await streamTypedReply(text,desktopActionResult,'',explicitVoiceRequest?'always':'auto',routeDecision.route,gatewayRequest.id);
+        await streamTypedReply(
+          text,
+          desktopActionResult,
+          '',
+          explicitVoiceRequest?'always':'auto',
+          routeDecision.route,
+          gatewayRequest.id,
+          routeDecision.confidence,
+          desktopMode?'desktop':'text'
+        );
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         sonicRequestRef.current++;
@@ -2958,7 +2980,16 @@ export default function GithubApp(){
     if(fromVoice){
       try{
         await unlockSpeechAudio();
-        await streamTypedReply(text,desktopActionResult,'','always',routeDecision.route,gatewayRequest.id);
+        await streamTypedReply(
+          text,
+          desktopActionResult,
+          '',
+          'always',
+          routeDecision.route,
+          gatewayRequest.id,
+          routeDecision.confidence,
+          'voice'
+        );
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         const tempId=streamMessageIdRef.current;
