@@ -1020,7 +1020,7 @@ async function interactionGroundedResearch(
     }
 
     const answer = answerParts.join('\n').trim();
-    const sources = [...sourceMap.values()].slice(0,8);
+    const sources = rankSearchSources(query,[...sourceMap.values()]);
     const recommendation = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
     const enoughEvidence = recommendation ? sources.length >= 2 : sources.length >= 1;
 
