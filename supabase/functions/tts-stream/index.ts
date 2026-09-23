@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     'النص فقط من غير أي إضافة:\n' + text;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
+  const timeout = setTimeout(() => controller.abort(), 75000);
   const abortFromClient = () => controller.abort();
   req.signal.addEventListener('abort', abortFromClient, { once: true });
 
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
           type: 'audio',
         },
         generation_config: {
-          speech_config: [{ voice: 'Leda' }],
+          speech_config: [{ voice: 'Leda', language: 'ar' }],
         },
         stream: true,
         store: false,
