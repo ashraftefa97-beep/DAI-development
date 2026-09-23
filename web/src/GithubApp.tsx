@@ -6,7 +6,8 @@ import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient'
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
 
-type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number };
+type SearchSource = { title:string; url:string };
+type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
 type Conversation = { id:string; title:string; messages:Message[]; updatedAt:number };
 type DaiPlan = 'standard' | 'professional';
 type ResponseMode = 'auto' | 'text' | 'voice';
@@ -47,7 +48,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.1.0';
+const DAI_WEB_VERSION='1.2.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -124,6 +125,23 @@ async function explainChatError(error:any){
     return 'ضي مش قادرة تتصل بالخدمة حاليًا. جرّب تاني.';
   }
   return 'ضي حصل عندها خطأ غير متوقع. جرّب تاني.';
+}
+
+function normalizeSearchSources(value:any):SearchSource[]{
+  if(!Array.isArray(value))return [];
+  const seen=new Set<string>();
+  const out:SearchSource[]=[];
+  for(const item of value){
+    const url=String(item?.url||'').trim();
+    if(!/^https?:\/\//i.test(url)||seen.has(url))continue;
+    seen.add(url);
+    out.push({
+      title:String(item?.title||'مصدر').trim().slice(0,180)||'مصدر',
+      url
+    });
+    if(out.length>=8)break;
+  }
+  return out;
 }
 
 export default function GithubApp(){
@@ -207,6 +225,7 @@ export default function GithubApp(){
   const [loadingData,setLoadingData]=useState(true);
   const [sending,setSending]=useState(false);
   const [streamingText,setStreamingText]=useState(false);
+  const [researching,setResearching]=useState(false);
   const [pendingUserMessage,setPendingUserMessage]=useState<Message|null>(null);
   const [errorText,setErrorText]=useState('');
   const [online,setOnline]=useState(()=>typeof navigator==='undefined'?true:navigator.onLine);
@@ -1398,6 +1417,7 @@ export default function GithubApp(){
     stopSpeechAudio();
     if('speechSynthesis' in window)window.speechSynthesis.cancel();
     setStreamingText(false);
+    setResearching(false);
     setSending(false);
     animate('idle',0);
   }
@@ -1415,6 +1435,9 @@ export default function GithubApp(){
     textRequestAbortRef.current=controller;
     const tempAssistantId='stream-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     streamMessageIdRef.current=tempAssistantId;
+
+    let latestSearchSources:SearchSource[]=[];
+    setResearching(false);
 
     let {data:{session}}=await supabase.auth.getSession();
     if(!session){
@@ -1471,6 +1494,14 @@ export default function GithubApp(){
     };
 
     const handleEvent=(eventName:string,payload:any)=>{
+      if(eventName==='research'){
+        latestSearchSources=normalizeSearchSources(payload?.sources);
+        setResearching(true);
+        daiSfx.playState('thinking');
+        if(Date.now()>=animationLockUntilRef.current)animate('search',0);
+        return;
+      }
+
       if(eventName==='start'){
         conversationId=String(payload?.conversationId||conversationId||'');
         if(!conversationId)return;
@@ -1509,6 +1540,7 @@ export default function GithubApp(){
         if(!firstDelta){
           firstDelta=true;
           sonicRequestRef.current++;
+          setResearching(false);
           daiSfx.playState(shouldSpeak?'thinking':'responding');
           setStreamingText(!shouldSpeak);
           if(shouldSpeak){
@@ -1555,7 +1587,8 @@ export default function GithubApp(){
           id:String(row.id),
           role:'assistant',
           content:String(row.content||''),
-          createdAt:new Date(row.created_at).getTime()
+          createdAt:new Date(row.created_at).getTime(),
+          sources:normalizeSearchSources(payload?.sources?.length?payload.sources:latestSearchSources)
         };
 
         const perf=payload?.performance;
@@ -1569,6 +1602,7 @@ export default function GithubApp(){
 
         streamMessageIdRef.current='';
         setStreamingText(false);
+        setResearching(false);
 
         if(shouldSpeak){
           animate('voicewait',0);
@@ -1610,6 +1644,7 @@ export default function GithubApp(){
       }
 
       if(eventName==='error'){
+        setResearching(false);
         throw new Error(String(payload?.message||'ضي واجهت مشكلة وهي بتجهز الرد.'));
       }
     };
@@ -1716,6 +1751,7 @@ export default function GithubApp(){
     setErrorText('');
     setSending(true);
     setStreamingText(false);
+    setResearching(false);
     const sonicRequest=++sonicRequestRef.current;
     daiSfx.playState('action');
     window.setTimeout(()=>{
@@ -1764,6 +1800,7 @@ export default function GithubApp(){
         streamMessageIdRef.current='';
         setPendingUserMessage(null);
         setStreamingText(false);
+        setResearching(false);
         setSending(false);
       }
       return;
@@ -1791,6 +1828,7 @@ export default function GithubApp(){
         streamMessageIdRef.current='';
         setPendingUserMessage(null);
         setStreamingText(false);
+        setResearching(false);
         setSending(false);
       }
       return;
@@ -1821,7 +1859,8 @@ export default function GithubApp(){
         id:assistantRow.id,
         role:'assistant',
         content:assistantRow.content,
-        createdAt:new Date(assistantRow.created_at).getTime()
+        createdAt:new Date(assistantRow.created_at).getTime(),
+        sources:normalizeSearchSources(data?.sources)
       };
 
       setPendingUserMessage(null);
@@ -3008,7 +3047,7 @@ export default function GithubApp(){
     : voiceSessionStatus==='speaking'||Boolean(speakingMessageId)||daiState==='talk'?'speaking'
     : voiceNoteRecording||(voiceSessionActive&&voiceSessionStatus==='listening')||daiState==='listen'?'listening'
     : ['success','found','response_ready'].includes(daiState)?'complete'
-    : voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
+    : researching||voiceNoteProcessing||(sending&&!streamingText)||['search','focus','working','voicewait','loading','thinking_deep'].includes(daiState)?'thinking'
     : streamingText||daiState==='reply'?'responding'
     : input.trim()||daiState==='typing'?'attention'
     : 'idle';
@@ -3027,9 +3066,11 @@ export default function GithubApp(){
               ? 'ضي بتتكلم…'
               : voiceNotice.includes('بجهّز')||voiceNotice.includes('بتجهّز')
                 ? 'ضي بتجهّز الصوت…'
-                : sending
-                  ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
-                  : 'ضي جاهزة';
+                : researching
+                  ? 'ضي بتبحث…'
+                  : sending
+                    ? (streamingText?'ضي بتكتب…':'ضي بتفكر…')
+                    : 'ضي جاهزة';
 
   if(companionMode){
     const lastAssistant=(active?.messages||[]).filter(message=>message.role==='assistant').at(-1);
@@ -3116,6 +3157,22 @@ export default function GithubApp(){
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
               <p dir='auto'>{m.content}</p>
+              {m.role==='assistant'&&m.sources&&m.sources.length>0&&
+                <div className='dai-search-sources' aria-label='مصادر بحث ضي'>
+                  <span><Search className='h-3.5 w-3.5'/> مصادر البحث</span>
+                  <div>
+                    {m.sources.map((source,index)=>
+                      <a
+                        key={source.url}
+                        href={source.url}
+                        target='_blank'
+                        rel='noreferrer'
+                        title={source.title}
+                      >{index+1}. {source.title}</a>
+                    )}
+                  </div>
+                </div>
+              }
               {m.role==='assistant'&&
                 <div className='dai-message-actions'>
                   <button
@@ -3142,7 +3199,7 @@ export default function GithubApp(){
             <p dir='auto'>{pendingUserMessage.content}</p>
           </article>
         }
-        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>ضي بترد…</span></div>}
+        {!voiceSessionActive&&sending&&!streamingText&&<div className='classic-chat-typing'><i/><i/><i/><span>{researching?'ضي بتبحث…':'ضي بترد…'}</span></div>}
       </section>
 
       {errorText&&<div className='classic-error stage-error' role='alert'><span>{errorText}</span>{lastFailedText&&!sending&&online&&<button onClick={retryLastFailed}><RotateCcw className='h-3.5 w-3.5'/> إعادة المحاولة</button>}</div>}
