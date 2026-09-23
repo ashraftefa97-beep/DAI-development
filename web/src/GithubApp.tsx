@@ -341,6 +341,7 @@ export default function GithubApp(){
   const [browserLoaded,setBrowserLoaded]=useState(false);
   const [browserCanBack,setBrowserCanBack]=useState(false);
   const [browserCanForward,setBrowserCanForward]=useState(false);
+  const webBrowserWindowRef=useRef<Window|null>(null);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
@@ -500,6 +501,49 @@ export default function GithubApp(){
     return()=>{try{unsubscribe?.();}catch{}};
   },[desktopMode]);
 
+  function openTopLevelWebBrowser(url:string){
+    const screenWidth=Math.max(900,window.screen?.availWidth||window.innerWidth||1280);
+    const screenHeight=Math.max(700,window.screen?.availHeight||window.innerHeight||820);
+    const popupWidth=Math.max(560,Math.min(980,Math.round(screenWidth*.48)));
+    const popupHeight=Math.max(620,screenHeight-70);
+    const popupLeft=Math.max(0,(window.screen?.availLeft||0)+screenWidth-popupWidth);
+    const popupTop=Math.max(0,(window.screen?.availTop||0)+28);
+    const features=[
+      'popup=yes',
+      'resizable=yes',
+      'scrollbars=yes',
+      'menubar=no',
+      'toolbar=no',
+      'location=yes',
+      'status=no',
+      'width='+popupWidth,
+      'height='+popupHeight,
+      'left='+popupLeft,
+      'top='+popupTop
+    ].join(',');
+
+    let popup=webBrowserWindowRef.current;
+    try{
+      if(!popup||popup.closed){
+        popup=window.open('about:blank','dai-web-browser',features);
+        if(!popup)return false;
+        try{popup.opener=null;}catch{}
+        webBrowserWindowRef.current=popup;
+      }
+      try{
+        popup.location.replace(url);
+      }catch{
+        popup.location.href=url;
+      }
+      popup.focus();
+      setVoiceNotice('فتحت الموقع في متصفح ضي جنب المحادثة.');
+      return true;
+    }catch{
+      webBrowserWindowRef.current=null;
+      return false;
+    }
+  }
+
   function openDaiBrowser(rawUrl:string){
     try{
       const url=new URL(String(rawUrl||'').trim());
@@ -515,10 +559,13 @@ export default function GithubApp(){
         return;
       }
 
-      // Browsers block many external sites from iframes via X-Frame-Options/CSP.
-      // On the web build, open external origins normally so every valid link remains usable.
+      // External sites are opened as a real top-level browsing context, not an iframe.
+      // This is the closest web equivalent to ChatGPT's in-app browser behavior and
+      // avoids X-Frame-Options/CSP failures on YouTube and other sites.
       if(url.origin!==window.location.origin){
-        window.open(url.toString(),'_blank','noopener,noreferrer');
+        if(!openTopLevelWebBrowser(url.toString())){
+          window.open(url.toString(),'_blank','noopener,noreferrer');
+        }
         return;
       }
 
@@ -630,7 +677,9 @@ export default function GithubApp(){
       void window.daiDesktop.browserExternal();
       return;
     }
-    window.open(browserUrl,'_blank','noopener,noreferrer');
+    if(!openTopLevelWebBrowser(browserUrl)){
+      window.open(browserUrl,'_blank','noopener,noreferrer');
+    }
   }
 
   function browserDisplayHost(){
