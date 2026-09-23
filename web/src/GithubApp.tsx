@@ -855,7 +855,19 @@ export default function GithubApp(){
     options:{silent?:boolean;force?:boolean}={}
   ){
     const previous=corePhaseRef.current;
+    const now=performance.now();
+    const previousAge=now-corePhaseStartedAtRef.current;
     if(!options.force&&previous===phase)return;
+
+    const previousHold=DAI_PHASE_MIN_HOLD_MS[previous]||0;
+    if(
+      !options.force &&
+      DAI_PHASE_PRIORITY[phase]<DAI_PHASE_PRIORITY[previous] &&
+      previousAge<previousHold
+    )return;
+
+    const locked=Date.now()<animationLockUntilRef.current;
+    if(locked&&phase!=='error'&&phase!=='speaking'&&!options.force)return;
 
     if(corePhaseTimerRef.current){
       window.clearTimeout(corePhaseTimerRef.current);
@@ -865,16 +877,44 @@ export default function GithubApp(){
     phaseChoreographyTimersRef.current=[];
     clearTimeout(timer.current);
 
-    corePhaseRef.current=phase;
-    const scene=DAI_PHASE_SCENES[phase];
-    const locked=Date.now()<animationLockUntilRef.current;
+    if(['understanding','searching','working'].includes(phase)){
+      if(!['understanding','searching','working'].includes(previous)){
+        workPhaseStartedAtRef.current=now;
+      }
+    }
 
-    // One soundtrack scene owns ambience + transition cues. Speaking hard-ducks
-    // everything else so DAI's voice always stays clear and centered.
+    const workElapsed=workPhaseStartedAtRef.current
+      ? now-workPhaseStartedAtRef.current
+      : Number.POSITIVE_INFINITY;
+    const fastTurn=
+      ['preparing','responding','complete'].includes(phase) &&
+      workElapsed<900;
+
+    corePhaseRef.current=phase;
+    corePhaseStartedAtRef.current=now;
+    const scene=DAI_PHASE_SCENES[phase];
+
+    // One priority manager owns both soundtrack and animation. A fast response
+    // compresses intermediate beats instead of flashing several states at once.
     daiSfx.setDucked(phase==='speaking');
     daiSfx.setScene(scene.sonic,{cue:!options.silent});
 
-    if(locked&&phase!=='error'&&phase!=='speaking')return;
+    let steps=scene.steps;
+    let timingScale=
+      experiencePreset==='calm'?1.12:
+      experiencePreset==='minimal'?.72:
+      1;
+
+    if(fastTurn){
+      timingScale*=.45;
+      if(phase==='preparing'||phase==='responding'){
+        steps=[scene.steps[scene.steps.length-1]];
+      }
+    }
+
+    if(experiencePreset==='minimal'){
+      steps=[steps[steps.length-1]];
+    }
 
     const applyStep=(state:DaiState)=>{
       if(corePhaseRef.current!==phase)return;
@@ -882,8 +922,9 @@ export default function GithubApp(){
       setDaiState(state);
     };
 
-    for(const step of scene.steps){
-      if(step.after<=0){
+    for(const step of steps){
+      const delay=Math.max(0,Math.round(step.after*timingScale));
+      if(delay<=0){
         applyStep(step.state);
         continue;
       }
@@ -891,20 +932,23 @@ export default function GithubApp(){
         phaseChoreographyTimersRef.current=
           phaseChoreographyTimersRef.current.filter(value=>value!==id);
         applyStep(step.state);
-      },step.after);
+      },delay);
       phaseChoreographyTimersRef.current.push(id);
     }
 
     if(scene.settleMs){
+      const settle=Math.max(420,Math.round(scene.settleMs*(fastTurn?.62:timingScale)));
       corePhaseTimerRef.current=window.setTimeout(()=>{
         if(corePhaseRef.current===phase){
           corePhaseRef.current='idle';
+          corePhaseStartedAtRef.current=performance.now();
+          workPhaseStartedAtRef.current=0;
           daiSfx.setDucked(false);
           daiSfx.setScene('idle',{cue:false});
           setDaiState('idle');
         }
         corePhaseTimerRef.current=undefined;
-      },scene.settleMs);
+      },settle);
     }
   }
 
