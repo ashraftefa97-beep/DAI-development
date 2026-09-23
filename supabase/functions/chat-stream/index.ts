@@ -814,7 +814,7 @@ Deno.serve(async (req) => {
           usedModel = 'local-link-clarify';
           firstTokenMs = Math.round(performance.now() - requestStartedAt);
           push('delta', { text: answer });
-        } else if (route === 'link' || allowWebSearch) {
+        } else if ((route === 'link' && webSearchAllowed(message)) || allowWebSearch) {
           const apiKey = (
             Deno.env.get('GEMINI_API_KEY') ||
             Deno.env.get('AI_API_KEY') ||
