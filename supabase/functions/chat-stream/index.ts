@@ -197,7 +197,7 @@ function detectGatewayRoute(text: string): DaiTaskRoute {
   if (/(?:\b(?:link|url|website)\b|لينك|رابط)/i.test(normalized)) {
     return 'link';
   }
-  if (/(?:ابحث|دور|دوّري|دوري|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
+  if (/(?:ابحث|دور|دوّري|دوري|دورلي|رشح|رشحي|رشحلي|اختارلي|إيهs+أفضل|ايهs+افضل|ماs+هوs+أفضل|ماs+هيs+أفضل|أفضل|افضل|أحسن|احسن|أنسب|انسب|recommend|best|whichs+(?:is|one)|بحث|احدث|أحدث|آخر|النهارده|اليوم|دلوقتي|حاليا|حالياً|سعر|اسعار|أسعار|متوفر|متاحة|متاح|فيديو|يوتيوب|youtube|مصدر|مصادر|خبر|اخبار|أخبار|مقارنة|قارن|راجعلي|مراجعة|review|تحقق|اتأكد|تأكد|موعد|صدر|نزل|تحديث|current|currently|latest|today|search|find|video|price|source|compare|news|release|update)/i.test(normalized)) {
     return 'research';
   }
   if (normalized.length > 900 ||
