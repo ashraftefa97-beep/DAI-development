@@ -593,10 +593,6 @@ export class DaiMotion {
       cross(2.85,'bell',.10,1.00,0);
     } else if(g==='loading') {
       cross(.20,'computer',.06,.94,0);
-    } else if(g==='alert') {
-      cross(.18,'click',.13,1.02,0);
-    } else if(g==='error') {
-      cross(.22,'mech',.12,.84,0);
     }
   }
 
