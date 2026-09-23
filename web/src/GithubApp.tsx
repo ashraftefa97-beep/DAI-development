@@ -4833,7 +4833,7 @@ export default function GithubApp(){
         aria-label='ضي — دبل كليك لفتح البابل'
         title='دبل كليك للكتابة'
       >
-        <DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality}/></DaiFaceBoundary>
+        <DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality} avatar={avatarStyle}/></DaiFaceBoundary>
       </button>
       {companionBubbleOpen&&<section className='dai-companion-bubble' onDoubleClick={e=>e.stopPropagation()}>
         <div className='dai-companion-bubble-head'>
@@ -4875,7 +4875,7 @@ export default function GithubApp(){
     </header>
 
     <section className='classic-stage'>
-      <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality}/></DaiFaceBoundary></div>
+      <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality} avatar={avatarStyle}/></DaiFaceBoundary></div>
 
       <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
         {voiceSessionActive&&
