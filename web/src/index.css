@@ -3406,3 +3406,49 @@ html[data-dai-theme="light"] .dai-browser-loading {
     white-space: normal;
   }
 }
+
+
+.dai-browser-content.youtube-player iframe {
+  top: 0;
+  right: 0;
+  bottom: 46px;
+  left: 0;
+  height: auto;
+}
+.dai-browser-youtube-fallback {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 46px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  background: #111522;
+  border-top: 1px solid rgba(53,48,71,.86);
+  color: #aaa4b4;
+  font-size: 10px;
+}
+.dai-browser-youtube-fallback button {
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #272136;
+  color: #f6c1d8;
+  cursor: pointer;
+}
+html[data-dai-theme="light"] .dai-browser-youtube-fallback {
+  background: #f7f4f7;
+  border-top-color: #ddd4de;
+  color: #6f6571;
+}
+html[data-dai-theme="light"] .dai-browser-youtube-fallback button {
+  background: #eadfea;
+  color: #6a3f58;
+}
