@@ -151,9 +151,39 @@ function decodeXml(value: string) {
     .trim();
 }
 
-async function fallbackYoutubeSearch(query: string) {
+const SEARCH_TOTAL_BUDGET_MS = 30000;
+
+async function timedFetch(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+  parentSignal?: AbortSignal,
+) {
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort();
+  if (parentSignal?.aborted) controller.abort();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(250, Math.floor(timeoutMs)),
+  );
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
+}
+
+function searchTimeLeft(deadline: number) {
+  return Math.max(0, deadline - Date.now());
+}
+
+async function fallbackYoutubeSearch(query: string, timeoutMs = 5500, parentSignal?: AbortSignal) {
   const cleanQuery = query.replace(/(?:يوتيوب|youtube|فيديو)/ig, '').trim();
-  const response = await fetch(
+  const response = await timedFetch(
     'https://www.youtube.com/results?search_query=' + encodeURIComponent(cleanQuery || query),
     {
       headers: {
@@ -161,6 +191,8 @@ async function fallbackYoutubeSearch(query: string) {
         'Accept-Language': 'ar,en;q=0.8',
       },
     },
+    timeoutMs,
+    parentSignal,
   );
 
   if (!response.ok) return [] as SearchSource[];
@@ -194,12 +226,13 @@ async function fallbackYoutubeSearch(query: string) {
   return sources;
 }
 
-async function fallbackRssSearch(query: string) {
+async function fallbackRssSearch(query: string, deadline = Date.now() + 8000, parentSignal?: AbortSignal) {
   const youtubeOnly = /(?:يوتيوب|youtube|فيديو)/i.test(query);
 
   if (youtubeOnly) {
     try {
-      const youtubeSources = await fallbackYoutubeSearch(query);
+      const youtubeBudget = Math.min(5000, Math.max(900, searchTimeLeft(deadline) - 1200));
+      const youtubeSources = await fallbackYoutubeSearch(query, youtubeBudget, parentSignal);
       if (youtubeSources.length) return youtubeSources;
     } catch {
       // Continue to web RSS fallback.
@@ -209,7 +242,10 @@ async function fallbackRssSearch(query: string) {
     ? 'site:youtube.com/watch ' + query.replace(/(?:يوتيوب|youtube)/ig, '').trim()
     : query;
 
-  const response = await fetch(
+  const rssBudget = searchTimeLeft(deadline);
+  if (rssBudget < 500) return [] as SearchSource[];
+
+  const response = await timedFetch(
     'https://www.bing.com/search?format=rss&q=' + encodeURIComponent(searchQuery),
     {
       headers: {
@@ -217,6 +253,8 @@ async function fallbackRssSearch(query: string) {
         'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
       },
     },
+    Math.min(6000, rssBudget),
+    parentSignal,
   );
 
   if (!response.ok) return [] as SearchSource[];
@@ -246,6 +284,8 @@ async function summarizeFallbackSources(
   configuredModel: string,
   query: string,
   sources: SearchSource[],
+  deadline = Date.now() + 7000,
+  parentSignal?: AbortSignal,
 ) {
   if (!sources.length) return '';
 
@@ -267,14 +307,13 @@ async function summarizeFallbackSources(
     query + '\n\nالنتائج:\n' + sourceText;
 
   for (const model of modelCandidates) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 16000);
+    const timeLeft = searchTimeLeft(deadline);
+    if (timeLeft < 600) break;
     try {
-      const response = await fetch(
+      const response = await timedFetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
-          signal: controller.signal,
           headers: {
             'x-goog-api-key': apiKey,
             'Content-Type': 'application/json',
@@ -284,6 +323,8 @@ async function summarizeFallbackSources(
             generationConfig: { maxOutputTokens: 360 },
           }),
         },
+        Math.min(6500, timeLeft),
+        parentSignal,
       );
       if (!response.ok) {
         if ([400,404,429,503].includes(response.status)) continue;
@@ -298,8 +339,6 @@ async function summarizeFallbackSources(
       if (answer) return answer;
     } catch {
       // Try next model.
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
@@ -310,6 +349,7 @@ async function directWebResearch(
   apiKey: string,
   configuredModel: string,
   query: string,
+  parentSignal?: AbortSignal,
 ) {
   const modelCandidates = [
     'gemini-3.5-flash-lite',
@@ -326,16 +366,17 @@ async function directWebResearch(
 
   let lastStatus = 0;
   let lastDetail = '';
+  const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
+  const groundedDeadline = Math.min(deadline, Date.now() + 19000);
 
   for (const model of modelCandidates) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 24000);
+    const timeLeft = searchTimeLeft(groundedDeadline);
+    if (timeLeft < 700) break;
     try {
-      const response = await fetch(
+      const response = await timedFetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
-          signal: controller.signal,
           headers: {
             'x-goog-api-key': apiKey,
             'Content-Type': 'application/json',
@@ -346,6 +387,8 @@ async function directWebResearch(
             generationConfig: { maxOutputTokens: 520 },
           }),
         },
+        Math.min(8000, timeLeft),
+        parentSignal,
       );
 
       lastStatus = response.status;
@@ -389,19 +432,32 @@ async function directWebResearch(
       }
     } catch (error) {
       lastDetail = String(error || '').slice(0, 1200);
-    } finally {
-      clearTimeout(timeout);
+      if (parentSignal?.aborted) break;
     }
   }
 
+  if (parentSignal?.aborted) {
+    return {
+      ok: false,
+      answer: '',
+      sources: [] as SearchSource[],
+      model: '',
+      status: lastStatus,
+      detail: 'Search cancelled by client',
+    };
+  }
+
   try {
-    const sources = await fallbackRssSearch(query);
+    const fallbackDeadline = Math.min(deadline, Date.now() + 7500);
+    const sources = await fallbackRssSearch(query, fallbackDeadline, parentSignal);
     if (sources.length) {
       const summarized = await summarizeFallbackSources(
         apiKey,
         configuredModel,
         query,
         sources,
+        deadline,
+        parentSignal,
       );
 
       return {
@@ -684,7 +740,9 @@ Deno.serve(async (req) => {
           }
 
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
-          const research = await directWebResearch(apiKey, configuredModel, message);
+          researchAnnounced = true;
+          push('research', { queries: [message], sources: [] });
+          const research = await directWebResearch(apiKey, configuredModel, message, req.signal);
 
           if (!research.ok || !research.answer) {
             console.error(
