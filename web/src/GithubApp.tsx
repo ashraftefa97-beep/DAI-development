@@ -4,7 +4,7 @@ import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
-import { daiSfx, type DaiSfxMode } from './daiSfx';
+import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
 import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 
 type SearchSource = { title:string; url:string };
@@ -35,6 +35,74 @@ type RequestMetricRow = {
   created_at:string;
 };
 type DaiCorePhase = 'idle'|'listening'|'understanding'|'searching'|'working'|'preparing'|'responding'|'speaking'|'complete'|'error';
+type DaiPhaseScene = {
+  sonic:DaiSonicState;
+  steps:Array<{after:number;state:DaiState}>;
+  settleMs?:number;
+};
+
+const DAI_PHASE_SCENES:Record<DaiCorePhase,DaiPhaseScene>={
+  idle:{sonic:'idle',steps:[{after:0,state:'idle'}]},
+  listening:{
+    sonic:'listening',
+    steps:[
+      {after:0,state:'curious'},
+      {after:230,state:'listen'}
+    ]
+  },
+  understanding:{
+    sonic:'thinking',
+    steps:[
+      {after:0,state:'curious'},
+      {after:280,state:'thinking_deep'}
+    ]
+  },
+  searching:{
+    sonic:'searching',
+    steps:[
+      {after:0,state:'focus'},
+      {after:300,state:'search'}
+    ]
+  },
+  working:{
+    sonic:'working',
+    steps:[
+      {after:0,state:'focus'},
+      {after:280,state:'working'}
+    ]
+  },
+  preparing:{
+    sonic:'preparing',
+    steps:[
+      {after:0,state:'response_ready'},
+      {after:430,state:'voicewait'}
+    ]
+  },
+  responding:{
+    sonic:'responding',
+    steps:[
+      {after:0,state:'response_ready'},
+      {after:420,state:'reply'}
+    ]
+  },
+  speaking:{sonic:'speaking',steps:[{after:0,state:'talk'}]},
+  complete:{
+    sonic:'complete',
+    steps:[
+      {after:0,state:'success'},
+      {after:920,state:'idle'}
+    ],
+    settleMs:980
+  },
+  error:{
+    sonic:'error',
+    steps:[
+      {after:0,state:'error'},
+      {after:1120,state:'idle'}
+    ],
+    settleMs:1180
+  }
+};
 type ProAnimationSpec = {
   id:string;
   gesture:DaiState;
@@ -327,6 +395,7 @@ export default function GithubApp(){
   const sonicRequestRef=useRef(0);
   const corePhaseRef=useRef<DaiCorePhase>('idle');
   const corePhaseTimerRef=useRef<number|undefined>(undefined);
+  const phaseChoreographyTimersRef=useRef<number[]>([]);
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAnalyserRef=useRef<AnalyserNode|null>(null);
@@ -585,49 +654,55 @@ export default function GithubApp(){
   ){
     const previous=corePhaseRef.current;
     if(!options.force&&previous===phase)return;
+
     if(corePhaseTimerRef.current){
       window.clearTimeout(corePhaseTimerRef.current);
       corePhaseTimerRef.current=undefined;
     }
+    for(const id of phaseChoreographyTimersRef.current)window.clearTimeout(id);
+    phaseChoreographyTimersRef.current=[];
+    clearTimeout(timer.current);
+
     corePhaseRef.current=phase;
+    const scene=DAI_PHASE_SCENES[phase];
     const locked=Date.now()<animationLockUntilRef.current;
 
-    // The phase controller owns soundtrack ducking too. This prevents the
-    // completion/error cue from inheriting the low volume used while DAI speaks.
+    // One soundtrack scene owns ambience + transition cues. Speaking hard-ducks
+    // everything else so DAI's voice always stays clear and centered.
     daiSfx.setDucked(phase==='speaking');
-
-    if(!options.silent){
-      if(phase==='listening')daiSfx.playState('listening');
-      else if(phase==='understanding'||phase==='preparing')daiSfx.playState('thinking');
-      else if(phase==='searching'||phase==='working')daiSfx.playState('action');
-      else if(phase==='responding')daiSfx.playState('responding');
-      else if(phase==='speaking')daiSfx.playState('speaking');
-      else if(phase==='complete')daiSfx.playState('complete');
-      else if(phase==='error')daiSfx.playState('error');
-    }
+    daiSfx.setScene(scene.sonic,{cue:!options.silent});
 
     if(locked&&phase!=='error'&&phase!=='speaking')return;
 
-    if(phase==='idle')animate('idle',0);
-    else if(phase==='listening')animate('listen',0);
-    else if(phase==='understanding')animate('thinking_deep',0);
-    else if(phase==='searching')animate('search',0);
-    else if(phase==='working')animate('working',0);
-    else if(phase==='preparing')animate('voicewait',0);
-    else if(phase==='responding')animate('reply',0);
-    else if(phase==='speaking')animate('talk',0);
-    else if(phase==='complete'){
-      animate('success',1000);
+    const applyStep=(state:DaiState)=>{
+      if(corePhaseRef.current!==phase)return;
+      if(Date.now()<animationLockUntilRef.current&&phase!=='error'&&phase!=='speaking')return;
+      setDaiState(state);
+    };
+
+    for(const step of scene.steps){
+      if(step.after<=0){
+        applyStep(step.state);
+        continue;
+      }
+      const id=window.setTimeout(()=>{
+        phaseChoreographyTimersRef.current=
+          phaseChoreographyTimersRef.current.filter(value=>value!==id);
+        applyStep(step.state);
+      },step.after);
+      phaseChoreographyTimersRef.current.push(id);
+    }
+
+    if(scene.settleMs){
       corePhaseTimerRef.current=window.setTimeout(()=>{
-        if(corePhaseRef.current==='complete')corePhaseRef.current='idle';
+        if(corePhaseRef.current===phase){
+          corePhaseRef.current='idle';
+          daiSfx.setDucked(false);
+          daiSfx.setScene('idle',{cue:false});
+          setDaiState('idle');
+        }
         corePhaseTimerRef.current=undefined;
-      },1050);
-    }else if(phase==='error'){
-      animate('error',1200);
-      corePhaseTimerRef.current=window.setTimeout(()=>{
-        if(corePhaseRef.current==='error')corePhaseRef.current='idle';
-        corePhaseTimerRef.current=undefined;
-      },1250);
+      },scene.settleMs);
     }
   }
 
@@ -1244,29 +1319,29 @@ export default function GithubApp(){
     let interval=3200;
 
     if(researching){
-      sequence=['search','scan','detect','scout'];
-      interval=3000;
+      sequence=['search','scan','focus'];
+      interval=3800;
     }else if(codeEnginePhase==='loading'){
       sequence=['loading','focus'];
-      interval=2600;
+      interval=3400;
     }else if(codeEnginePhase==='coding'){
       sequence=['code_focus','type_fast','working'];
-      interval=2800;
+      interval=3600;
     }else if(generalEnginePhase==='loading'){
       sequence=['loading','thought_orbit'];
-      interval=2800;
+      interval=3600;
     }else if(generalEnginePhase==='thinking'){
-      sequence=['thinking_deep','thought_orbit','brainstorm','focus'];
-      interval=3300;
+      sequence=['thinking_deep','thought_orbit','focus'];
+      interval=4100;
     }else if(imageGenerating){
-      sequence=['brainstorm','idea','lightbulb_pop'];
-      interval=3200;
+      sequence=['brainstorm','lightbulb_pop','focus'];
+      interval=4000;
     }else if(voiceNoteProcessing){
       sequence=['listen','thinking_deep'];
-      interval=3000;
+      interval=3600;
     }else if(sending&&!streamingText){
       sequence=['thinking_deep','focus','thought_orbit'];
-      interval=3200;
+      interval=3900;
     }
 
     if(!sequence.length)return;
@@ -1281,7 +1356,7 @@ export default function GithubApp(){
       behaviorCycleTimerRef.current=window.setTimeout(apply,interval);
     };
 
-    apply();
+    behaviorCycleTimerRef.current=window.setTimeout(apply,1800);
     return()=>{
       window.clearTimeout(behaviorCycleTimerRef.current);
       behaviorCycleTimerRef.current=undefined;
@@ -1320,6 +1395,8 @@ export default function GithubApp(){
     clearTimeout(timer.current);
     clearTimeout(typingTimer.current);
     clearTimeout(corePhaseTimerRef.current);
+    for(const id of phaseChoreographyTimersRef.current)window.clearTimeout(id);
+    phaseChoreographyTimersRef.current=[];
     clearTimeout(behaviorCycleTimerRef.current);
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
