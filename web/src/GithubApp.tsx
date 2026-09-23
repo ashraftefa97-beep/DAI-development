@@ -95,47 +95,6 @@ function DaiLogo({className=''}:{className?:string}) {
   return <img src='./dai-logo.svg' className={className} alt='لوجو ضي' width={192} height={192}/>;
 }
 
-async function explainChatError(error:any){
-  const context=error?.context;
-
-  if(context && typeof context.clone==='function'){
-    try {
-      const response=context.clone();
-      const status=Number(response.status||0);
-      const payload=await response.json().catch(()=>null);
-      const code=String(payload?.code||'');
-
-      if(code==='GEMINI_CONFIG') return 'إعدادات ضي الذكية ناقصة حاليًا.';
-      if(code==='GEMINI_AUTH') return 'ضي مش قادرة تتصل بخدمة الذكاء دلوقتي. راجع إعدادات الاتصال.';
-      if(code==='GEMINI_MODEL') return 'خدمة ضي الذكية مش متاحة حاليًا. جرّب بعد شوية.';
-      if(code==='GEMINI_QUOTA') return 'ضي وصلت لحد الاستخدام الحالي. جرّب تاني بعد شوية.';
-      if(code==='GEMINI_RATE_LIMIT') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
-      if(code==='GEMINI_OVERLOADED') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
-      if(code==='GEMINI_TIMEOUT') return 'ضي اتأخرت في الرد. جرّب تاني.';
-      if(code==='GEMINI_NETWORK') return 'ضي مش قادرة توصل لخدمة الذكاء حاليًا.';
-      if(code==='GEMINI_BAD_REQUEST') return 'ضي واجهت مشكلة في فهم الطلب تقنيًا. جرّب تاني.';
-      if(code==='AI_CONFIG') return 'إعدادات ضي الذكية ناقصة حاليًا.';
-      if(code==='AI_AUTH') return 'ضي مش قادرة تتصل بخدمتها الذكية دلوقتي.';
-      if(code==='AI_MODEL') return 'خدمة ضي الذكية مش متاحة حاليًا. جرّب بعد شوية.';
-      if(code==='AI_QUOTA') return 'ضي وصلت لحد الاستخدام الحالي. جرّب تاني بعد شوية.';
-      if(code==='AI_RATE_LIMIT') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
-      if(code==='AI_OVERLOADED') return 'ضي عليها ضغط مؤقتًا. جرّب بعد شوية.';
-      if(code==='AI_TIMEOUT') return 'ضي اتأخرت في الرد. جرّب تاني.';
-      if(code==='AI_NETWORK') return 'ضي مش قادرة توصل للخدمة حاليًا.';
-      if(code==='AI_BAD_REQUEST') return 'ضي واجهت مشكلة في فهم الطلب تقنيًا. جرّب تاني.';
-      if(status===404) return 'خدمة ضي مش متاحة حاليًا.';
-      if(status===401) return 'جلسة تسجيل الدخول انتهت. سجّل دخول من جديد.';
-      if(status>=500) return 'ضي واجهت خطأ أثناء تجهيز الرد.';
-    } catch {}
-  }
-
-  const message=String(error?.message||'');
-  if(/Failed to send|fetch|network/i.test(message)) {
-    return 'ضي مش قادرة تتصل بالخدمة حاليًا. جرّب تاني.';
-  }
-  return 'ضي حصل عندها خطأ غير متوقع. جرّب تاني.';
-}
-
 function normalizeSearchSources(value:any):SearchSource[]{
   if(!Array.isArray(value))return [];
   const seen=new Set<string>();
@@ -861,25 +820,6 @@ export default function GithubApp(){
     }
     flush();
     return chunks;
-  }
-
-  function mergeAudioBuffers(ctx:AudioContext,buffers:AudioBuffer[]){
-    if(!buffers.length)throw new Error('tts-gemini-empty');
-    if(buffers.length===1)return buffers[0];
-
-    const channels=Math.max(...buffers.map(buffer=>buffer.numberOfChannels));
-    const totalFrames=buffers.reduce((sum,buffer)=>sum+buffer.length,0);
-    const merged=ctx.createBuffer(channels,totalFrames,ctx.sampleRate);
-
-    let offset=0;
-    for(const buffer of buffers){
-      for(let channel=0;channel<channels;channel++){
-        const source=buffer.getChannelData(Math.min(channel,buffer.numberOfChannels-1));
-        merged.getChannelData(channel).set(source,offset);
-      }
-      offset+=buffer.length;
-    }
-    return merged;
   }
 
   function speechMoodForText(text:string){
