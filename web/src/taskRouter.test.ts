@@ -12,6 +12,8 @@ const cases:Array<[string,string]> = [
   ['حلل المشكلة دي بالتفصيل واعمل خطة كاملة','complex'],
   ['ازيك','chat'],
   ['شكرا','chat'],
+  ['عامل ايه النهارده','chat'],
+  ['شايف سعر Bambu Lab A1 كويس؟','research'],
   ['كود خصم امازون','chat']
 ];
 
@@ -27,4 +29,16 @@ test('interrupt commands stay highest priority', () => {
 
 test('research intent beats long general chat only when fresh intent is explicit', () => {
   assert.equal(routeDaiTask('قارن أحدث أسعار 3D printers').route, 'research');
+});
+
+
+test('short follow-up keeps research route when the previous turn was research', () => {
+  assert.equal(
+    routeDaiTask('طب وده؟', { previousRoute: 'research' }).route,
+    'research'
+  );
+});
+
+test('ambiguous short follow-up stays chat without research context', () => {
+  assert.equal(routeDaiTask('طب وده؟').route, 'chat');
 });
