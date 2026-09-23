@@ -2013,9 +2013,34 @@ export default function GithubApp(){
     regenerateAssistantId='',
     speechMode:'auto'|'always'|'none'='auto',
     routeHint:DaiTaskRoute='chat',
-    requestId=''
+    requestId='',
+    routeConfidence=.75,
+    clientSource:'text'|'voice'|'desktop'='text'
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)throw new Error('stream-config');
+
+    const clientStartedAt=performance.now();
+    let clientFirstEventMs:number|null=null;
+    const metricRequestId=requestId||'';
+    const updateClientMetric=async(patch:Partial<Pick<RequestMetricRow,'client_first_event_ms'|'tts_start_ms'|'tts_end_ms'|'route_confidence'|'client_source'>>)=>{
+      if(!metricRequestId||!userId)return;
+      const clean:any={};
+      if(typeof patch.client_first_event_ms==='number')clean.client_first_event_ms=Math.max(0,Math.round(patch.client_first_event_ms));
+      if(typeof patch.tts_start_ms==='number')clean.tts_start_ms=Math.max(0,Math.round(patch.tts_start_ms));
+      if(typeof patch.tts_end_ms==='number')clean.tts_end_ms=Math.max(0,Math.round(patch.tts_end_ms));
+      if(typeof patch.route_confidence==='number')clean.route_confidence=Math.max(0,Math.min(1,patch.route_confidence));
+      if(patch.client_source)clean.client_source=patch.client_source;
+      if(!Object.keys(clean).length)return;
+      try{
+        await supabase
+          .from('dai_request_metrics')
+          .update(clean)
+          .eq('request_id',metricRequestId)
+          .eq('user_id',userId);
+      }catch(error){
+        console.debug('DAI client metric update skipped',error);
+      }
+    };
 
     textRequestAbortRef.current?.abort();
     const controller=new AbortController();
@@ -2050,7 +2075,9 @@ export default function GithubApp(){
         desktopActionResult:desktopActionResult||null,
         regenerateAssistantId:regenerateAssistantId||null,
         routeHint,
-        requestId:requestId||null
+        requestId:requestId||null,
+        routeConfidence,
+        clientSource
       })
     });
 
@@ -2086,6 +2113,9 @@ export default function GithubApp(){
 
     const handleEvent=(eventName:string,payload:any)=>{
       if(requestId&&gatewayRequestRef.current!==requestId)return;
+      if(clientFirstEventMs===null){
+        clientFirstEventMs=Math.round(performance.now()-clientStartedAt);
+      }
       if(eventName==='research'){
         latestSearchSources=normalizeSearchSources(payload?.sources);
         setResearching(true);
@@ -2197,14 +2227,24 @@ export default function GithubApp(){
             at:Date.now(),
             firstTokenMs:Number(perf.firstTokenMs||0),
             totalMs:Number(perf.totalMs||0),
+            clientFirstEventMs:Number(clientFirstEventMs||0),
             fastPath:Boolean(perf.fastPath),
             searched:Boolean(perf.searched),
             route:String(perf.route||routeHint||'chat'),
             brainProfile:String(perf.brainProfile||''),
-            model:String(perf.model||'')
+            model:String(perf.model||''),
+            searchEngine:String(perf.searchEngine||''),
+            fallbackUsed:Boolean(perf.fallbackUsed),
+            routeConfidence:Number(perf.routeConfidence??routeConfidence),
+            clientSource:String(perf.clientSource||clientSource)
           };
           console.debug('DAI latency',metric);
           try{localStorage.setItem('dai-last-performance',JSON.stringify(metric));}catch{}
+          void updateClientMetric({
+            client_first_event_ms:clientFirstEventMs??undefined,
+            route_confidence:routeConfidence,
+            client_source:clientSource
+          });
         }
 
         streamMessageIdRef.current='';
@@ -2229,9 +2269,21 @@ export default function GithubApp(){
                   reveal();
                   transitionCorePhase('speaking');
                   setVoiceNotice('ضي بتتكلم.');
+                  void updateClientMetric({
+                    client_first_event_ms:clientFirstEventMs??undefined,
+                    tts_start_ms:performance.now()-clientStartedAt,
+                    route_confidence:routeConfidence,
+                    client_source:clientSource
+                  });
                 },
                 ()=>{
                   transitionCorePhase('complete');
+                  void updateClientMetric({
+                    client_first_event_ms:clientFirstEventMs??undefined,
+                    tts_end_ms:performance.now()-clientStartedAt,
+                    route_confidence:routeConfidence,
+                    client_source:clientSource
+                  });
                 },
                 shouldSpeak,
                 requestId
