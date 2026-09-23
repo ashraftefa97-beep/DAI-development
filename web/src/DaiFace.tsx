@@ -5,7 +5,8 @@ import { daiSfx } from './daiSfx';
 
 export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'stretch' | 'fishing' | 'heart' | 'dance' | 'idea' | 'sleep' | 'blush' | 'wow' | 'approve' | 'focus' | 'relax' | 'working' | 'response_ready' | 'peek' | 'nod_yes' | 'shake_no' | 'celebrate' | 'shy' | 'alert' | 'look_around' | 'recharge' | 'success' | 'error' | 'music_groove' | 'wake_up' | 'roam_walk' | 'bounce' | 'bow' | 'double_wave' | 'side_stretch' | 'startled' | 'scout' | 'window_peek' | 'tip_toe' | 'thought_orbit' | 'cozy_sway' | 'welcome_back' | 'giggle' | 'laugh' | 'proud' | 'excited' | 'confused' | 'thinking_deep' | 'question' | 'surprise_soft' | 'cheer' | 'clap' | 'salute' | 'hello_shy' | 'goodbye' | 'yawn' | 'dream' | 'meditate' | 'breathe' | 'read' | 'write' | 'type_fast' | 'code_focus' | 'brainstorm' | 'lightbulb_pop' | 'scan' | 'detect' | 'loading' | 'wait_patient' | 'impatient' | 'sneak' | 'hop_left' | 'hop_right' | 'spin' | 'sway' | 'pose_star' | 'party' | 'music_nod' | 'camera_pose' | 'victory' | 'high_five' | 'peace' | 'curious' | 'voicewait';
 export type DaiRenderQuality='high'|'medium'|'low';
-export default function DaiFace({state='idle', reduced=false, quality='high'}: {state?:DaiState; reduced?:boolean; quality?:DaiRenderQuality}) {
+export type DaiAvatarStyle='classic'|'minimal'|'cute'|'cyber';
+export default function DaiFace({state='idle', reduced=false, quality='high', avatar='classic'}: {state?:DaiState; reduced?:boolean; quality?:DaiRenderQuality; avatar?:DaiAvatarStyle}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
   useEffect(()=>{ motion.current.setGesture(state); },[state]);
@@ -42,7 +43,7 @@ export default function DaiFace({state='idle', reduced=false, quality='high'}: {
       const dprCap=quality==='high'?2:quality==='medium'?1.6:1.25;
       const dpr=Math.min(devicePixelRatio||1,dprCap);
       node.width=Math.round(w*dpr);node.height=Math.round(h*dpr);c.setTransform(dpr,0,0,dpr,0,0);
-      drawDai(c,m,w,h);
+      drawDai(c,m,w,h,avatar);
     };
     const observer=new ResizeObserver(resize);observer.observe(node);resize();
     const tick=(now:number)=>{
@@ -51,7 +52,7 @@ export default function DaiFace({state='idle', reduced=false, quality='high'}: {
         if(!minFrameMs||now-lastDraw>=minFrameMs){
           m.advance(Math.min((now-last)/1000,.1));
           for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
-          drawDai(c,m,w,h);
+          drawDai(c,m,w,h,avatar);
           lastDraw=now;
         }
       }
@@ -86,6 +87,6 @@ export default function DaiFace({state='idle', reduced=false, quality='high'}: {
     events.forEach(([name,fn])=>node.addEventListener(name,fn));
     frame=requestAnimationFrame(tick);
     return ()=>{cancelAnimationFrame(frame);observer.disconnect();events.forEach(([name,fn])=>node.removeEventListener(name,fn));m.dragging=false;};
-  },[quality]);
-  return <canvas ref={canvas} className='dai-canvas' role='img' aria-label={'ضي — وجه عائم — '+state} data-state={'dai_'+(state==='idle'?'idle_soft':state)}>ضي</canvas>;
+  },[quality,avatar]);
+  return <canvas ref={canvas} className='dai-canvas' role='img' aria-label={'ضي — '+avatar+' — '+state} data-avatar={avatar} data-state={'dai_'+(state==='idle'?'idle_soft':state)}>ضي</canvas>;
 }
