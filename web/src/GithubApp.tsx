@@ -502,13 +502,23 @@ export default function GithubApp(){
   },[desktopMode]);
 
   function openTopLevelWebBrowser(url:string){
-    const screenWidth=Math.max(900,window.screen?.availWidth||window.innerWidth||1280);
-    const screenHeight=Math.max(700,window.screen?.availHeight||window.innerHeight||820);
-    const popupWidth=Math.max(560,Math.min(980,Math.round(screenWidth*.48)));
-    const popupHeight=Math.max(620,screenHeight-70);
     const screenAny=window.screen as Screen & {availLeft?:number;availTop?:number};
-    const popupLeft=Math.max(0,(screenAny.availLeft||0)+screenWidth-popupWidth);
-    const popupTop=Math.max(0,(screenAny.availTop||0)+28);
+
+    // Dock relative to the CURRENT DAI browser window, not the whole monitor.
+    // This prevents Chrome/Brave from centering the popup on multi-window setups.
+    const hostLeft=Number.isFinite(window.screenX)?window.screenX:(screenAny.availLeft||0);
+    const hostTop=Number.isFinite(window.screenY)?window.screenY:(screenAny.availTop||0);
+    const hostWidth=Math.max(960,window.outerWidth||window.innerWidth||1280);
+    const hostHeight=Math.max(700,window.outerHeight||window.innerHeight||820);
+
+    const popupWidth=Math.max(560,Math.min(980,Math.floor(hostWidth*.50)));
+    const popupHeight=Math.max(620,Math.min(
+      hostHeight,
+      (window.screen?.availHeight||hostHeight)
+    ));
+    const popupLeft=Math.max(0,Math.round(hostLeft+hostWidth-popupWidth));
+    const popupTop=Math.max(0,Math.round(hostTop));
+
     const features=[
       'popup=yes',
       'resizable=yes',
@@ -524,20 +534,41 @@ export default function GithubApp(){
     ].join(',');
 
     let popup=webBrowserWindowRef.current;
+
+    const dockPopup=(target:Window)=>{
+      try{target.resizeTo(popupWidth,popupHeight);}catch{}
+      try{target.moveTo(popupLeft,popupTop);}catch{}
+    };
+
     try{
       if(!popup||popup.closed){
         popup=window.open('about:blank','dai-web-browser',features);
         if(!popup)return false;
-        try{popup.opener=null;}catch{}
         webBrowserWindowRef.current=popup;
       }
+
+      // Re-dock reused windows too. Browsers may ignore left/top when a named
+      // popup already exists, so move/resize explicitly before navigation.
+      dockPopup(popup);
+
       try{
         popup.location.replace(url);
       }catch{
         popup.location.href=url;
       }
+
+      // Chrome/Brave can apply window geometry one frame late.
+      window.setTimeout(()=>{
+        const current=webBrowserWindowRef.current;
+        if(current&&!current.closed)dockPopup(current);
+      },60);
+      window.setTimeout(()=>{
+        const current=webBrowserWindowRef.current;
+        if(current&&!current.closed)dockPopup(current);
+      },260);
+
       popup.focus();
-      setVoiceNotice('فتحت الموقع في متصفح ضي جنب المحادثة.');
+      setVoiceNotice('فتحت الموقع في متصفح ضي على يمين المحادثة.');
       return true;
     }catch{
       webBrowserWindowRef.current=null;
