@@ -341,8 +341,20 @@ function decodeXml(value: string) {
     .trim();
 }
 
-const SEARCH_TOTAL_BUDGET_MS = 30000;
-const SEARCH_BACKOFF_MS = 5 * 60 * 1000;
+const SEARCH_TOTAL_BUDGET_MS = 26000;
+const SEARCH_BACKOFF_MS = 3 * 60 * 1000;
+const RESEARCH_CACHE_TTL_MS = 90 * 1000;
+const researchCache = new Map<string, {
+  at:number;
+  value:{
+    ok:boolean;
+    answer:string;
+    sources:SearchSource[];
+    model:string;
+    status:number;
+    detail:string;
+  };
+}>();
 let groundingBackoffUntil = 0;
 let synthesisBackoffUntil = 0;
 
@@ -730,6 +742,157 @@ async function summarizeFallbackSources(
   return '';
 }
 
+function normalizedResearchKey(query: string) {
+  return String(query || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
+function cachedResearch(query: string) {
+  const key = normalizedResearchKey(query);
+  const cached = researchCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.at > RESEARCH_CACHE_TTL_MS) {
+    researchCache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function storeResearchCache(query: string, value: {
+  ok:boolean;
+  answer:string;
+  sources:SearchSource[];
+  model:string;
+  status:number;
+  detail:string;
+}) {
+  const key = normalizedResearchKey(query);
+  if (!key || !value.ok || !value.answer) return;
+  researchCache.set(key, { at: Date.now(), value });
+  if (researchCache.size > 40) {
+    const oldest = [...researchCache.entries()]
+      .sort((a,b)=>a[1].at-b[1].at)
+      .slice(0, researchCache.size - 40);
+    for (const [oldKey] of oldest) researchCache.delete(oldKey);
+  }
+}
+
+async function interactionGroundedResearch(
+  apiKey: string,
+  query: string,
+  researchPrompt: string,
+  deadline: number,
+  parentSignal?: AbortSignal,
+) {
+  const timeLeft = searchTimeLeft(deadline);
+  if (timeLeft < 1000 || Date.now() < groundingBackoffUntil) return null;
+
+  try {
+    const response = await timedFetch(
+      'https://generativelanguage.googleapis.com/v1beta/interactions',
+      {
+        method:'POST',
+        headers:{
+          'x-goog-api-key':apiKey,
+          'Content-Type':'application/json',
+        },
+        body:JSON.stringify({
+          model:'gemini-3.8-flash',
+          input:researchPrompt,
+          tools:[{type:'google_search'}],
+          generation_config:{
+            thinking_level:'low',
+            max_output_tokens:640,
+          },
+        }),
+      },
+      Math.min(9000, timeLeft),
+      parentSignal,
+    );
+
+    const responseText = await response.text().catch(()=> '');
+    if (!response.ok) {
+      if (response.status === 429) groundingBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
+      return {
+        ok:false,
+        answer:'',
+        sources:[] as SearchSource[],
+        queries:[] as string[],
+        model:'gemini-3.8-flash-interactions',
+        status:response.status,
+        detail:responseText.slice(0,900),
+      };
+    }
+
+    const payload = JSON.parse(responseText || '{}');
+    const answerParts:string[] = [];
+    const queries:string[] = [];
+    const sourceMap = new Map<string,SearchSource>();
+
+    for (const step of payload?.steps || []) {
+      if (step?.type === 'google_search_call') {
+        for (const value of step?.arguments?.queries || []) {
+          const clean = String(value || '').trim();
+          if (clean && !queries.includes(clean)) queries.push(clean);
+        }
+      }
+
+      if (step?.type !== 'model_output') continue;
+      for (const block of step?.content || []) {
+        if (block?.type !== 'text') continue;
+        const text = String(block?.text || '').trim();
+        if (text) answerParts.push(text);
+
+        for (const annotation of block?.annotations || []) {
+          if (annotation?.type !== 'url_citation') continue;
+          const url = String(annotation?.url || '').trim();
+          if (!/^https?:\/\//i.test(url) || sourceMap.has(url)) continue;
+          sourceMap.set(url,{
+            title:String(annotation?.title || 'مصدر').trim().slice(0,180) || 'مصدر',
+            url,
+          });
+        }
+      }
+    }
+
+    const answer = answerParts.join('\n').trim();
+    const sources = [...sourceMap.values()].slice(0,8);
+    const recommendation = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
+    const enoughEvidence = recommendation ? sources.length >= 2 : sources.length >= 1;
+
+    if (!answer || !enoughEvidence) {
+      return {
+        ok:false,
+        answer:'',
+        sources,
+        queries,
+        model:'gemini-3.8-flash-interactions',
+        status:200,
+        detail:'Grounded interaction returned insufficient evidence',
+      };
+    }
+
+    return {
+      ok:true,
+      answer,
+      sources,
+      queries,
+      model:'gemini-3.8-flash-interactions',
+      status:200,
+      detail:'',
+    };
+  } catch (error) {
+    return {
+      ok:false,
+      answer:'',
+      sources:[] as SearchSource[],
+      queries:[] as string[],
+      model:'gemini-3.8-flash-interactions',
+      status:0,
+      detail:String(error || '').slice(0,900),
+    };
+  }
+}
+
 async function directWebResearch(
   apiKey: string,
   configuredModel: string,
@@ -752,10 +915,39 @@ async function directWebResearch(
     'لو طالب حل مشكلة، لخص السبب الأقرب ثم أقوى خطوات الحل. لا تختلق روابط أو مصادر. جاوب بالمصري الطبيعي. الطلب: ' +
     query;
 
+  const cached = cachedResearch(query);
+  if (cached) return { ...cached, model: cached.model + ':cache' };
+
   let lastStatus = 0;
   let lastDetail = '';
   const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
-  const groundedDeadline = Math.min(deadline, Date.now() + 19000);
+  const groundedDeadline = Math.min(deadline, Date.now() + 15000);
+
+  const interactionResult = await interactionGroundedResearch(
+    apiKey,
+    query,
+    researchPrompt,
+    groundedDeadline,
+    parentSignal,
+  );
+
+  if (interactionResult?.ok && interactionResult.answer) {
+    const value = {
+      ok:true,
+      answer:interactionResult.answer,
+      sources:interactionResult.sources,
+      model:interactionResult.model,
+      status:interactionResult.status,
+      detail:'',
+    };
+    storeResearchCache(query, value);
+    return value;
+  }
+
+  if (interactionResult) {
+    lastStatus = interactionResult.status;
+    lastDetail = interactionResult.detail;
+  }
 
   for (const model of modelCandidates) {
     if (Date.now() < groundingBackoffUntil) break;
@@ -816,13 +1008,22 @@ async function directWebResearch(
       }
 
       if (answer) {
-        return {
-          ok: true,
-          answer,
-          sources: rankSearchSources(query, sources),
-          model,
-          status: response.status,
-        };
+        const rankedSources = rankSearchSources(query, sources);
+        const recommendation = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
+        const enoughEvidence = recommendation ? rankedSources.length >= 2 : rankedSources.length >= 1;
+        if (enoughEvidence) {
+          const value = {
+            ok:true,
+            answer,
+            sources:rankedSources,
+            model,
+            status:response.status,
+            detail:'',
+          };
+          storeResearchCache(query, value);
+          return value;
+        }
+        lastDetail = 'Grounded generateContent returned insufficient relevant sources';
       }
     } catch (error) {
       lastDetail = String(error || '').slice(0, 1200);
@@ -876,14 +1077,16 @@ async function directWebResearch(
         parentSignal,
       );
 
-      return {
-        ok: true,
-        answer: summarized || fallbackAnswerFromSources(query, sources),
+      const value = {
+        ok:true,
+        answer:summarized || fallbackAnswerFromSources(query, sources),
         sources,
-        model: 'fallback-web',
-        status: 200,
-        detail: '',
+        model:'fallback-web',
+        status:200,
+        detail:'',
       };
+      storeResearchCache(query, value);
+      return value;
     }
   } catch (error) {
     lastDetail = 'Fallback search: ' + String(error || '').slice(0, 900);
