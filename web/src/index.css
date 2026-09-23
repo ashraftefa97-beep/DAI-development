@@ -4528,3 +4528,237 @@ html[data-dai-theme="light"] .dai-quality-status {
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
+
+
+/* DAI avatars v1.9 */
+.dai-avatar-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.dai-avatar-choice {
+  min-height:92px;
+  padding:11px;
+  border:1px solid #34384d;
+  border-radius:15px;
+  background:#121625;
+  color:#d9d4dd;
+  display:grid;
+  grid-template-columns:76px minmax(0,1fr) 24px;
+  align-items:center;
+  gap:10px;
+  text-align:right;
+  cursor:pointer;
+  transition:border-color .18s ease,background .18s ease,transform .18s ease,box-shadow .18s ease;
+}
+.dai-avatar-choice:hover {
+  transform:translateY(-1px);
+  border-color:rgba(246,169,193,.24);
+}
+.dai-avatar-choice.active {
+  border-color:rgba(246,169,193,.36);
+  background:linear-gradient(135deg,rgba(246,169,193,.09),rgba(185,154,222,.06));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.018),0 10px 26px rgba(0,0,0,.09);
+}
+.dai-avatar-copy {
+  min-width:0;
+}
+.dai-avatar-copy strong,
+.dai-avatar-copy small {
+  display:block;
+}
+.dai-avatar-copy strong {
+  color:#f1eaf1;
+  font-size:11px;
+}
+.dai-avatar-copy small {
+  margin-top:4px;
+  color:#7f8295;
+  font-size:9px;
+  line-height:1.5;
+}
+.dai-avatar-selected {
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  color:#ffd9e6;
+}
+.dai-avatar-selected svg {
+  width:16px;
+  height:16px;
+}
+.dai-avatar-preview {
+  width:76px;
+  height:64px;
+  position:relative;
+  display:block;
+  border-radius:18px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 45%,rgba(246,169,193,.08),transparent 46%),
+    #0f1320;
+  border:1px solid rgba(255,255,255,.04);
+}
+.dai-avatar-preview .eye {
+  position:absolute;
+  top:16px;
+  width:13px;
+  height:29px;
+  border-radius:9px;
+  background:linear-gradient(180deg,#fff8ef,#ffe4ee 58%,#cdbcf5);
+  box-shadow:0 0 14px rgba(255,218,233,.13);
+}
+.dai-avatar-preview .eye.left { left:19px; }
+.dai-avatar-preview .eye.right { right:19px; }
+.dai-avatar-preview .mouth {
+  position:absolute;
+  left:50%;
+  bottom:11px;
+  width:20px;
+  height:8px;
+  border-bottom:2px solid #ffdae5;
+  border-radius:50%;
+  transform:translateX(-50%);
+}
+.dai-avatar-choice.minimal .dai-avatar-preview .eye {
+  width:10px;
+  height:24px;
+  background:linear-gradient(180deg,#faf5fb,#d8ccdf);
+  box-shadow:none;
+}
+.dai-avatar-choice.minimal .dai-avatar-preview .mouth {
+  width:15px;
+  border-color:#ddd0e3;
+}
+.dai-avatar-choice.minimal .dai-avatar-preview {
+  background:#10141e;
+}
+.dai-avatar-choice.cute .dai-avatar-preview {
+  background:
+    radial-gradient(circle at 50% 44%,rgba(255,177,210,.13),transparent 52%),
+    #121421;
+}
+.dai-avatar-choice.cute .dai-avatar-preview .eye {
+  width:16px;
+  height:33px;
+  border-radius:12px;
+  background:linear-gradient(180deg,#fff9ee,#ffd4e5 57%,#d1bdff);
+}
+.dai-avatar-choice.cute .dai-avatar-preview .mouth {
+  width:18px;
+  border-color:#ffd6e4;
+}
+.dai-avatar-preview .cute-spark {
+  position:absolute;
+  right:7px;
+  top:7px;
+  color:#ffd3e5;
+  font-size:10px;
+}
+.dai-avatar-choice.cyber .dai-avatar-preview {
+  background:
+    linear-gradient(90deg,rgba(72,229,240,.035) 1px,transparent 1px),
+    linear-gradient(rgba(130,100,230,.03) 1px,transparent 1px),
+    #0b1320;
+  background-size:10px 10px;
+}
+.dai-avatar-choice.cyber .dai-avatar-preview .eye {
+  width:14px;
+  height:27px;
+  border-radius:6px;
+  background:linear-gradient(180deg,#c9ffff,#78daec 58%,#aa93ff);
+  box-shadow:0 0 15px rgba(92,225,244,.20);
+}
+.dai-avatar-choice.cyber .dai-avatar-preview .mouth {
+  border-color:#aeeef5;
+}
+.dai-avatar-preview .cyber-mark {
+  position:absolute;
+  left:7px;
+  right:7px;
+  top:31px;
+  height:1px;
+  background:linear-gradient(90deg,#70dfea,transparent 25%,transparent 75%,#967dff);
+  opacity:.6;
+}
+.dai-avatar-sync {
+  margin-top:10px;
+  min-height:34px;
+  padding:0 10px;
+  border:1px solid rgba(255,255,255,.045);
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:#7f8295;
+  font-size:9px;
+  background:rgba(255,255,255,.015);
+}
+.dai-avatar-sync button {
+  min-height:26px;
+  padding:0 9px;
+  border:1px solid #373b50;
+  border-radius:8px;
+  background:#171b2b;
+  color:#c7c1cb;
+  font-size:9px;
+  cursor:pointer;
+}
+.dai-avatar-sync button:disabled {
+  opacity:.4;
+  cursor:default;
+}
+
+/* The stage aura follows the selected avatar without changing motion logic. */
+.classic-shell[data-avatar="minimal"] .classic-logo-stage::after {
+  opacity:.14;
+  filter:blur(30px) saturate(.65);
+}
+.classic-shell[data-avatar="cute"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(255,177,210,.19) 0%,rgba(197,164,242,.08) 43%,transparent 76%);
+}
+.classic-shell[data-avatar="cyber"] .classic-logo-stage::after {
+  background:radial-gradient(ellipse at center,rgba(96,227,239,.16) 0%,rgba(124,99,222,.10) 44%,transparent 76%);
+}
+.dai-companion-shell[data-avatar="minimal"] .dai-companion-halo { opacity:.52;filter:grayscale(.35); }
+.dai-companion-shell[data-avatar="cute"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(255,177,210,.15),rgba(190,157,232,.055) 46%,transparent 72%);
+}
+.dai-companion-shell[data-avatar="cyber"] .dai-companion-halo {
+  background:radial-gradient(circle,rgba(86,226,239,.13),rgba(126,99,229,.07) 46%,transparent 72%);
+}
+
+html[data-dai-theme="light"] .dai-avatar-choice {
+  background:#fff;
+  border-color:#ded6e1;
+  color:#433847;
+}
+html[data-dai-theme="light"] .dai-avatar-choice.active {
+  background:linear-gradient(135deg,#fff4f8,#f6f2fb);
+  border-color:#dcbfcd;
+}
+html[data-dai-theme="light"] .dai-avatar-copy strong { color:#403443; }
+html[data-dai-theme="light"] .dai-avatar-preview { background-color:#f2edf4; }
+html[data-dai-theme="light"] .dai-avatar-sync {
+  background:#faf7fb;
+  border-color:#e4dce6;
+  color:#706574;
+}
+
+@media(max-width:640px) {
+  .dai-avatar-grid { grid-template-columns:1fr; }
+  .dai-avatar-choice {
+    min-height:78px;
+    grid-template-columns:66px minmax(0,1fr) 22px;
+  }
+  .dai-avatar-preview {
+    width:66px;
+    height:56px;
+  }
+  .dai-avatar-preview .eye { top:13px; }
+  .dai-avatar-preview .eye.left { left:16px; }
+  .dai-avatar-preview .eye.right { right:16px; }
+}
