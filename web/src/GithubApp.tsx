@@ -3294,8 +3294,7 @@ export default function GithubApp(){
       const query=String(args?.query||'').trim();
       if(!query)return {ok:false,message:'طلب البحث ناقص.'};
       setResearching(true);
-      daiSfx.playState('thinking');
-      if(Date.now()>=animationLockUntilRef.current)animate('search',0);
+      transitionCorePhase('searching',{force:true});
       try{
         if(!supabaseUrl||!supabasePublishableKey){
           return {ok:false,message:'البحث غير متاح دلوقتي.'};
@@ -3495,7 +3494,17 @@ export default function GithubApp(){
 
       socket.onopen=()=>{
         const researchToolDeclarations=[{
-          googleSearch:{}
+          functionDeclarations:[{
+            name:'web_research',
+            description:'ابحث عن معلومات حديثة أو روابط أو أسعار أو مقارنات عبر بوابة البحث الموحدة في ضي. استخدمها بدل التخمين عندما يحتاج السؤال معلومات حالية.',
+            parameters:{
+              type:'OBJECT',
+              properties:{
+                query:{type:'STRING',description:'سؤال البحث الكامل بصياغة واضحة'}
+              },
+              required:['query']
+            }
+          }]
         }];
 
         const animationToolDeclarations=professional&&proAnimations ? [{
@@ -3624,7 +3633,7 @@ export default function GithubApp(){
           (professional&&proAnimations
             ? 'عندك أداة perform_animation مرتبطة بمكتبة ضي الفعلية المكونة من 84 حركة. لو المستخدم طلب حركة استخدمي الأداة بدل ما تقولي إنك مش قادرة تتحرك. وممكن تختاري حركة من نفسك أحيانًا لما تكون مناسبة جدًا للسياق، لكن بشكل خفيف ومش مع كل رد، ومن غير حركات احتفالية في المواقف الجادة أو الحساسة. '
             : '')+
-          'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي بحث Google المدمج في نفس الجلسة بدل التخمين. قارني النتائج قبل الحكم، وفي الترشيحات اختاري الأنسب فقط لما تكون الأدلة كفاية. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
+          'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي أداة web_research الموحدة بدل التخمين. اعتمدي على نتيجة الأداة ومصادرها، وقارني النتائج قبل الحكم. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
