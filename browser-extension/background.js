@@ -1,4 +1,4 @@
-const SESSION_KEY = 'daiSideBrowserSession';
+const SESSION_KEY = 'daiNativeSplitSession';
 
 function safeUrl(value) {
   try {
@@ -31,249 +31,207 @@ async function storageSet(value) {
   else await chrome.storage.local.set({ [SESSION_KEY]: value });
 }
 
-async function safeGetWindow(id) {
-  if (!Number.isInteger(id)) return null;
+async function safeGetTab(tabId) {
+  if (!Number.isInteger(tabId)) return null;
+  try { return await chrome.tabs.get(tabId); }
+  catch { return null; }
+}
+
+async function currentSplitPartner(hostTab) {
+  const splitId = Number(hostTab?.splitViewId ?? -1);
+  if (!hostTab?.id || splitId < 0) return null;
+
   try {
-    return await chrome.windows.get(id, { populate: true });
+    const tabs = await chrome.tabs.query({ windowId: hostTab.windowId });
+    return tabs.find((tab) =>
+      tab.id !== hostTab.id &&
+      Number(tab.splitViewId ?? -1) === splitId
+    ) || null;
   } catch {
     return null;
   }
 }
 
-async function normalizeAndPlace(windowId, bounds, focused) {
-  const win = await safeGetWindow(windowId);
-  if (!win) throw new Error('WINDOW_NOT_FOUND');
-
-  if (win.state !== 'normal') {
-    await chrome.windows.update(windowId, { state: 'normal' });
-    await new Promise((resolve) => setTimeout(resolve, 90));
-  }
-
-  await chrome.windows.update(windowId, {
-    left: Math.round(bounds.left),
-    top: Math.round(bounds.top),
-    width: Math.round(bounds.width),
-    height: Math.round(bounds.height),
-    focused: Boolean(focused)
-  });
-
-  return await safeGetWindow(windowId);
+function nativeSplitAvailable() {
+  return typeof chrome?.tabs?.createSplit === 'function';
 }
 
-function splitBounds(screenInfo) {
-  const left = Number(screenInfo?.left || 0);
-  const top = Number(screenInfo?.top || 0);
-  const width = Math.max(1100, Number(screenInfo?.width || 1440));
-  const height = Math.max(700, Number(screenInfo?.height || 900));
-  const hostWidth = Math.floor(width * 0.5);
-
-  return {
-    host: { left, top, width: hostWidth, height },
-    side: { left: left + hostWidth, top, width: width - hostWidth, height }
-  };
-}
-
-async function restoreHost(session) {
-  if (!session?.hostWindowId || !session?.originalHost) return;
-  const host = await safeGetWindow(session.hostWindowId);
-  if (!host) return;
-
-  const original = session.originalHost;
-  try {
-    await normalizeAndPlace(
-      session.hostWindowId,
-      {
-        left: original.left,
-        top: original.top,
-        width: original.width,
-        height: original.height
-      },
-      true
-    );
-    if (original.state === 'maximized') {
-      await chrome.windows.update(session.hostWindowId, { state: 'maximized' });
-    }
-  } catch {}
-}
-
-async function navigateSideWindow(windowId, url) {
-  const side = await safeGetWindow(windowId);
-  if (!side) return false;
-
-  const activeTab = side.tabs?.find((tab) => tab.active) || side.tabs?.[0];
-  if (!activeTab?.id) return false;
-
-  await chrome.tabs.update(activeTab.id, { url, active: true });
-  await chrome.windows.update(windowId, { focused: true });
-  return true;
-}
-
-function windowSummary(win) {
-  if (!win) return null;
-  return {
-    id: win.id,
-    left: win.left,
-    top: win.top,
-    width: win.width,
-    height: win.height,
-    state: win.state
-  };
-}
-
-async function openSideBrowser(url, sender, screenInfo) {
+async function openNativeSplit(url, sender) {
   const safe = safeUrl(url);
   if (!safe) {
     return { ok: false, code: 'INVALID_URL', message: 'الرابط غير صالح.' };
   }
 
-  const hostWindowId = sender?.tab?.windowId;
-  if (!Number.isInteger(hostWindowId)) {
-    return { ok: false, code: 'NO_HOST_WINDOW', message: 'تعذر تحديد نافذة ضي.' };
+  const hostTab = sender?.tab;
+  if (!hostTab?.id || !Number.isInteger(hostTab.windowId)) {
+    return { ok: false, code: 'NO_HOST_TAB', message: 'تعذر تحديد تاب ضي.' };
   }
 
-  const host = await safeGetWindow(hostWindowId);
-  if (!host) {
-    return { ok: false, code: 'HOST_WINDOW_MISSING', message: 'نافذة ضي غير متاحة.' };
+  if (!nativeSplitAvailable()) {
+    return {
+      ok: false,
+      code: 'NATIVE_SPLIT_UNAVAILABLE',
+      message: 'المتصفح الحالي لا يتيح التحكم البرمجي في Split View. الميزة تحتاج Chrome 155 أو أحدث.'
+    };
   }
 
-  const bounds = splitBounds(screenInfo);
-  let session = await storageGet();
-
-  if (session?.sideWindowId && session.hostWindowId === hostWindowId) {
-    const existingSide = await safeGetWindow(session.sideWindowId);
-    if (existingSide) {
-      try {
-        const placedHost = await normalizeAndPlace(hostWindowId, bounds.host, false);
-        const placedSide = await normalizeAndPlace(session.sideWindowId, bounds.side, true);
-        const navigated = await navigateSideWindow(session.sideWindowId, safe);
-
-        if (navigated) {
-          return {
-            ok: true,
-            reused: true,
-            host: windowSummary(placedHost),
-            side: windowSummary(placedSide)
-          };
-        }
-      } catch (error) {
-        return {
-          ok: false,
-          code: 'REUSE_PLACE_FAILED',
-          message: String(error?.message || error || 'تعذر تثبيت النوافذ.')
-        };
-      }
-    }
+  // Reuse the right-side split tab if DAI is already split.
+  const partner = await currentSplitPartner(hostTab);
+  if (partner?.id) {
+    try {
+      await chrome.tabs.update(partner.id, { url: safe, active: true });
+      await storageSet({
+        hostTabId: hostTab.id,
+        sideTabId: partner.id,
+        splitViewId: hostTab.splitViewId
+      });
+      return {
+        ok: true,
+        mode: 'native-split',
+        reused: true,
+        splitViewId: hostTab.splitViewId,
+        sideTabId: partner.id
+      };
+    } catch {}
   }
 
-  if (session) {
-    await restoreHost(session);
-    if (session.sideWindowId) {
-      try { await chrome.windows.remove(session.sideWindowId); } catch {}
-    }
-  }
-
-  const originalHost = {
-    left: host.left ?? 0,
-    top: host.top ?? 0,
-    width: host.width ?? 1200,
-    height: host.height ?? 800,
-    state: host.state || 'normal'
-  };
-
+  // Preferred API: create a new tab directly in a native split with DAI.
   try {
-    const placedHost = await normalizeAndPlace(hostWindowId, bounds.host, false);
-
-    const sideWindow = await chrome.windows.create({
+    const created = await chrome.tabs.create({
+      windowId: hostTab.windowId,
+      index: hostTab.index + 1,
       url: safe,
-      type: 'normal',
-      state: 'normal',
-      focused: true,
-      left: Math.round(bounds.side.left),
-      top: Math.round(bounds.side.top),
-      width: Math.round(bounds.side.width),
-      height: Math.round(bounds.side.height)
+      active: true,
+      splitWithTabId: hostTab.id
     });
 
-    if (!sideWindow?.id) throw new Error('SIDE_WINDOW_NOT_CREATED');
+    const freshHost = await safeGetTab(hostTab.id);
+    const freshSide = created?.id ? await safeGetTab(created.id) : null;
+    const splitViewId = Number(
+      freshHost?.splitViewId ??
+      freshSide?.splitViewId ??
+      -1
+    );
 
-    const placedSide = await normalizeAndPlace(sideWindow.id, bounds.side, true);
-
-    session = {
-      hostWindowId,
-      sideWindowId: sideWindow.id,
-      originalHost
-    };
-    await storageSet(session);
+    await storageSet({
+      hostTabId: hostTab.id,
+      sideTabId: created?.id,
+      splitViewId
+    });
 
     return {
       ok: true,
+      mode: 'native-split',
       reused: false,
-      host: windowSummary(placedHost),
-      side: windowSummary(placedSide)
+      splitViewId,
+      sideTabId: created?.id
     };
-  } catch (error) {
+  } catch (createError) {
+    // Compatibility path for implementations exposing createSplit() but not
+    // splitWithTabId on tabs.create yet.
+    let created = null;
     try {
-      await normalizeAndPlace(hostWindowId, originalHost, true);
-    } catch {}
+      created = await chrome.tabs.create({
+        windowId: hostTab.windowId,
+        index: hostTab.index + 1,
+        url: safe,
+        active: true
+      });
 
-    return {
-      ok: false,
-      code: 'PLACE_FAILED',
-      message: String(error?.message || error || 'تعذر تثبيت المتصفح الجانبي.')
-    };
+      if (!created?.id) throw new Error('SIDE_TAB_NOT_CREATED');
+
+      const splitViewId = await chrome.tabs.createSplit([
+        hostTab.id,
+        created.id
+      ]);
+
+      await storageSet({
+        hostTabId: hostTab.id,
+        sideTabId: created.id,
+        splitViewId
+      });
+
+      return {
+        ok: true,
+        mode: 'native-split',
+        reused: false,
+        splitViewId,
+        sideTabId: created.id
+      };
+    } catch (splitError) {
+      if (created?.id) {
+        try { await chrome.tabs.remove(created.id); } catch {}
+      }
+      return {
+        ok: false,
+        code: 'NATIVE_SPLIT_FAILED',
+        message: String(
+          splitError?.message ||
+          createError?.message ||
+          'تعذر إنشاء Split View.'
+        ).slice(0, 260)
+      };
+    }
   }
 }
 
-async function closeSideBrowser() {
+async function closeNativeSplit(sender) {
   const session = await storageGet();
-  if (!session) return { ok: true };
+  const hostTab = sender?.tab;
 
-  if (session.sideWindowId) {
-    try { await chrome.windows.remove(session.sideWindowId); } catch {}
+  if (!nativeSplitAvailable()) {
+    await storageSet(null);
+    return { ok: true };
   }
-  await restoreHost(session);
+
+  let splitViewId = Number(session?.splitViewId ?? -1);
+
+  if (splitViewId < 0 && hostTab?.id) {
+    const freshHost = await safeGetTab(hostTab.id);
+    splitViewId = Number(freshHost?.splitViewId ?? -1);
+  }
+
+  if (splitViewId >= 0 && typeof chrome.tabs.unsplit === 'function') {
+    try { await chrome.tabs.unsplit(splitViewId); } catch {}
+  }
+
+  if (session?.sideTabId) {
+    try { await chrome.tabs.remove(session.sideTabId); } catch {}
+  }
+
   await storageSet(null);
   return { ok: true };
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === 'DAI_SIDE_BROWSER_OPEN') {
-    openSideBrowser(message.url, sender, message.screen)
+    openNativeSplit(message.url, sender)
       .then(sendResponse)
       .catch((error) => sendResponse({
         ok: false,
-        code: 'BACKGROUND_OPEN_ERROR',
+        code: 'NATIVE_SPLIT_ERROR',
         message: String(error?.message || error || 'تعذر فتح الرابط.')
       }));
     return true;
   }
 
   if (message?.type === 'DAI_SIDE_BROWSER_CLOSE') {
-    closeSideBrowser()
+    closeNativeSplit(sender)
       .then(sendResponse)
       .catch((error) => sendResponse({
         ok: false,
-        code: 'BACKGROUND_CLOSE_ERROR',
+        code: 'NATIVE_SPLIT_CLOSE_ERROR',
         message: String(error?.message || error || '')
       }));
     return true;
   }
 });
 
-chrome.windows.onRemoved.addListener(async (windowId) => {
+chrome.tabs.onRemoved.addListener(async (tabId) => {
   const session = await storageGet();
   if (!session) return;
 
-  if (windowId === session.sideWindowId) {
-    await restoreHost(session);
-    await storageSet(null);
-    return;
-  }
-
-  if (windowId === session.hostWindowId) {
-    if (session.sideWindowId) {
-      try { await chrome.windows.remove(session.sideWindowId); } catch {}
-    }
+  if (tabId === session.sideTabId || tabId === session.hostTabId) {
     await storageSet(null);
   }
 });
