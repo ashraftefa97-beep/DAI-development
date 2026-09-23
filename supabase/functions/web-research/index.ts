@@ -31,6 +31,37 @@ function decodeHtml(value: string) {
     .trim();
 }
 
+const SEARCH_TOTAL_BUDGET_MS = 30000;
+
+async function timedFetch(
+  input: string,
+  init: RequestInit,
+  timeoutMs: number,
+  parentSignal?: AbortSignal,
+) {
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort();
+
+  if (parentSignal?.aborted) controller.abort();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+
+  const timeout = setTimeout(
+    () => controller.abort(),
+    Math.max(250, Math.floor(timeoutMs)),
+  );
+
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
+}
+
+function searchTimeLeft(deadline: number) {
+  return Math.max(0, deadline - Date.now());
+}
+
 function unwrapSearchUrl(value: string) {
   try {
     const raw = value.startsWith('//') ? 'https:' + value : value;
@@ -42,9 +73,9 @@ function unwrapSearchUrl(value: string) {
   }
 }
 
-async function fallbackYoutubeSearch(query: string) {
+async function fallbackYoutubeSearch(query: string, timeoutMs = 5000, parentSignal?: AbortSignal) {
   const cleanQuery = query.replace(/(?:يوتيوب|youtube|فيديو)/ig, '').trim();
-  const response = await fetch(
+  const response = await timedFetch(
     'https://www.youtube.com/results?search_query=' + encodeURIComponent(cleanQuery || query),
     {
       headers: {
@@ -52,6 +83,8 @@ async function fallbackYoutubeSearch(query: string) {
         'Accept-Language': 'ar,en;q=0.8',
       },
     },
+    timeoutMs,
+    parentSignal,
   );
 
   if (!response.ok) return [] as SearchSource[];
@@ -84,12 +117,13 @@ async function fallbackYoutubeSearch(query: string) {
   return results;
 }
 
-async function fallbackWebSearch(query: string) {
+async function fallbackWebSearch(query: string, deadline = Date.now() + 7500, parentSignal?: AbortSignal) {
   const youtubeOnly = /(?:يوتيوب|youtube|فيديو)/i.test(query);
 
   if (youtubeOnly) {
     try {
-      const youtubeResults = await fallbackYoutubeSearch(query);
+      const youtubeBudget = Math.min(4500, Math.max(900, searchTimeLeft(deadline) - 1200));
+      const youtubeResults = await fallbackYoutubeSearch(query, youtubeBudget, parentSignal);
       if (youtubeResults.length) return youtubeResults;
     } catch {
       // Fall through to RSS search.
@@ -99,7 +133,10 @@ async function fallbackWebSearch(query: string) {
     ? 'site:youtube.com/watch ' + query.replace(/(?:يوتيوب|youtube)/ig, '').trim()
     : query;
 
-  const response = await fetch(
+  const rssBudget = searchTimeLeft(deadline);
+  if (rssBudget < 500) return [] as SearchSource[];
+
+  const response = await timedFetch(
     'https://www.bing.com/search?format=rss&q=' + encodeURIComponent(searchQuery),
     {
       headers: {
@@ -107,6 +144,8 @@ async function fallbackWebSearch(query: string) {
         'Accept': 'application/rss+xml,application/xml,text/xml,*/*',
       },
     },
+    Math.min(5500, rssBudget),
+    parentSignal,
   );
 
   if (!response.ok) return [] as SearchSource[];
@@ -141,6 +180,8 @@ async function synthesizeFromSources(
   apiKey: string,
   query: string,
   sources: SearchSource[],
+  deadline = Date.now() + 7000,
+  parentSignal?: AbortSignal,
 ) {
   if (!sources.length) return '';
   const sourceText = sources
@@ -155,14 +196,13 @@ async function synthesizeFromSources(
     'الطلب: ' + query + '\n\nنتائج البحث:\n' + sourceText;
 
   for (const model of ['gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash']) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 16000);
+    const timeLeft = searchTimeLeft(deadline);
+    if (timeLeft < 600) break;
     try {
-      const response = await fetch(
+      const response = await timedFetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
-          signal: controller.signal,
           headers: {
             'x-goog-api-key': apiKey,
             'Content-Type': 'application/json',
@@ -172,6 +212,8 @@ async function synthesizeFromSources(
             generationConfig: { maxOutputTokens: 420 },
           }),
         },
+        Math.min(6000, timeLeft),
+        parentSignal,
       );
       if (!response.ok) {
         if ([400, 404, 429, 503].includes(response.status)) continue;
@@ -185,9 +227,8 @@ async function synthesizeFromSources(
       ).trim();
       if (answer) return answer;
     } catch {
-      // Try the next model.
-    } finally {
-      clearTimeout(timeout);
+      if (parentSignal?.aborted) break;
+      // Try the next model while there is budget left.
     }
   }
 
@@ -256,16 +297,17 @@ Deno.serve(async (req) => {
     'لا تذكر اسم مزود الذكاء أو تفاصيل تقنية عن أداة البحث. الطلب: ' + query;
 
   let lastStatus = 0;
+  const deadline = Date.now() + SEARCH_TOTAL_BUDGET_MS;
+  const groundedDeadline = Math.min(deadline, Date.now() + 19000);
 
   for (const model of modelCandidates) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 24000);
+    const timeLeft = searchTimeLeft(groundedDeadline);
+    if (timeLeft < 700) break;
     try {
-      const response = await fetch(
+      const response = await timedFetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
         {
           method: 'POST',
-          signal: controller.signal,
           headers: {
             'x-goog-api-key': apiKey,
             'Content-Type': 'application/json',
@@ -278,6 +320,8 @@ Deno.serve(async (req) => {
             },
           }),
         },
+        Math.min(8000, timeLeft),
+        req.signal,
       );
       lastStatus = response.status;
       const responseText = await response.text().catch(() => '');
@@ -315,17 +359,17 @@ Deno.serve(async (req) => {
       if (!(error instanceof DOMException && error.name === 'AbortError')) {
         console.error('DAI web research failed', error);
       }
-    } finally {
-      clearTimeout(timeout);
+      if (req.signal.aborted) break;
     }
   }
 
   console.error('DAI web research grounding status', lastStatus);
 
   try {
-    const sources = await fallbackWebSearch(query);
+    const fallbackDeadline = Math.min(deadline, Date.now() + 7500);
+    const sources = await fallbackWebSearch(query, fallbackDeadline, req.signal);
     if (sources.length) {
-      const synthesized = await synthesizeFromSources(apiKey, query, sources);
+      const synthesized = await synthesizeFromSources(apiKey, query, sources, deadline, req.signal);
       const answer = synthesized || (
         /(?:يوتيوب|youtube|فيديو)/i.test(query)
           ? 'لقيتلك نتائج مناسبة على يوتيوب. افتح المصادر واختار الفيديو الأنسب.'
