@@ -74,13 +74,15 @@ test('avatar system keeps all styles on the same motion engine',()=>{
   assert.match(app,/dai-avatar-style/);
   assert.match(app,/dai_preferences/);
   assert.match(app,/avatar=\{avatarStyle\}/);
-  assert.match(draw,/DAI_AVATAR_STYLES=\['classic','minimal','cute','cyber','soft','pro','hologram'\]/);
+  assert.match(draw,/DAI_AVATAR_STYLES=\['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint'\]/);
   assert.match(draw,/avatarTheme/);
+  assert.match(draw,/handTheme/);
+  assert.match(draw,/hand\(c,q\.lx[^\n]*avatar\)/);
   assert.match(draw,/export function drawDai\(c,m,w,h,avatar='classic'\)/);
 });
 
 test('avatar picker includes all shipped DAI avatar choices',()=>{
-  for(const name of ['Classic DAI','Minimal','Cute','Cyber','Soft','Pro','Hologram'])assert.ok(app.includes(name));
+  for(const name of ['Classic DAI','Minimal','Cute','Cyber','Soft','Pro','Hologram','Sakura','Ocean','Solar','Midnight','Mint'])assert.ok(app.includes(name));
   assert.match(app,/role='radiogroup'/);
   assert.match(app,/setAvatarStyle\(item\.id\)/);
 });
