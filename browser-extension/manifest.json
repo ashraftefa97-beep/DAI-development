@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "DAI Side Browser",
+  "version": "1.0.0",
+  "description": "Opens links from DAI in a real docked browser window beside the conversation.",
+  "permissions": ["windows", "tabs", "storage"],
+  "host_permissions": ["https://ashraftefa97-beep.github.io/DAI-development/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://ashraftefa97-beep.github.io/DAI-development/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
