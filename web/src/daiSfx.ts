@@ -23,6 +23,17 @@ export type DaiMotionAudioEvent = {
   pan?:number;
 };
 
+export type DaiSfxStats = {
+  activeVoices:number;
+  maxConcurrent:number;
+  resumeCount:number;
+  suspendCount:number;
+  droppedCueCount:number;
+  contextState:string;
+  scene:DaiSonicState;
+  lifecycleSuspended:boolean;
+};
+
 type Cue =
   | 'swish'
   | 'fabric'
@@ -74,6 +85,25 @@ const CUE_FILES:Record<Cue,string[]>={
   computer:[asset('computer-texture.ogg')]
 };
 
+const MASTER_CEILING=.62;
+const MAX_SIMULTANEOUS_VOICES=4;
+const CUE_TRIM:Record<Cue,number>={
+  swish:.78,
+  fabric:.72,
+  step:.66,
+  key:.62,
+  page:.68,
+  water:.66,
+  mech:.60,
+  ratchet:.58,
+  breath:.56,
+  clap:.62,
+  click:.60,
+  bell:.72,
+  glass:.64,
+  computer:.52
+};
+
 const BED_PROFILE:Partial<Record<DaiSonicState,{gain:number;rate:number}>>={
   thinking:{gain:.040,rate:.93},
   searching:{gain:.052,rate:1.00},
@@ -88,7 +118,12 @@ class DaiSfxEngine {
   private mode:DaiSfxMode='normal';
   private unlocked=false;
   private ducked=false;
-  private active:Array<{howl:Howl;id:number}>=[];
+  private lifecycleSuspended=false;
+  private active:Array<{howl:Howl;id:number;source:'motion'|'semantic'}>=[];
+  private maxConcurrent=0;
+  private resumeCount=0;
+  private suspendCount=0;
+  private droppedCueCount=0;
   private lastVariant=new Map<Cue,number>();
   private previewTimers:number[]=[];
   private stateTimers:number[]=[];
@@ -137,7 +172,11 @@ class DaiSfxEngine {
 
   async unlock(){
     try{
-      if(Howler.ctx?.state==='suspended')await Howler.ctx.resume();
+      if(Howler.ctx?.state==='suspended'){
+        await Howler.ctx.resume();
+        this.resumeCount++;
+      }
+      this.lifecycleSuspended=false;
       this.unlocked=true;
       this.refreshAmbience(120);
       return true;
@@ -145,6 +184,43 @@ class DaiSfxEngine {
       this.unlocked=false;
       return false;
     }
+  }
+
+  async suspendForLifecycle(){
+    if(this.lifecycleSuspended)return;
+    this.lifecycleSuspended=true;
+    this.suspendCount++;
+    this.clearTransientVoices();
+    this.refreshAmbience(80);
+    try{
+      if(Howler.ctx?.state==='running')await Howler.ctx.suspend();
+    }catch{}
+  }
+
+  async resumeForLifecycle(){
+    if(!this.lifecycleSuspended&&Howler.ctx?.state!=='suspended')return;
+    try{
+      if(Howler.ctx?.state==='suspended'){
+        await Howler.ctx.resume();
+        this.resumeCount++;
+      }
+      this.lifecycleSuspended=false;
+      this.unlocked=true;
+      this.refreshAmbience(180);
+    }catch{}
+  }
+
+  getStats():DaiSfxStats{
+    return {
+      activeVoices:this.active.length,
+      maxConcurrent:this.maxConcurrent,
+      resumeCount:this.resumeCount,
+      suspendCount:this.suspendCount,
+      droppedCueCount:this.droppedCueCount,
+      contextState:String(Howler.ctx?.state||'unavailable'),
+      scene:this.ambienceState,
+      lifecycleSuspended:this.lifecycleSuspended
+    };
   }
 
   private modeGain(){
@@ -158,7 +234,7 @@ class DaiSfxEngine {
 
   private ambienceGain(state=this.ambienceState){
     const profile=BED_PROFILE[state];
-    if(!profile||!this.enabled||this.mode==='silent'||!this.unlocked)return 0;
+    if(!profile||!this.enabled||this.mode==='silent'||!this.unlocked||this.lifecycleSuspended)return 0;
     const duck=this.ducked?.08:1;
     return Math.max(0,Math.min(.11,this.volume*this.modeGain()*profile.gain*duck));
   }
@@ -237,7 +313,7 @@ class DaiSfxEngine {
   }
 
   private startEvent(event:DaiMotionAudioEvent,source:'motion'|'semantic'='motion'){
-    if(!this.unlocked||!this.enabled||this.mode==='silent')return null;
+    if(!this.unlocked||!this.enabled||this.mode==='silent'||this.lifecycleSuspended)return null;
     if(!(event.cue in this.bank))return null;
 
     const cue=event.cue as Cue;
@@ -251,10 +327,20 @@ class DaiSfxEngine {
     const howl=this.choose(cue);
     if(!howl)return null;
 
+    if(this.active.length>=MAX_SIMULTANEOUS_VOICES){
+      const removable=this.active.find(item=>item.source==='motion')||this.active[0];
+      if(removable){
+        try{removable.howl.stop(removable.id);}catch{}
+        this.active=this.active.filter(item=>item!==removable);
+        this.droppedCueCount++;
+      }
+    }
+
     try{
       const id=howl.play();
       const sourceGain=source==='semantic'?1:this.motionEventGain(cue);
-      const volume=Math.max(0,Math.min(1,this.baseGain()*(event.volume??1)*sourceGain));
+      const mastered=this.baseGain()*(event.volume??1)*sourceGain*CUE_TRIM[cue];
+      const volume=Math.max(0,Math.min(MASTER_CEILING,mastered));
       if(volume<=.001){
         howl.stop(id);
         return null;
@@ -262,7 +348,8 @@ class DaiSfxEngine {
       howl.volume(volume,id);
       howl.rate(Math.max(.76,Math.min(1.20,event.rate??1)),id);
       if(typeof howl.stereo==='function')howl.stereo(Math.max(-1,Math.min(1,event.pan??0)),id);
-      this.active.push({howl,id});
+      this.active.push({howl,id,source});
+      this.maxConcurrent=Math.max(this.maxConcurrent,this.active.length);
       howl.once('end',()=>{
         this.active=this.active.filter(item=>!(item.howl===howl&&item.id===id));
       },id);
@@ -339,6 +426,10 @@ class DaiSfxEngine {
       default:
         return false;
     }
+  }
+
+  private clearTransientVoices(){
+    this.clearTransientVoices();
   }
 
   stopAll(){
