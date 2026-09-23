@@ -15,7 +15,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@supabase/supabase-js": "^2.57.4",
-    "howler": "2.2.4"
+    "howler": "2.2.4",
+    "@mlc-ai/web-llm": "0.2.85"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.0.0"
