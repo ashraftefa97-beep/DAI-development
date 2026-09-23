@@ -7,7 +7,7 @@ export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search
 export default function DaiFace({state='idle', reduced=false}: {state?:DaiState; reduced?:boolean}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
-  useEffect(()=>{ daiSfx.stopAll(); motion.current.setGesture(state); },[state]);
+  useEffect(()=>{ motion.current.setGesture(state); },[state]);
   useEffect(()=>{
     const m=motion.current, query=matchMedia('(prefers-reduced-motion: reduce)');
     const update=()=>{ m.reduced=reduced||query.matches; if(m.reduced)m.particles=[]; };
