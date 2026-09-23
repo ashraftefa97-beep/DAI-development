@@ -541,6 +541,131 @@ export default function GithubApp(){
     try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
   },[reduced]);
 
+
+  useEffect(()=>{
+    const root=document.documentElement;
+    root.dataset.daiQuality=renderQuality;
+    return()=>{delete root.dataset.daiQuality;};
+  },[renderQuality]);
+
+  useEffect(()=>{
+    let frame=0;
+    let last=performance.now();
+    let sampleStart=last;
+    let frames=0;
+    let dropped=0;
+    let droppedTotal=0;
+
+    const nextLower=(quality:DaiRenderQuality):DaiRenderQuality=>
+      quality==='high'?'medium':'low';
+    const nextHigher=(quality:DaiRenderQuality):DaiRenderQuality=>
+      quality==='low'?'medium':'high';
+
+    const tick=(now:number)=>{
+      if(!document.hidden){
+        const delta=now-last;
+        frames++;
+        if(delta>24){
+          const missed=Math.max(0,Math.round(delta/16.67)-1);
+          dropped+=missed;
+          droppedTotal+=missed;
+        }
+
+        if(now-sampleStart>=2000){
+          const seconds=Math.max(.25,(now-sampleStart)/1000);
+          const fps=Math.max(1,Math.min(60,Math.round(frames/seconds)));
+          const audio=daiSfx.getStats();
+
+          setRuntimePerf({
+            fps,
+            droppedFrames:droppedTotal,
+            quality:renderQuality,
+            audioActiveVoices:audio.activeVoices,
+            audioMaxConcurrent:audio.maxConcurrent,
+            audioResumeCount:audio.resumeCount,
+            audioSuspendCount:audio.suspendCount,
+            audioDroppedCueCount:audio.droppedCueCount,
+            audioContextState:audio.contextState
+          });
+
+          let target=renderQuality;
+          if(reduced||experiencePreset==='minimal'){
+            target='low';
+          }else{
+            const maxQuality:DaiRenderQuality=experiencePreset==='calm'?'medium':'high';
+            if(fps<43||dropped>20){
+              perfQualityVotesRef.current.down++;
+              perfQualityVotesRef.current.up=0;
+            }else if(fps>56&&dropped<5){
+              perfQualityVotesRef.current.up++;
+              perfQualityVotesRef.current.down=0;
+            }else{
+              perfQualityVotesRef.current.down=Math.max(0,perfQualityVotesRef.current.down-1);
+              perfQualityVotesRef.current.up=Math.max(0,perfQualityVotesRef.current.up-1);
+            }
+
+            if(perfQualityVotesRef.current.down>=2){
+              target=nextLower(renderQuality);
+              perfQualityVotesRef.current.down=0;
+            }else if(perfQualityVotesRef.current.up>=4){
+              target=nextHigher(renderQuality);
+              perfQualityVotesRef.current.up=0;
+            }
+            if(maxQuality==='medium'&&target==='high')target='medium';
+          }
+
+          if(target!==renderQuality)setRenderQuality(target);
+          frames=0;
+          dropped=0;
+          sampleStart=now;
+        }
+      }
+      last=now;
+      frame=requestAnimationFrame(tick);
+    };
+
+    frame=requestAnimationFrame(tick);
+    return()=>cancelAnimationFrame(frame);
+  },[experiencePreset,reduced,renderQuality]);
+
+  useEffect(()=>{
+    const suspendAudio=()=>{
+      void daiSfx.suspendForLifecycle();
+      const speech=speechAudioContextRef.current;
+      const liveOut=liveOutputContextRef.current;
+      const liveIn=liveInputContextRef.current;
+      if(speech?.state==='running')void speech.suspend().catch(()=>undefined);
+      if(liveOut?.state==='running')void liveOut.suspend().catch(()=>undefined);
+      if(liveIn?.state==='running')void liveIn.suspend().catch(()=>undefined);
+    };
+
+    const resumeAudio=()=>{
+      void daiSfx.resumeForLifecycle();
+      const speech=speechAudioContextRef.current;
+      const liveOut=liveOutputContextRef.current;
+      const liveIn=liveInputContextRef.current;
+      if(speech?.state==='suspended'&&speechStreamSourcesRef.current.size>0)void speech.resume().catch(()=>undefined);
+      if(liveOut?.state==='suspended'&&voiceSessionActiveRef.current)void liveOut.resume().catch(()=>undefined);
+      if(liveIn?.state==='suspended'&&voiceSessionActiveRef.current)void liveIn.resume().catch(()=>undefined);
+    };
+
+    const onVisibility=()=>{
+      if(document.hidden)suspendAudio();
+      else resumeAudio();
+    };
+    const onPageHide=()=>suspendAudio();
+    const onPageShow=()=>resumeAudio();
+
+    document.addEventListener('visibilitychange',onVisibility);
+    window.addEventListener('pagehide',onPageHide);
+    window.addEventListener('pageshow',onPageShow);
+    return()=>{
+      document.removeEventListener('visibilitychange',onVisibility);
+      window.removeEventListener('pagehide',onPageHide);
+      window.removeEventListener('pageshow',onPageShow);
+    };
+  },[]);
+
   useEffect(()=>{
     try{localStorage.setItem('dai-voice-rate',String(voiceRate));}catch{}
   },[voiceRate]);
