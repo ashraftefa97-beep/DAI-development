@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Activity, AppWindow, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
+import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode } from './daiSfx';
@@ -79,6 +79,13 @@ declare global {
       hideCompanion: () => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
       setCompanionWander: (enabled:boolean) => Promise<{ok:boolean;visible?:boolean;wander?:boolean;message?:string}>;
       openMainWindow: () => Promise<{ok:boolean;message?:string}>;
+      browserOpen: (url:string) => Promise<{ok:boolean;url?:string;message?:string}>;
+      browserClose: () => Promise<boolean>;
+      browserReload: () => Promise<boolean>;
+      browserBack: () => Promise<boolean>;
+      browserForward: () => Promise<boolean>;
+      browserExternal: () => Promise<boolean>;
+      onBrowserState: (callback:(state:{open?:boolean;url?:string;loading?:boolean;canGoBack?:boolean;canGoForward?:boolean;error?:string})=>void) => ()=>void;
     };
   }
 }
@@ -332,6 +339,8 @@ export default function GithubApp(){
   const [browserUrl,setBrowserUrl]=useState('');
   const [browserReloadKey,setBrowserReloadKey]=useState(0);
   const [browserLoaded,setBrowserLoaded]=useState(false);
+  const [browserCanBack,setBrowserCanBack]=useState(false);
+  const [browserCanForward,setBrowserCanForward]=useState(false);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
@@ -474,6 +483,23 @@ export default function GithubApp(){
     return()=>{alive=false;};
   },[]);
 
+  useEffect(()=>{
+    if(!desktopMode||!window.daiDesktop?.onBrowserState)return;
+    const unsubscribe=window.daiDesktop.onBrowserState(state=>{
+      if(state.url)setBrowserUrl(String(state.url));
+      if(state.open===false){
+        setBrowserUrl('');
+        setBrowserLoaded(false);
+      }else if(state.open){
+        setBrowserLoaded(!state.loading);
+      }
+      setBrowserCanBack(Boolean(state.canGoBack));
+      setBrowserCanForward(Boolean(state.canGoForward));
+      if(state.error)setErrorText('المتصفح: '+String(state.error));
+    });
+    return()=>{try{unsubscribe?.();}catch{}};
+  },[desktopMode]);
+
   function openDaiBrowser(rawUrl:string){
     try{
       const url=new URL(String(rawUrl||'').trim());
@@ -481,6 +507,12 @@ export default function GithubApp(){
       setBrowserLoaded(false);
       setBrowserUrl(url.toString());
       setBrowserReloadKey(value=>value+1);
+
+      if(desktopMode&&window.daiDesktop?.browserOpen){
+        void window.daiDesktop.browserOpen(url.toString()).then(result=>{
+          if(!result?.ok)setErrorText(result?.message||'تعذر فتح الموقع داخل ضي.');
+        }).catch(()=>setErrorText('تعذر فتح الموقع داخل ضي.'));
+      }
     }catch{}
   }
 
@@ -555,18 +587,37 @@ export default function GithubApp(){
   }
 
   function closeDaiBrowser(){
+    if(desktopMode&&window.daiDesktop?.browserClose)void window.daiDesktop.browserClose();
     setBrowserUrl('');
     setBrowserLoaded(false);
+    setBrowserCanBack(false);
+    setBrowserCanForward(false);
   }
 
   function refreshDaiBrowser(){
     if(!browserUrl)return;
     setBrowserLoaded(false);
+    if(desktopMode&&window.daiDesktop?.browserReload){
+      void window.daiDesktop.browserReload();
+      return;
+    }
     setBrowserReloadKey(value=>value+1);
+  }
+
+  function browserBack(){
+    if(desktopMode&&window.daiDesktop?.browserBack)void window.daiDesktop.browserBack();
+  }
+
+  function browserForward(){
+    if(desktopMode&&window.daiDesktop?.browserForward)void window.daiDesktop.browserForward();
   }
 
   function openBrowserExternally(){
     if(!browserUrl)return;
+    if(desktopMode&&window.daiDesktop?.browserExternal){
+      void window.daiDesktop.browserExternal();
+      return;
+    }
     window.open(browserUrl,'_blank','noopener,noreferrer');
   }
 
@@ -4299,6 +4350,12 @@ export default function GithubApp(){
         <button className='dai-browser-tool-button close' onClick={closeDaiBrowser} aria-label='إغلاق المتصفح' title='إغلاق'>
           <X className='h-4 w-4'/>
         </button>
+        {desktopMode&&<button className='dai-browser-tool-button' disabled={!browserCanBack} onClick={browserBack} aria-label='رجوع' title='رجوع'>
+          <ArrowRight className='h-4 w-4'/>
+        </button>}
+        {desktopMode&&<button className='dai-browser-tool-button' disabled={!browserCanForward} onClick={browserForward} aria-label='تقدم' title='تقدم'>
+          <ArrowLeft className='h-4 w-4'/>
+        </button>}
         <div className='dai-browser-address' title={browserUrl}>
           <Globe2 className='h-4 w-4'/>
           <div>
@@ -4313,26 +4370,32 @@ export default function GithubApp(){
           <ExternalLink className='h-4 w-4'/>
         </button>
       </header>
-      <div className={'dai-browser-content '+(isYouTubeBrowserUrl()?'youtube-player':'')}>
-        {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
-        <iframe
-          key={browserReloadKey}
-          src={browserEmbedUrl()}
-          title={'متصفح ضي — '+browserDisplayHost()}
-          referrerPolicy='origin-when-cross-origin'
-          sandbox={isYouTubeBrowserUrl()?undefined:'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'}
-          allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
-          allowFullScreen
-          onLoad={()=>setBrowserLoaded(true)}
-        />
-        {!isYouTubeBrowserUrl()&&<div className='dai-browser-embed-note'>
-          بعض المواقع تمنع العرض داخل التطبيقات.
-          <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح خارجي</button>
-        </div>}
-        {isYouTubeBrowserUrl()&&<div className='dai-browser-youtube-fallback'>
-          لو الفيديو مانع التشغيل المضمّن
-          <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح على YouTube</button>
-        </div>}
+      <div className={'dai-browser-content '+(desktopMode?'native-browser':isYouTubeBrowserUrl()?'youtube-player':'')}>
+        {desktopMode
+          ? <div className='dai-browser-native-placeholder'>
+              {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
+            </div>
+          : <>
+              {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
+              <iframe
+                key={browserReloadKey}
+                src={browserEmbedUrl()}
+                title={'متصفح ضي — '+browserDisplayHost()}
+                referrerPolicy='origin-when-cross-origin'
+                sandbox={isYouTubeBrowserUrl()?undefined:'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'}
+                allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
+                allowFullScreen
+                onLoad={()=>setBrowserLoaded(true)}
+              />
+              {!isYouTubeBrowserUrl()&&<div className='dai-browser-embed-note'>
+                بعض المواقع تمنع العرض داخل التطبيقات.
+                <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح خارجي</button>
+              </div>}
+              {isYouTubeBrowserUrl()&&<div className='dai-browser-youtube-fallback'>
+                لو الفيديو مانع التشغيل المضمّن
+                <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح على YouTube</button>
+              </div>}
+            </>}
       </div>
     </aside>}
 
