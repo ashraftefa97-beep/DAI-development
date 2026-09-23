@@ -58,6 +58,33 @@ function cleanErrorCode(status: number) {
   return 'AI_PROVIDER';
 }
 
+type SearchSource = { title: string; url: string };
+
+function webSearchAllowed(text: string) {
+  // Keep browsing age-appropriate. The model can still answer safety questions
+  // without getting direct search access to restricted material.
+  return !/(?:سلاح|أسلحة|مسدس|بندقي|ذخيرة|سكين|خنجر|صاعق|تيزر|pepper\s*spray|gun|firearm|ammo|knife|taser|مخدر|حشيش|ماريجوانا|كوكايين|هيروين|فودكا|ويسكي|كحول|alcohol|cannabis|marijuana|cocaine|heroin|قمار|مراهن|كازينو|betting|casino|gambling|تحدي خطير|dangerous challenge)/i.test(text);
+}
+
+function collectGrounding(
+  metadata: any,
+  sources: Map<string, SearchSource>,
+  queries: Set<string>,
+) {
+  for (const query of metadata?.webSearchQueries || []) {
+    const value = String(query || '').trim();
+    if (value) queries.add(value.slice(0, 240));
+  }
+
+  for (const chunk of metadata?.groundingChunks || []) {
+    const web = chunk?.web;
+    const url = String(web?.uri || '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    const title = String(web?.title || '').trim().slice(0, 180) || 'مصدر';
+    sources.set(url, { title, url });
+  }
+}
+
 Deno.serve(async (req) => {
   const requestStartedAt = performance.now();
 
@@ -229,7 +256,7 @@ Deno.serve(async (req) => {
     : 'لا توجد ذاكرة Professional مفعلة للمستخدم حاليًا.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها، وبعدها ادي حل عملي واضح. لو المستخدم طلب رابط فيديو أو موقع، اختاري نتيجة مناسبة من البحث واذكري إنك لقيتيها. ما تختلقيش روابط أو مصادر. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const orderedHistory = historyRows
     .slice()
@@ -249,8 +276,9 @@ Deno.serve(async (req) => {
   const complexRequest =
     message.length > 700 ||
     /(?:كود|برمج|debug|حلل|تحليل|بالتفصيل|خطوة بخطوة|خطة كاملة|code|refactor|analy[sz]e|explain in detail)/i.test(message);
-  const maxOutputTokens = complexRequest ? 500 : 220;
+  const maxOutputTokens = complexRequest ? 650 : 260;
   const instantAnswer = isRegenerate ? '' : pickInstantReply(message);
+  const allowWebSearch = !instantAnswer && webSearchAllowed(message);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -274,6 +302,9 @@ Deno.serve(async (req) => {
       let answer = '';
       let firstTokenMs: number | null = null;
       let usedModel = instantAnswer ? 'local-fast-path' : '';
+      const groundingSources = new Map<string, SearchSource>();
+      const groundingQueries = new Set<string>();
+      let researchAnnounced = false;
 
       try {
         if (instantAnswer) {
@@ -323,6 +354,7 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({
                   systemInstruction: { parts: [{ text: systemPrompt }] },
                   contents,
+                  ...(allowWebSearch ? { tools: [{ google_search: {} }] } : {}),
                   generationConfig: {
                     maxOutputTokens,
                     thinkingConfig: { thinkingLevel: 'minimal' },
@@ -372,6 +404,23 @@ Deno.serve(async (req) => {
 
                   let payload: any;
                   try { payload = JSON.parse(dataLine); } catch { continue; }
+
+                  const groundingMetadata = payload?.candidates?.[0]?.groundingMetadata;
+                  if (groundingMetadata) {
+                    const beforeSources = groundingSources.size;
+                    const beforeQueries = groundingQueries.size;
+                    collectGrounding(groundingMetadata, groundingSources, groundingQueries);
+                    if (!researchAnnounced && (
+                      groundingSources.size > beforeSources ||
+                      groundingQueries.size > beforeQueries
+                    )) {
+                      researchAnnounced = true;
+                      push('research', {
+                        queries: [...groundingQueries],
+                        sources: [...groundingSources.values()].slice(0, 6),
+                      });
+                    }
+                  }
 
                   const text = String(
                     payload?.candidates?.[0]?.content?.parts
@@ -439,11 +488,15 @@ Deno.serve(async (req) => {
 
         push('done', {
           assistantMessage,
+          researched: groundingSources.size > 0 || groundingQueries.size > 0,
+          sources: [...groundingSources.values()].slice(0, 8),
+          searchQueries: [...groundingQueries].slice(0, 6),
           performance: {
             firstTokenMs,
             totalMs: Math.round(performance.now() - requestStartedAt),
             historyMessages: orderedHistory.length,
             fastPath: Boolean(instantAnswer),
+            searched: groundingSources.size > 0 || groundingQueries.size > 0,
             model: usedModel,
           },
         });
