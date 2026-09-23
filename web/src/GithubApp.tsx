@@ -845,9 +845,13 @@ export default function GithubApp(){
   }
 
   function animate(state:DaiState,duration=2200){
+    const protectedPhase=corePhaseRef.current;
+    if(!['idle','complete'].includes(protectedPhase))return;
     clearTimeout(timer.current);
     setDaiState(state);
-    if(duration) timer.current=window.setTimeout(()=>setDaiState('idle'),duration);
+    if(duration) timer.current=window.setTimeout(()=>{
+      if(corePhaseRef.current==='idle'||corePhaseRef.current==='complete')setDaiState('idle');
+    },duration);
   }
 
   function transitionCorePhase(
@@ -979,6 +983,10 @@ export default function GithubApp(){
 
   function executeSelectedAnimation(id:string,source:'manual'|'explicit'|'auto'='auto'){
     if(!professional||!proAnimations)return false;
+    if(!['idle','complete'].includes(corePhaseRef.current)){
+      if(source!=='auto')setProNotice('استنى ضي تخلص الحالة الحالية الأول.');
+      return false;
+    }
     const spec=animationSpecById(id);
     if(!spec)return false;
 
@@ -1088,7 +1096,7 @@ export default function GithubApp(){
   function handleInputChange(value:string){
     const wasEmpty=!input.trim();
     setInput(value);
-    if(listening||sending)return;
+    if(listening||sending||!['idle','complete'].includes(corePhaseRef.current))return;
     clearTimeout(typingTimer.current);
     if(value.trim()){
       if(wasEmpty)daiSfx.playState('attention');
