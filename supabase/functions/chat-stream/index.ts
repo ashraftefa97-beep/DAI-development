@@ -172,8 +172,9 @@ function rankSearchSources(query: string, sources: SearchSource[]) {
     // Never promote an unrelated result just because the search engine returned it.
     .filter((item) => {
       if (terms.length === 0) return true;
-      const requiredMatches = terms.length >= 2 ? Math.min(2, terms.length) : 1;
-      return item.matches >= requiredMatches && item.score >= 2.4;
+      // One strong topical match in the title/host is enough for fallback engines.
+      // Requiring two matches was discarding valid product/search results too aggressively.
+      return item.matches >= 1 && item.score >= 2.4;
     })
     .sort((a, b) => b.score - a.score || b.matches - a.matches || a.index - b.index)
     .map((item) => item.source)
@@ -676,6 +677,97 @@ async function fallbackDuckDuckGoSearch(
   return rankSearchSources(query, sources);
 }
 
+
+async function fallbackBingHtmlSearch(
+  query: string,
+  deadline = Date.now() + 8000,
+  parentSignal?: AbortSignal,
+) {
+  const budget = searchTimeLeft(deadline);
+  if (budget < 500) return [] as SearchSource[];
+
+  const response = await timedFetch(
+    'https://www.bing.com/search?q=' + encodeURIComponent(query) + '&setlang=en-US',
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,*/*',
+        'Accept-Language': 'en-US,en;q=0.8,ar;q=0.7',
+      },
+    },
+    Math.min(6000, budget),
+    parentSignal,
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const html = await response.text();
+  const sources: SearchSource[] = [];
+  const seen = new Set<string>();
+  const blockPattern = /<li[^>]*class=["'][^"']*\bb_algo\b[^"']*["'][^>]*>([\s\S]*?)<\/li>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = blockPattern.exec(html)) && sources.length < 8) {
+    const block = match[1];
+    const link = block.match(/<h2[^>]*>\s*<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i)
+      || block.match(/<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+    const url = decodeXml(link?.[1] || '').trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
+
+    const title = decodeXml(link?.[2] || '').slice(0,180);
+    const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const snippet = decodeXml(snippetMatch?.[1] || '').slice(0,320);
+
+    seen.add(url);
+    sources.push({title:title || 'نتيجة بحث',url,snippet:snippet || undefined});
+  }
+
+  return rankSearchSources(query, sources);
+}
+
+async function fallbackBraveHtmlSearch(
+  query: string,
+  deadline = Date.now() + 8000,
+  parentSignal?: AbortSignal,
+) {
+  const budget = searchTimeLeft(deadline);
+  if (budget < 500) return [] as SearchSource[];
+
+  const response = await timedFetch(
+    'https://search.brave.com/search?q=' + encodeURIComponent(query) + '&source=web',
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,*/*',
+        'Accept-Language': 'en-US,en;q=0.8,ar;q=0.7',
+      },
+    },
+    Math.min(6000, budget),
+    parentSignal,
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const html = await response.text();
+  const sources: SearchSource[] = [];
+  const seen = new Set<string>();
+  const anchorPattern = /<a[^>]*href=["'](https?:\/\/[^"'#]+)["'][^>]*(?:data-testid=["']result-title-a["']|class=["'][^"']*result-header[^"']*["'])[^>]*>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = anchorPattern.exec(html)) && sources.length < 8) {
+    const url = decodeXml(match[1] || '').trim();
+    if (!/^https?:\/\//i.test(url) || seen.has(url) || /search\.brave\.com\//i.test(url)) continue;
+
+    const title = decodeXml(match[2] || '').slice(0,180);
+    const nearby = html.slice(match.index, Math.min(html.length, match.index + 2200));
+    const snippetMatch = nearby.match(/<(?:p|div)[^>]*class=["'][^"']*(?:snippet|description)[^"']*["'][^>]*>([\s\S]*?)<\/(?:p|div)>/i);
+    const snippet = decodeXml(snippetMatch?.[1] || '').slice(0,320);
+
+    seen.add(url);
+    sources.push({title:title || 'نتيجة بحث',url,snippet:snippet || undefined});
+  }
+
+  return rankSearchSources(query, sources);
+}
+
 async function fallbackMultiSearch(
   originalQuery: string,
   rewrittenQuery: string,
@@ -688,20 +780,22 @@ async function fallbackMultiSearch(
   const remaining = searchTimeLeft(deadline);
   if (remaining < 700) return [] as SearchSource[];
 
-  const searchQueries = queries.slice(0, 3);
+  const searchQueries = queries.slice(0, 2);
   const tasks = searchQueries.map(async (searchQuery) => {
-    const [bing, duck] = await Promise.all([
+    const [bingRss, bingHtml, duck, brave] = await Promise.all([
       fallbackRssSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+      fallbackBingHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
       fallbackDuckDuckGoSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
+      fallbackBraveHtmlSearch(searchQuery, deadline, parentSignal).catch(() => [] as SearchSource[]),
     ]);
-    return [...bing, ...duck];
+    return [...bingRss, ...bingHtml, ...duck, ...brave];
   });
 
   const groups = await Promise.all(tasks);
-  return rankSearchSources(
-    originalQuery + ' ' + rewrittenQuery,
-    groups.flat(),
-  );
+  const merged = groups.flat();
+  const byOriginal = rankSearchSources(originalQuery, merged);
+  if (byOriginal.length) return byOriginal;
+  return rankSearchSources(rewrittenQuery || originalQuery, merged);
 }
 
 function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
