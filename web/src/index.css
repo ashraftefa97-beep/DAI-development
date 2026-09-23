@@ -3645,3 +3645,25 @@ html[data-dai-theme="light"] .classic-chat-message.user {
   .classic-chat-message p { font-size:14.5px; line-height:1.85; }
   .classic-input-bar { width:100%; }
 }
+
+
+/* Keep mixed Arabic/English research answers readable */
+.classic-chat-message p,
+.dai-companion-bubble p {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
+
+.classic-chat-message p .dai-inline-link,
+.dai-companion-bubble p .dai-inline-link {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.dai-search-sources a {
+  unicode-bidi: plaintext;
+  text-align: start;
+}
