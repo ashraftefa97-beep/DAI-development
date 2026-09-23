@@ -1,0 +1,27 @@
+name: Web Research Probe
+
+on:
+  push:
+    paths:
+      - '.github/workflows/web-research-probe.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify web research returns sources within budget
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/web-research-probe"
+          BODY="$(curl -fsS --retry 2 --retry-delay 2 "$URL")"
+          echo "$BODY"
+          echo "$BODY" | jq -e '
+            .ok == true and
+            (.totalMs | tonumber) < 30000 and
+            (
+              ((.grounded.sources // 0) | tonumber) > 0 or
+              ((.fallback.sources // 0) | tonumber) > 0
+            )
+          '
