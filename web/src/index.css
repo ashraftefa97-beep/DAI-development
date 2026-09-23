@@ -5088,3 +5088,27 @@ html[data-dai-theme="light"] .dai-avatar-sync {
 @media(max-width:640px){
   .dai-avatar-grid { max-height:min(430px,52vh); }
 }
+
+
+/* DAI avatar accessibility hardening v3.1 */
+.dai-avatar-choice {
+  contain:layout paint;
+}
+.dai-avatar-choice:focus-visible {
+  outline:2px solid rgba(246,169,193,.72);
+  outline-offset:2px;
+  border-color:rgba(246,169,193,.48);
+  box-shadow:0 0 0 4px rgba(246,169,193,.08);
+}
+html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
+  outline-color:rgba(159,92,124,.62);
+  box-shadow:0 0 0 4px rgba(159,92,124,.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dai-avatar-choice {
+    transition:none;
+  }
+  .dai-avatar-choice:hover {
+    transform:none;
+  }
+}
