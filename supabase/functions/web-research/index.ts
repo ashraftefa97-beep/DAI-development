@@ -22,7 +22,7 @@ type SearchSource = { title: string; url: string; snippet?: string };
 function searchTerms(value: string) {
   const stop = new Set([
     'عاوز','عايز','محتاج','ممكن','افضل','أفضل','احسن','أحسن','لينك','رابط','موقع',
-    'ابحث','دور','بحث','find','search','best','link','website','the','and','for','with',
+    'ابحث','دور','دورلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','link','website','the','and','for','with',
     'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
   ]);
   return String(value || '')
@@ -35,45 +35,68 @@ function searchTerms(value: string) {
     .slice(0, 12);
 }
 
-function sourceScore(query: string, source: SearchSource) {
+function sourceRelevance(query: string, source: SearchSource) {
   let score = 0;
+  let matches = 0;
   const title = String(source.title || '').toLowerCase();
   const snippet = String(source.snippet || '').toLowerCase();
   let host = '';
   try { host = new URL(source.url).hostname.replace(/^www\./, '').toLowerCase(); } catch {}
 
   for (const term of searchTerms(query)) {
-    if (title.includes(term)) score += 3;
-    if (snippet.includes(term)) score += 1.2;
-    if (host.includes(term)) score += 2.5;
+    let matched = false;
+    if (title.includes(term)) { score += 3; matched = true; }
+    if (snippet.includes(term)) { score += 1.2; matched = true; }
+    if (host.includes(term)) { score += 2.5; matched = true; }
+    if (matched) matches++;
   }
 
-  if (/\.(gov|edu)(\.|$)/i.test(host)) score += 3.5;
-  if (/^(?:docs\.|developer\.|support\.|help\.)/i.test(host)) score += 2.2;
-  if (/(?:official|رسمي|الرسمية|الرسمى)/i.test(title + ' ' + snippet)) score += 1.5;
-  if (source.snippet) score += 0.8;
-  if (/(?:يوتيوب|youtube|فيديو)/i.test(query) && /youtube\.com$/i.test(host)) score += 4;
-  if (/(?:github|جيت هب)/i.test(query) && /github\.com$/i.test(host)) score += 4;
+  if (matches > 0) {
+    if (/\.(gov|edu)(\.|$)/i.test(host)) score += 3.5;
+    if (/^(?:docs\.|developer\.|support\.|help\.)/i.test(host)) score += 2.2;
+    if (/(?:official|رسمي|الرسمية|الرسمى)/i.test(title + ' ' + snippet)) score += 1.5;
+    if (source.snippet) score += 0.8;
+
+    const recommendationIntent = /(?:أفضل|افضل|أحسن|احسن|أنسب|انسب|رشح|recommend|best|review|مراجعة)/i.test(query);
+    if (recommendationIntent && /(?:techradar\.com|tomshardware\.com|pcmag\.com|rtings\.com|all3dp\.com|nytimes\.com)/i.test(host)) {
+      score += 2;
+    }
+  }
+
+  if (/(?:يوتيوب|youtube|فيديو)/i.test(query) && /youtube\.com$/i.test(host)) {
+    score += 4;
+    matches++;
+  }
+  if (/(?:github|جيت هب)/i.test(query) && /github\.com$/i.test(host)) {
+    score += 4;
+    matches++;
+  }
 
   const currentIntent = /(?:أحدث|احدث|آخر|اليوم|دلوقتي|حالي|latest|today|current|2026)/i.test(query);
-  if (currentIntent && /(?:2026|2025)/.test(title + ' ' + snippet)) score += 1.2;
+  if (matches > 0 && currentIntent && /(?:2026|2025)/.test(title + ' ' + snippet)) score += 1.2;
 
   if (/(?:pinterest\.|quora\.|medium\.com$)/i.test(host)) score -= 0.8;
   if (/(?:login|signin|account)/i.test(title)) score -= 1.2;
 
-  return score;
+  return { score, matches };
 }
 
 function rankSearchSources(query: string, sources: SearchSource[]) {
   const seen = new Set<string>();
+  const terms = searchTerms(query);
+
   return sources
     .filter((source) => {
       if (!source?.url || seen.has(source.url)) return false;
       seen.add(source.url);
       return true;
     })
-    .map((source, index) => ({ source, index, score: sourceScore(query, source) }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((source, index) => {
+      const relevance = sourceRelevance(query, source);
+      return { source, index, ...relevance };
+    })
+    .filter((item) => terms.length === 0 || (item.matches > 0 && item.score >= 2.4))
+    .sort((a, b) => b.score - a.score || b.matches - a.matches || a.index - b.index)
     .map((item) => item.source)
     .slice(0, 8);
 }
@@ -122,6 +145,82 @@ async function timedFetch(
 
 function searchTimeLeft(deadline: number) {
   return Math.max(0, deadline - Date.now());
+}
+
+function heuristicSearchQuery(query: string) {
+  return String(query || '')
+    .replace(/(?:^|\s)(?:دورلي|دوريلي|ابحثلي|ابحثيلي|هاتلي|رشحلي|عاوز|عايز|محتاج)(?:\s+على)?/gi, ' ')
+    .replace(/(?:\s+في\s+السوق|\s+الموجود\s+في\s+السوق)/gi, ' ')
+    .replace(/برينتر|طابعه|طابعة|طابعات/gi, ' printer ')
+    .replace(/ثري\s*دي|ثلاثي(?:ة)?\s*الأبعاد|ثلاثية\s*الابعاد/gi, ' 3D ')
+    .replace(/لاب\s*توب|لابتوب/gi, ' laptop ')
+    .replace(/موبايل|هاتف/gi, ' phone ')
+    .replace(/سماعات?|هيدفون/gi, ' headphones ')
+    .replace(/كارت\s*شاشه|كارت\s*شاشة/gi, ' GPU ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+}
+
+async function rewriteFallbackSearchQuery(
+  apiKey: string,
+  configuredModel: string,
+  query: string,
+  deadline: number,
+  parentSignal?: AbortSignal,
+) {
+  const heuristic = heuristicSearchQuery(query);
+  const candidates = [
+    'gemini-3.5-flash-lite',
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-3.1-flash-lite',
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  for (const model of candidates) {
+    const timeLeft = searchTimeLeft(deadline);
+    if (timeLeft < 700) break;
+    try {
+      const response = await timedFetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: 'POST',
+          headers: {
+            'x-goog-api-key': apiKey,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{
+                text:
+                  'حوّل طلب المستخدم لعبارة بحث ويب قصيرة ودقيقة. حافظ على أسماء المنتجات والأرقام. ' +
+                  'استخدم الإنجليزية للمصطلحات التقنية لو ده يحسن النتائج. اكتب عبارة البحث فقط من غير شرح أو علامات اقتباس. الطلب: ' +
+                  query
+              }]
+            }],
+            generationConfig: { maxOutputTokens: 80, temperature: 0.1 },
+          }),
+        },
+        Math.min(2800, timeLeft),
+        parentSignal,
+      );
+      if (!response.ok) continue;
+      const payload = await response.json().catch(() => ({}));
+      const rewritten = String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part: any) => part?.text || '')
+          ?.join('') || ''
+      )
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/^["'“”]+|["'“”]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 180);
+      if (rewritten.length >= 3) return rewritten;
+    } catch {}
+  }
+
+  return heuristic || query;
 }
 
 function unwrapSearchUrl(value: string) {
@@ -261,8 +360,8 @@ function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
     })
     .join('\n');
 
-  if (recommendationIntent && best) {
-    return 'أنسب اختيار حسب مطابقة طلبك وجودة المصدر هو: ' + best.title +
+  if (recommendationIntent && best && ranked.length >= 2) {
+    return 'أنسب اختيار بعد مقارنة النتائج المرتبطة بطلبك هو: ' + best.title +
       (best.snippet ? '\n' + best.snippet : '') +
       '\n' + best.url +
       (useful ? '\n\nبدائل قوية:\n' + useful : '');
@@ -487,11 +586,27 @@ Deno.serve(async (req) => {
   console.error('DAI web research grounding status', lastStatus);
 
   try {
-    const fallbackDeadline = Math.min(deadline, Date.now() + 7500);
-    const sources = rankSearchSources(
+    const fallbackDeadline = Math.min(deadline, Date.now() + 9000);
+    const rewrittenQuery = await rewriteFallbackSearchQuery(
+      apiKey,
+      configuredModel,
       query,
-      await fallbackWebSearch(query, fallbackDeadline, req.signal),
+      fallbackDeadline,
+      req.signal,
     );
+    const rankingQuery = query + ' ' + rewrittenQuery;
+    let sources = rankSearchSources(
+      rankingQuery,
+      await fallbackWebSearch(rewrittenQuery, fallbackDeadline, req.signal),
+    );
+
+    if (!sources.length && rewrittenQuery.toLowerCase() !== query.toLowerCase() && searchTimeLeft(fallbackDeadline) > 1200) {
+      sources = rankSearchSources(
+        rankingQuery,
+        await fallbackWebSearch(query, fallbackDeadline, req.signal),
+      );
+    }
+
     if (sources.length) {
       const synthesized = await synthesizeFromSources(apiKey, query, sources, deadline, req.signal);
       const answer = synthesized || fallbackAnswerFromSources(query, sources);
