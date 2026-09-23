@@ -333,7 +333,7 @@ export default function GithubApp(){
   const [avatarStyle,setAvatarStyle]=useState<DaiAvatarStyle>(()=>{
     try{
       const value=localStorage.getItem('dai-avatar-style');
-      return value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'?value:'classic';
+      return value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'?value:'classic';
     }catch{return 'classic';}
   });
   const [avatarSyncing,setAvatarSyncing]=useState(false);
@@ -569,7 +569,7 @@ export default function GithubApp(){
         if(cancelled)return;
         if(!error&&data?.avatar_style){
           const value=String(data.avatar_style);
-          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'){
+          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'||value==='soft'||value==='pro'||value==='hologram'||value==='sakura'||value==='ocean'||value==='solar'||value==='midnight'||value==='mint'){
             setAvatarStyle(value);
           }
         }else if(!error){
@@ -5103,7 +5103,12 @@ export default function GithubApp(){
                 {id:'cyber',label:'Cyber',desc:'ستايل مستقبلي بألوان سيان وبنفسجي'},
                 {id:'soft',label:'Soft',desc:'ألوان باستيل هادية ولمسة دافئة'},
                 {id:'pro',label:'Pro',desc:'ستايل أرقى بلمسات ذهبية وتفاصيل أهدأ'},
-                {id:'hologram',label:'Hologram',desc:'حلقة ضوئية وخطوط مسح بطابع هولوغرام'}
+                {id:'hologram',label:'Hologram',desc:'حلقة ضوئية وخطوط مسح بطابع هولوغرام'},
+                {id:'sakura',label:'Sakura',desc:'وردي كرزي ولمسات بنفسجي ناعمة'},
+                {id:'ocean',label:'Ocean',desc:'أزرق مائي وسيان بطابع هادي'},
+                {id:'solar',label:'Solar',desc:'ذهبي وبرتقالي دافئ وطاقة مشرقة'},
+                {id:'midnight',label:'Midnight',desc:'بنفسجي ليلي ونجوم هادية'},
+                {id:'mint',label:'Mint',desc:'أخضر نعناعي وتفاصيل منعشة'}
               ] as Array<{id:DaiAvatarStyle;label:string;desc:string}>).map(item=>
                 <button
                   key={item.id}
@@ -5120,6 +5125,11 @@ export default function GithubApp(){
                     {item.id==='soft'&&<i className='soft-glow'/>}
                     {item.id==='pro'&&<i className='pro-mark'/>}
                     {item.id==='hologram'&&<i className='hologram-ring'/>}
+                    {item.id==='sakura'&&<i className='sakura-mark'/>}
+                    {item.id==='ocean'&&<i className='ocean-mark'/>}
+                    {item.id==='solar'&&<i className='solar-mark'/>}
+                    {item.id==='midnight'&&<i className='midnight-mark'/>}
+                    {item.id==='mint'&&<i className='mint-mark'/>}
                   </span>
                   <span className='dai-avatar-copy'><strong>{item.label}</strong><small>{item.desc}</small></span>
                   <span className='dai-avatar-selected'>{avatarStyle===item.id?<Check/>:null}</span>
