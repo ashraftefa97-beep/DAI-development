@@ -755,18 +755,31 @@ export default function GithubApp(){
     for(const part of speechParts){
       if(runId!==speechRunRef.current)return false;
 
-      const response=await fetch(
-        supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-gemini',
-        {
-          method:'POST',
-          headers:{
-            Authorization:'Bearer '+token,
-            apikey:supabasePublishableKey,
-            'Content-Type':'application/json'
-          },
-          body:JSON.stringify({text:part})
+      const partController=new AbortController();
+      const partTimeout=window.setTimeout(()=>partController.abort(),65000);
+      let response:Response;
+      try{
+        response=await fetch(
+          supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-gemini',
+          {
+            method:'POST',
+            signal:partController.signal,
+            headers:{
+              Authorization:'Bearer '+token,
+              apikey:supabasePublishableKey,
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({text:part})
+          }
+        );
+      }catch(error){
+        if((error as Error)?.name==='AbortError'){
+          throw new Error('TTS_GEMINI_CLIENT_TIMEOUT');
         }
-      );
+        throw error;
+      }finally{
+        window.clearTimeout(partTimeout);
+      }
 
       const payload=await response.json().catch(()=>null);
       if(!response.ok||!payload?.audioBase64){
@@ -1846,25 +1859,49 @@ export default function GithubApp(){
       }
     };
 
-    while(true){
-      const {value,done}=await reader.read();
-      if(done)break;
-      buffer+=decoder.decode(value,{stream:true});
-      const frames=buffer.split(/\r?\n\r?\n/);
-      buffer=frames.pop()||'';
+    const streamTimeoutMs=
+      routeHint==='research'?45000
+      : routeHint==='complex'||routeHint==='code'?40000
+      : 30000;
+    let streamTimedOut=false;
+    const streamTimeoutId=window.setTimeout(()=>{
+      if(controller.signal.aborted)return;
+      streamTimedOut=true;
+      controller.abort();
+    },streamTimeoutMs);
 
-      for(const frame of frames){
-        let eventName='message';
-        const dataLines:string[]=[];
-        for(const line of frame.split(/\r?\n/)){
-          if(line.startsWith('event:'))eventName=line.slice(6).trim();
-          else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
+    try{
+      while(true){
+        const {value,done}=await reader.read();
+        if(done)break;
+        buffer+=decoder.decode(value,{stream:true});
+        const frames=buffer.split(/\r?\n\r?\n/);
+        buffer=frames.pop()||'';
+
+        for(const frame of frames){
+          let eventName='message';
+          const dataLines:string[]=[];
+          for(const line of frame.split(/\r?\n/)){
+            if(line.startsWith('event:'))eventName=line.slice(6).trim();
+            else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
+          }
+          if(!dataLines.length)continue;
+          let payload:any;
+          try{payload=JSON.parse(dataLines.join('\n'));}catch{continue;}
+          handleEvent(eventName,payload);
         }
-        if(!dataLines.length)continue;
-        let payload:any;
-        try{payload=JSON.parse(dataLines.join('\n'));}catch{continue;}
-        handleEvent(eventName,payload);
       }
+    }catch(error){
+      if(streamTimedOut){
+        throw new Error(
+          routeHint==='research'
+            ? 'البحث أخد وقت أطول من المتوقع واتوقف تلقائيًا. جرّب تاني.'
+            : 'الرد أخد وقت أطول من المتوقع واتوقف تلقائيًا. جرّب تاني.'
+        );
+      }
+      throw error;
+    }finally{
+      window.clearTimeout(streamTimeoutId);
     }
 
     if(!doneReceived&&!controller.signal.aborted){
@@ -2913,10 +2950,44 @@ export default function GithubApp(){
       daiSfx.playState('thinking');
       if(Date.now()>=animationLockUntilRef.current)animate('search',0);
       try{
-        const {data,error}=await supabase.functions.invoke('web-research',{body:{query}});
-        if(error||!data?.answer){
+        if(!supabaseUrl||!supabasePublishableKey){
+          return {ok:false,message:'البحث غير متاح دلوقتي.'};
+        }
+
+        let {data:{session}}=await supabase.auth.getSession();
+        if(!session){
+          const refreshed=await supabase.auth.refreshSession();
+          session=refreshed.data.session;
+        }
+        const token=session?.access_token||'';
+        if(!token)return {ok:false,message:'جلسة ضي انتهت. افتح المحادثة من جديد.'};
+
+        const researchController=new AbortController();
+        const researchTimeout=window.setTimeout(()=>researchController.abort(),38000);
+        let response:Response;
+        try{
+          response=await fetch(
+            supabaseUrl.replace(/\/$/,'')+'/functions/v1/web-research',
+            {
+              method:'POST',
+              signal:researchController.signal,
+              headers:{
+                Authorization:'Bearer '+token,
+                apikey:supabasePublishableKey,
+                'Content-Type':'application/json'
+              },
+              body:JSON.stringify({query})
+            }
+          );
+        }finally{
+          window.clearTimeout(researchTimeout);
+        }
+
+        const data=await response.json().catch(()=>null);
+        if(!response.ok||!data?.answer){
           return {ok:false,message:'ضي مقدرتش تكمل البحث دلوقتي.'};
         }
+
         const sourceText=normalizeSearchSources(data?.sources)
           .slice(0,4)
           .map((source,index)=>`${index+1}. ${source.title} — ${source.url}`)
@@ -2927,6 +2998,9 @@ export default function GithubApp(){
         };
       }catch(error){
         console.error('DAI live research failed',error);
+        if((error as Error)?.name==='AbortError'){
+          return {ok:false,message:'البحث اتأخر واتوقف تلقائيًا. جرّب تاني.'};
+        }
         return {ok:false,message:'ضي واجهت مشكلة وهي بتبحث.'};
       }finally{
         setResearching(false);
