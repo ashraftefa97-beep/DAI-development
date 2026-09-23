@@ -137,7 +137,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.7.1';
+const DAI_WEB_VERSION='1.7.2';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -4765,7 +4765,7 @@ export default function GithubApp(){
               <input type='checkbox' checked={sfxEnabled} onChange={e=>setSfxEnabled(e.target.checked)}/>
             </div>
             <div className='dai-sfx-controls'>
-              <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>خفيف</option><option value='normal'>طبيعي</option><option value='silent'>صامت</option></select></label>
+              <label><span>النمط</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled}><option value='soft'>هادئ</option><option value='normal'>سينمائي</option><option value='silent'>بدون مؤثرات</option></select></label>
               <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
             </div>
             <button
