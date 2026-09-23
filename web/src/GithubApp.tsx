@@ -3034,7 +3034,7 @@ export default function GithubApp(){
     const ctx=new AudioContextCtor();
     await ctx.resume();
     const source=ctx.createMediaStreamSource(stream);
-    const processor=ctx.createScriptProcessor(4096,1,1);
+    const processor=ctx.createScriptProcessor(2048,1,1);
     const silent=ctx.createGain();
     silent.gain.value=0;
 
@@ -3088,8 +3088,9 @@ export default function GithubApp(){
       combined.set(previous,0);
       combined.set(resampled,previous.length);
 
-      // Live voice works best with roughly 100 ms chunks at 16 kHz.
-      const chunkSamples=1600;
+      // Smaller packets reduce microphone-to-model latency without flooding the socket.
+      // 1280 samples at 16 kHz = 80 ms.
+      const chunkSamples=1280;
       let offset=0;
       while(offset+chunkSamples<=combined.length){
         const packet=combined.slice(offset,offset+chunkSamples);
@@ -3586,6 +3587,15 @@ export default function GithubApp(){
                 voiceConfig:{
                   prebuiltVoiceConfig:{voiceName:'Leda'}
                 }
+              }
+            },
+            realtimeInputConfig:{
+              automaticActivityDetection:{
+                disabled:false,
+                startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
+                endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
+                prefixPaddingMs:80,
+                silenceDurationMs:600
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
