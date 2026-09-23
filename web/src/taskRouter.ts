@@ -31,12 +31,7 @@ const imageRe=/(?:اعمل(?:ي|لي)?\s+(?:صورة|صوره|بوستر|poster|
 const complexRe=/(?:حلل(?:ي)?\s+بالتفصيل|تحليل\s+عميق|خطة\s+كاملة|خطه\s+كامله|معمارية|architecture|استراتيجية|استراتيجيه|خطوات\s+تفصيلية|اشرح\s+بالتفصيل|فكر\s+بعمق|reasoning|deep analysis|comprehensive|بالتفصيل\s+الممل)/i;
 
 const hardInterruptRe=/^(?:وقف|وقفي|اسكت|اسكتي|الغ[يِ]?|الغي|cancel|stop|mute)\b/i;
-const commandRe=/^(?:
-  (?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+
-  |(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*
-  |(?:ارفع|ارفعي|زود|زوّد|وطي|وطي|قلل|قللي|اكتم|mute)\s*
-  |(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة)
-)/ix;
+const commandRe=/^(?:(?:افتح|افتحي|شغل|شغلي|اقفل|اقفلي|اغلق|اغلقي|close|open|launch)\s+|(?:روح|روحي|ركز|ركزي|حول|حولي)\s+(?:على|ل)?\s*|(?:ارفع|ارفعي|زود|زوّد|وطي|قلل|قللي|اكتم|mute)\s*|(?:التالي|السابق|next\s+track|previous\s+track|fullscreen|ملء\s+الشاشة))/i;
 
 function normalizedText(value:string){
   return String(value||'').replace(/\s+/g,' ').trim();
