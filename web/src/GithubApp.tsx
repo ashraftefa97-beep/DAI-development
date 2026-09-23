@@ -668,7 +668,7 @@ export default function GithubApp(){
     onStart?:()=>void,
     onEnd?:()=>void
   ){
-    if(!supabase)return false;
+    if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
@@ -679,12 +679,107 @@ export default function GithubApp(){
     }
     if(ctx.state!=='running')return false;
 
-    const {data,error}=await supabase.functions.invoke('tts',{body:{text:spoken}});
-    if(error||!data?.audioBase64)throw error||new Error('tts-audio-missing');
-    if(runId!==speechRunRef.current)return false;
+    let {data:{session}}=await supabase.auth.getSession();
+    if(!session){
+      const refreshed=await supabase.auth.refreshSession();
+      session=refreshed.data.session;
+    }
+    const token=session?.access_token||'';
+    if(!token)throw new Error('tts-session');
 
-    const audioBytes=base64ToArrayBuffer(String(data.audioBase64));
-    const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
+    const controller=new AbortController();
+    const response=await fetch(
+      supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-stream',
+      {
+        method:'POST',
+        signal:controller.signal,
+        headers:{
+          Authorization:'Bearer '+token,
+          apikey:supabasePublishableKey,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({text:spoken})
+      }
+    );
+
+    if(!response.ok||!response.body){
+      const payload=await response.json().catch(()=>null);
+      throw new Error(String(payload?.code||payload?.error||'tts-stream-failed'));
+    }
+
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    const chunks:Uint8Array[]=[];
+    let sampleRate=24000;
+    let buffer='';
+    let completed=false;
+
+    const handleFrame=(frame:string)=>{
+      let eventName='message';
+      const dataLines:string[]=[];
+      for(const line of frame.split(/\r?\n/)){
+        if(line.startsWith('event:'))eventName=line.slice(6).trim();
+        else if(line.startsWith('data:'))dataLines.push(line.slice(5).trim());
+      }
+      if(!dataLines.length)return;
+
+      let payload:any;
+      try{payload=JSON.parse(dataLines.join('\n'));}catch{return;}
+
+      if(eventName==='start'){
+        sampleRate=Math.max(8000,Math.min(96000,Number(payload?.sampleRate||24000)));
+        return;
+      }
+      if(eventName==='audio'&&payload?.data){
+        const part=new Uint8Array(base64ToArrayBuffer(String(payload.data)));
+        if(part.byteLength)chunks.push(part);
+        return;
+      }
+      if(eventName==='done'){
+        completed=Boolean(payload?.ok);
+        return;
+      }
+      if(eventName==='error'){
+        throw new Error(String(payload?.code||'tts-stream-read'));
+      }
+    };
+
+    while(true){
+      if(runId!==speechRunRef.current){
+        controller.abort();
+        try{reader.cancel();}catch{}
+        return false;
+      }
+      const {value,done}=await reader.read();
+      if(done)break;
+      buffer+=decoder.decode(value,{stream:true});
+      const frames=buffer.split(/\r?\n\r?\n/);
+      buffer=frames.pop()||'';
+      for(const frame of frames)handleFrame(frame);
+    }
+    if(buffer.trim())handleFrame(buffer);
+
+    if(runId!==speechRunRef.current)return false;
+    if(!completed||!chunks.length)throw new Error('tts-stream-empty');
+
+    const byteLength=chunks.reduce((sum,part)=>sum+part.byteLength,0);
+    const pcm=new Uint8Array(byteLength);
+    let offset=0;
+    for(const part of chunks){
+      pcm.set(part,offset);
+      offset+=part.byteLength;
+    }
+
+    const frameCount=Math.floor(pcm.byteLength/2);
+    if(frameCount<=0)throw new Error('tts-stream-pcm-empty');
+
+    const decoded=ctx.createBuffer(1,frameCount,sampleRate);
+    const channel=decoded.getChannelData(0);
+    const view=new DataView(pcm.buffer,pcm.byteOffset,pcm.byteLength);
+    for(let index=0;index<frameCount;index++){
+      channel[index]=view.getInt16(index*2,true)/32768;
+    }
+
     if(runId!==speechRunRef.current)return false;
 
     stopSpeechAudio();
