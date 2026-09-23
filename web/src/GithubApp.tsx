@@ -564,6 +564,10 @@ export default function GithubApp(){
     corePhaseRef.current=phase;
     const locked=Date.now()<animationLockUntilRef.current;
 
+    // The phase controller owns soundtrack ducking too. This prevents the
+    // completion/error cue from inheriting the low volume used while DAI speaks.
+    daiSfx.setDucked(phase==='speaking');
+
     if(!options.silent){
       if(phase==='listening')daiSfx.playState('listening');
       else if(phase==='understanding'||phase==='preparing')daiSfx.playState('thinking');
