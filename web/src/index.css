@@ -3187,3 +3187,222 @@ html[data-dai-theme="light"] .dai-generated-image {
 html[data-dai-theme="light"] .dai-generated-image:hover {
   border-color:#c295aa;
 }
+
+
+/* DAI in-app browser */
+.classic-shell {
+  --dai-browser-width: min(48vw, 760px);
+  transition: padding-right .24s cubic-bezier(.2,.8,.2,1);
+}
+.classic-shell.dai-browser-open {
+  padding-right: var(--dai-browser-width);
+}
+.dai-browser-panel {
+  position: fixed;
+  z-index: 70;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--dai-browser-width);
+  display: flex;
+  flex-direction: column;
+  direction: rtl;
+  background: #0d101b;
+  border-left: 1px solid rgba(246,169,193,.16);
+  box-shadow: -22px 0 60px rgba(0,0,0,.26);
+  animation: daiBrowserSlideIn .24s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes daiBrowserSlideIn {
+  from { transform: translateX(24px); opacity: .45; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.dai-browser-toolbar {
+  min-height: 58px;
+  flex: 0 0 58px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(20,23,38,.96);
+  border-bottom: 1px solid rgba(53,48,71,.86);
+  backdrop-filter: blur(18px);
+}
+.dai-browser-tool-button {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #303349;
+  border-radius: 11px;
+  background: #171b2b;
+  color: #bbb5c6;
+  cursor: pointer;
+  transition: .16s ease;
+}
+.dai-browser-tool-button:hover {
+  color: #ffe6ef;
+  border-color: #76556f;
+  background: #1d2133;
+}
+.dai-browser-tool-button.close:hover {
+  color: #ffb7c9;
+  border-color: #8c5368;
+}
+.dai-browser-address {
+  min-width: 0;
+  flex: 1;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid #2c3044;
+  border-radius: 12px;
+  background: #111522;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #afa8b8;
+  overflow: hidden;
+}
+.dai-browser-address>svg { flex: 0 0 auto; color: #d6a3bc; }
+.dai-browser-address>div { min-width: 0; flex: 1; }
+.dai-browser-address strong,
+.dai-browser-address span {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dai-browser-address strong {
+  color: #f3e9f0;
+  font-size: 12px;
+  font-weight: 750;
+}
+.dai-browser-address span {
+  margin-top: 1px;
+  color: #777b91;
+  font-size: 9px;
+  direction: ltr;
+  text-align: right;
+}
+.dai-browser-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  overflow: hidden;
+}
+.dai-browser-content iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.dai-browser-loading {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 11px;
+  background: #111522;
+  color: #bcb5c5;
+  font-size: 12px;
+}
+.dai-browser-loading span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid rgba(246,169,193,.16);
+  border-top-color: var(--sakura);
+  animation: daiBrowserSpin .8s linear infinite;
+}
+@keyframes daiBrowserSpin { to { transform: rotate(360deg); } }
+.dai-browser-embed-note {
+  position: absolute;
+  z-index: 3;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 20px);
+  padding: 7px 9px;
+  border-radius: 11px;
+  border: 1px solid rgba(53,48,71,.86);
+  background: rgba(16,19,33,.90);
+  color: #aaa4b4;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 7px 24px rgba(0,0,0,.22);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.dai-browser-embed-note button {
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #272136;
+  color: #f6c1d8;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+html[data-dai-theme="light"] .dai-browser-panel {
+  background: #f5f2f5;
+  border-left-color: #ddd4de;
+  box-shadow: -20px 0 55px rgba(70,45,65,.14);
+}
+html[data-dai-theme="light"] .dai-browser-toolbar {
+  background: rgba(249,246,249,.96);
+  border-bottom-color: #ddd4de;
+}
+html[data-dai-theme="light"] .dai-browser-tool-button {
+  background: #fff;
+  border-color: #ddd4de;
+  color: #665d68;
+}
+html[data-dai-theme="light"] .dai-browser-address {
+  background: #fff;
+  border-color: #ddd4de;
+}
+html[data-dai-theme="light"] .dai-browser-address strong { color: #352c37; }
+html[data-dai-theme="light"] .dai-browser-address span { color: #817883; }
+html[data-dai-theme="light"] .dai-browser-loading {
+  background: #f5f2f5;
+  color: #665d68;
+}
+
+@media(max-width: 900px) {
+  .classic-shell.dai-browser-open { padding-right: 0; }
+  .dai-browser-panel {
+    width: 100vw;
+    left: 0;
+    border-left: 0;
+    z-index: 120;
+  }
+  .dai-browser-toolbar {
+    padding-top: max(8px, env(safe-area-inset-top));
+    min-height: calc(58px + env(safe-area-inset-top));
+    flex-basis: calc(58px + env(safe-area-inset-top));
+  }
+  .dai-browser-embed-note {
+    bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+@media(max-width: 480px) {
+  .dai-browser-toolbar { gap: 5px; padding-inline: 7px; }
+  .dai-browser-tool-button { width: 36px; height: 36px; flex-basis: 36px; }
+  .dai-browser-address { height: 38px; padding-inline: 9px; }
+  .dai-browser-embed-note {
+    width: calc(100% - 18px);
+    justify-content: space-between;
+    white-space: normal;
+  }
+}
