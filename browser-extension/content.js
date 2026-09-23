@@ -1,11 +1,31 @@
 const PAGE_SOURCE = 'dai-web';
 const EXT_SOURCE = 'dai-side-browser-extension';
 
-function sendToPage(payload) {
-  window.postMessage({ source: EXT_SOURCE, ...payload }, window.location.origin);
+function markReady() {
+  try {
+    const root = document.documentElement;
+    if (root) root.setAttribute('data-dai-side-browser-extension', '1.1.0');
+  } catch {}
+
+  try {
+    document.dispatchEvent(new CustomEvent('dai-side-browser-ready', {
+      detail: { version: '1.1.0' }
+    }));
+  } catch {}
+
+  try {
+    window.postMessage({
+      source: EXT_SOURCE,
+      type: 'READY',
+      version: '1.1.0'
+    }, window.location.origin);
+  } catch {}
 }
 
-sendToPage({ type: 'READY' });
+markReady();
+if (!document.documentElement) {
+  document.addEventListener('DOMContentLoaded', markReady, { once: true });
+}
 
 window.addEventListener('message', async (event) => {
   if (event.source !== window) return;
@@ -15,13 +35,19 @@ window.addEventListener('message', async (event) => {
   if (message.source !== PAGE_SOURCE) return;
 
   if (message.type === 'DAI_SIDE_BROWSER_PING') {
-    sendToPage({ type: 'READY', requestId: message.requestId || '' });
+    markReady();
+    window.postMessage({
+      source: EXT_SOURCE,
+      type: 'READY',
+      version: '1.1.0',
+      requestId: message.requestId || ''
+    }, window.location.origin);
     return;
   }
 
   if (message.type === 'DAI_SIDE_BROWSER_OPEN') {
     const url = String(message.url || '').trim();
-    let result = { ok: false, message: 'تعذر فتح الرابط.' };
+    let result = { ok: false, code: 'BRIDGE_OPEN_FAILED', message: 'تعذر فتح الرابط.' };
 
     try {
       result = await chrome.runtime.sendMessage({
@@ -37,15 +63,17 @@ window.addEventListener('message', async (event) => {
     } catch (error) {
       result = {
         ok: false,
+        code: 'BRIDGE_RUNTIME_ERROR',
         message: String(error?.message || error || 'تعذر فتح الرابط.')
       };
     }
 
-    sendToPage({
+    window.postMessage({
+      source: EXT_SOURCE,
       type: 'DAI_SIDE_BROWSER_RESULT',
       requestId: message.requestId || '',
       result
-    });
+    }, window.location.origin);
   }
 
   if (message.type === 'DAI_SIDE_BROWSER_CLOSE') {
@@ -53,11 +81,23 @@ window.addEventListener('message', async (event) => {
       const result = await chrome.runtime.sendMessage({
         type: 'DAI_SIDE_BROWSER_CLOSE'
       });
-      sendToPage({
+      window.postMessage({
+        source: EXT_SOURCE,
         type: 'DAI_SIDE_BROWSER_RESULT',
         requestId: message.requestId || '',
         result
-      });
-    } catch {}
+      }, window.location.origin);
+    } catch (error) {
+      window.postMessage({
+        source: EXT_SOURCE,
+        type: 'DAI_SIDE_BROWSER_RESULT',
+        requestId: message.requestId || '',
+        result: {
+          ok: false,
+          code: 'BRIDGE_CLOSE_ERROR',
+          message: String(error?.message || error || '')
+        }
+      }, window.location.origin);
+    }
   }
 });
