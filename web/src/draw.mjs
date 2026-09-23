@@ -4,7 +4,7 @@ const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
 }
-export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber'];
+export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram'];
 
 function avatarTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
@@ -35,6 +35,48 @@ function avatarTheme(c,avatar='classic') {
     dots:'234,187,225',
     particles:['#FFD0E2','#FFE9A8','#D8C5FF'],
     eyeW:1.12,eyeH:1.08,spacing:48,stroke:12,cheekBoost:1.34
+  };
+  if(avatar==='soft')return {
+    eyeA:isLight?'#F1C9D9':'#FFF8FB',
+    eyeB:isLight?'#D8AEC6':'#F7DCE8',
+    eyeC:isLight?'#A58BCB':'#D9C9F3',
+    eyeStroke:isLight?'rgba(138,91,120,.12)':'rgba(255,214,232,.055)',
+    happy:isLight?'#9B6682':'#FFEAF2',
+    brow:isLight?'rgba(121,82,113,.52)':'rgba(231,204,224,.52)',
+    cheek:isLight?'222,130,170':'245,168,199',
+    mouth:isLight?'#9E6680':'#F7D9E6',
+    tongue:isLight?'#D893AF':'#EAA9C0',
+    dots:'225,195,224',
+    particles:['#FFD9E6','#F3E1C5','#DCCFFD'],
+    eyeW:1.03,eyeH:.98,spacing:48,stroke:9,cheekBoost:.88
+  };
+  if(avatar==='pro')return {
+    eyeA:isLight?'#DCC8A7':'#FFF3D6',
+    eyeB:isLight?'#B9A37D':'#E8D0A0',
+    eyeC:isLight?'#7D718D':'#BAAACB',
+    eyeStroke:isLight?'rgba(97,79,68,.14)':'rgba(255,230,178,.07)',
+    happy:isLight?'#756558':'#F5E5C8',
+    brow:isLight?'rgba(93,79,76,.62)':'rgba(226,208,180,.58)',
+    cheek:isLight?'183,132,124':'216,171,153',
+    mouth:isLight?'#79645F':'#EAD9C2',
+    tongue:isLight?'#B8867E':'#D7A69B',
+    dots:'211,192,158',
+    particles:['#EBD4A4','#F8EBCF','#CFC4E5'],
+    eyeW:.94,eyeH:1,spacing:50,stroke:8,cheekBoost:.52
+  };
+  if(avatar==='hologram')return {
+    eyeA:isLight?'#91DDE8':'#D8FFFF',
+    eyeB:isLight?'#6BBAC7':'#A6EEF7',
+    eyeC:isLight?'#8E86D9':'#C9C1FF',
+    eyeStroke:isLight?'rgba(59,137,151,.20)':'rgba(152,247,255,.13)',
+    happy:isLight?'#4A8794':'#C9FAFF',
+    brow:isLight?'rgba(65,129,146,.66)':'rgba(164,239,248,.66)',
+    cheek:isLight?'102,184,196':'118,224,231',
+    mouth:isLight?'#4D8794':'#BDECF2',
+    tongue:isLight?'#78AFBA':'#8BD3DC',
+    dots:'120,224,236',
+    particles:['#A8F0F7','#C8C0FF','#BAF3DD'],
+    eyeW:1.06,eyeH:.88,spacing:51,stroke:6,cheekBoost:.38
   };
   if(avatar==='cyber')return {
     eyeA:isLight?'#8BE1E7':'#B9FFFF',
@@ -67,7 +109,33 @@ function avatarTheme(c,avatar='classic') {
 }
 
 function avatarAccent(c,m,avatar,isLight) {
-  if(avatar==='cyber'){
+  if(avatar==='soft'){
+    const pulse=m.reduced?.34:.28+.08*Math.sin(m.elapsed*1.45);
+    c.save();c.globalAlpha=pulse;
+    star(c,-104,-2,2.7,isLight?'#D9A9C1':'#FFD9E7',-10);
+    star(c,105,3,2.3,isLight?'#B8A4DA':'#DDD0FF',12);
+    ellipse(c,0,91,42,2,null,isLight?'rgba(179,127,156,.18)':'rgba(255,218,233,.12)',1);
+    c.restore();
+  }else if(avatar==='pro'){
+    c.save();c.globalAlpha=m.reduced?.38:.34+.06*Math.sin(m.elapsed*1.25);
+    const gold=isLight?'rgba(154,126,82,.55)':'rgba(244,214,157,.52)';
+    line(c,-106,-46,-94,-46,gold,1.3);
+    line(c,-106,-46,-106,-34,gold,1.3);
+    line(c,106,-46,94,-46,gold,1.3);
+    line(c,106,-46,106,-34,gold,1.3);
+    ellipse(c,0,-96,2.5,2.5,isLight?'#B99762':'#F0D39B');
+    c.restore();
+  }else if(avatar==='hologram'){
+    const pulse=m.reduced?.28:.24+.09*Math.sin(m.elapsed*2.6);
+    const scanY=-56+((m.elapsed*34)%112);
+    c.save();c.globalAlpha=pulse;
+    const holo=isLight?'rgba(73,158,176,.72)':'rgba(136,240,250,.72)';
+    ellipse(c,0,-2,118,92,null,holo,1.1);
+    line(c,-100,scanY,100,scanY,holo,1);
+    line(c,-116,-20,-105,-20,holo,1.3);
+    line(c,105,20,116,20,holo,1.3);
+    c.restore();
+  }else if(avatar==='cyber'){
     const pulse=m.reduced?.55:.46+.16*Math.sin(m.elapsed*2.2);
     c.save();c.globalAlpha=pulse;
     const color=isLight?'rgba(70,154,177,.72)':'rgba(118,235,255,.68)';
