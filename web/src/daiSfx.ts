@@ -358,6 +358,7 @@ class DaiSfxEngine {
 
   preview(){
     if(!this.unlocked)return false;
+    const returnScene=this.ambienceState;
     this.stopAll();
     const sequence:Array<[number,DaiMotionAudioEvent]>=[
       [0,{cue:'swish',volume:.40,pan:-.12}],
@@ -369,6 +370,11 @@ class DaiSfxEngine {
     for(const [delay,event] of sequence){
       this.previewTimers.push(window.setTimeout(()=>this.playEvent(event),delay));
     }
+    this.previewTimers.push(window.setTimeout(()=>{
+      this.previewTimers=[];
+      this.ambienceState=returnScene;
+      this.refreshAmbience(260);
+    },1500));
     return true;
   }
 }
