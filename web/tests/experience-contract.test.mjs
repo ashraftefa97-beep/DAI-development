@@ -29,3 +29,40 @@ test('motion system emits physical foley only',()=>{
   const semantic=motion.slice(motion.indexOf('// Semantic/UI sounds'));
   assert.doesNotMatch(semantic,/cross\([^\n]*'(?:bell|computer|glass)'/);
 });
+
+
+test('adaptive quality and preset system protects low-power devices',()=>{
+  assert.match(app,/ExperiencePreset/);
+  assert.match(app,/renderQuality/);
+  assert.match(app,/requestAnimationFrame\(tick\)/);
+  assert.match(app,/perfQualityVotesRef/);
+  assert.match(app,/data-quality=\{renderQuality\}/);
+  assert.match(app,/experiencePreset==='minimal'/);
+});
+
+test('audio lifecycle pauses and resumes cleanly across page visibility',()=>{
+  assert.match(app,/visibilitychange/);
+  assert.match(app,/pagehide/);
+  assert.match(app,/pageshow/);
+  assert.match(app,/suspendForLifecycle/);
+  assert.match(app,/resumeForLifecycle/);
+  assert.match(sfx,/MASTER_CEILING/);
+  assert.match(sfx,/CUE_TRIM/);
+  assert.match(sfx,/MAX_SIMULTANEOUS_VOICES/);
+});
+
+test('core phase priority manager prevents competing animations',()=>{
+  assert.match(app,/DAI_PHASE_PRIORITY/);
+  assert.match(app,/DAI_PHASE_MIN_HOLD_MS/);
+  assert.match(app,/corePhaseStartedAtRef/);
+  assert.match(app,/workPhaseStartedAtRef/);
+  assert.match(app,/fastTurn/);
+});
+
+test('runtime diagnostics expose animation and soundtrack health',()=>{
+  assert.match(app,/runtimePerf/);
+  assert.match(app,/Dropped frames/);
+  assert.match(app,/audioMaxConcurrent/);
+  assert.match(app,/audioResumeCount/);
+  assert.match(app,/audioContextState/);
+});
