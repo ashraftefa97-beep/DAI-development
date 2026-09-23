@@ -637,25 +637,9 @@ export class DaiMotion {
       cross(.42,'fabric',.18,1.00,0);
     }
 
-    // Digital/semantic events stay minimal and only fire at visible state changes.
-    if(g==='idea') {
-      cross(.42,'glass',.20,1.02,0);
-    } else if(g==='lightbulb_pop') {
-      cross(.28,'glass',.24,1.05,0);
-    } else if(g==='brainstorm') {
-      cross(.60,'glass',.10,1.00,-.05);
-      cross(3.02,'glass',.09,1.03,.05);
-    } else if(g==='search' || g==='scan' || g==='found' || g==='success' || g==='response_ready') {
-      // The app state bus owns semantic search/result sounds.
-      // Motion stays silent here so computer/bell cues never double-fire.
-    } else if(g==='detect') {
-      cross(.46,'bell',.13,1.04,0);
-    } else if(g==='recharge') {
-      cross(.22,'computer',.07,.95,0);
-      cross(2.85,'bell',.10,1.00,0);
-    } else if(g==='loading') {
-      cross(.20,'computer',.06,.94,0);
-    }
+    // Semantic/UI sounds are intentionally NOT emitted by motion.
+    // The phase soundtrack engine owns search/thinking/success/error cues so
+    // animations can never double-fire a bell, computer texture or glass cue.
   }
 
   advance(elapsedDt) {
