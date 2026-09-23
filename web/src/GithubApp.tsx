@@ -4313,7 +4313,7 @@ export default function GithubApp(){
           <ExternalLink className='h-4 w-4'/>
         </button>
       </header>
-      <div className='dai-browser-content'>
+      <div className={'dai-browser-content '+(isYouTubeBrowserUrl()?'youtube-player':'')}>
         {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
         <iframe
           key={browserReloadKey}
