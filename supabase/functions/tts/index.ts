@@ -1,5 +1,4 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { generateSpeech } from 'npm:@bestcodes/edge-tts@3.0.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://ashraftefa97-beep.github.io',
@@ -22,6 +21,15 @@ function bytesToBase64(bytes: Uint8Array) {
     binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
+}
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 Deno.serve(async (req) => {
@@ -63,39 +71,83 @@ Deno.serve(async (req) => {
     return json({ error: 'Text is too long for speech', code: 'TTS_TOO_LONG' }, 400);
   }
 
+  const speechKey = String(Deno.env.get('AZURE_SPEECH_KEY') || '').trim();
+  const speechRegion = String(Deno.env.get('AZURE_SPEECH_REGION') || '').trim();
+  const speechEndpoint = String(Deno.env.get('AZURE_SPEECH_ENDPOINT') || '').trim();
+
+  if (!speechKey || (!speechRegion && !speechEndpoint)) {
+    return json({
+      error: 'إعدادات Azure Speech ناقصة.',
+      code: 'TTS_AZURE_CONFIG',
+    }, 503);
+  }
+
+  const endpoint = speechEndpoint
+    ? speechEndpoint.replace(/\/$/, '') + '/cognitiveservices/v1'
+    : 'https://' + speechRegion + '.tts.speech.microsoft.com/cognitiveservices/v1';
+
   const voice = 'ar-EG-SalmaNeural';
+  const ssml =
+    '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ar-EG">' +
+    '<voice name="' + voice + '">' +
+    '<prosody rate="+2%" pitch="+0Hz" volume="+0%">' + escapeXml(text) + '</prosody>' +
+    '</voice></speak>';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45000);
 
   try {
-    const audio = await generateSpeech({
-      text,
-      voice,
-      rate: '+2%',
-      volume: '+0%',
-      pitch: '+0Hz',
-      connectTimeoutSeconds: 15,
-      receiveTimeoutSeconds: 75,
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Ocp-Apim-Subscription-Key': speechKey,
+        'Content-Type': 'application/ssml+xml',
+        'X-Microsoft-OutputFormat': 'audio-24khz-96kbitrate-mono-mp3',
+        'User-Agent': 'DAI-Voice',
+      },
+      body: ssml,
     });
 
-    const bytes = audio instanceof Uint8Array
-      ? audio
-      : new Uint8Array(audio as ArrayBufferLike);
+    if (!response.ok) {
+      const detail = (await response.text().catch(() => '')).slice(0, 500);
+      console.error('DAI Azure Speech failed', response.status, detail);
 
-    if (!bytes.byteLength) {
-      return json({ error: 'No audio returned', code: 'TTS_EMPTY' }, 502);
+      if (response.status === 401 || response.status === 403) {
+        return json({ error: 'تعذر توثيق خدمة الصوت.', code: 'TTS_AZURE_AUTH' }, 502);
+      }
+      if (response.status === 429) {
+        return json({ error: 'خدمة الصوت وصلت لحد الاستخدام الحالي.', code: 'TTS_AZURE_QUOTA' }, 502);
+      }
+
+      return json({
+        error: 'Azure Speech لم يرجع صوتًا.',
+        code: 'TTS_AZURE_PROVIDER',
+      }, 502);
+    }
+
+    const audio = new Uint8Array(await response.arrayBuffer());
+    if (!audio.byteLength) {
+      return json({ error: 'No audio returned', code: 'TTS_AZURE_EMPTY' }, 502);
     }
 
     return json({
-      audioBase64: bytesToBase64(bytes),
+      audioBase64: bytesToBase64(audio),
       mimeType: 'audio/mpeg',
       voice,
-      provider: 'microsoft-edge-neural',
+      provider: 'azure-speech',
     });
   } catch (error) {
-    console.error('DAI Microsoft Salma TTS failed', error);
+    console.error('DAI Azure Speech network error', error);
+    const code = error instanceof DOMException && error.name === 'AbortError'
+      ? 'TTS_AZURE_TIMEOUT'
+      : 'TTS_AZURE_NETWORK';
+
     return json({
       error: 'ضي مقدرتش تجهز الصوت دلوقتي.',
-      code: 'TTS_EDGE_PROVIDER',
-      detail: String((error as Error)?.message || error).slice(0, 300),
+      code,
     }, 502);
+  } finally {
+    clearTimeout(timeout);
   }
 });
