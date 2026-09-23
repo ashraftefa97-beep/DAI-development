@@ -307,6 +307,7 @@ export default function GithubApp(){
   const corePhaseRef=useRef<DaiCorePhase>('idle');
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
+  const speechAnalyserRef=useRef<AnalyserNode|null>(null);
   const speechAudioUnlockedRef=useRef(false);
   const speechRunRef=useRef(0);
   const speechMotionRafRef=useRef<number|undefined>(undefined);
@@ -806,6 +807,10 @@ export default function GithubApp(){
       try{source.stop();}catch{}
     }
     speechStreamSourcesRef.current.clear();
+    if(speechAnalyserRef.current){
+      try{speechAnalyserRef.current.disconnect();}catch{}
+      speechAnalyserRef.current=null;
+    }
   }
 
   function base64ToArrayBuffer(base64:string){
@@ -1009,6 +1014,7 @@ export default function GithubApp(){
     analyser.fftSize=256;
     analyser.smoothingTimeConstant=.42;
     analyser.connect(ctx.destination);
+    speechAnalyserRef.current=analyser;
 
     let finished=false;
     let queueFailed=false;
@@ -1016,6 +1022,7 @@ export default function GithubApp(){
       if(finished||runId!==speechRunRef.current)return;
       finished=true;
       try{analyser.disconnect();}catch{}
+      if(speechAnalyserRef.current===analyser)speechAnalyserRef.current=null;
       stopVoiceMotionTracking(speechMotionRafRef);
       window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
       onEnd?.();
