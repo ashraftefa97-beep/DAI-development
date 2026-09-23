@@ -79,14 +79,24 @@ function searchTerms(value: string) {
     'ابحث','دور','دورلي','هات','هاتلي','وريني','بحث','السوق','find','search','best','link','website','the','and','for','with',
     'على','علي','من','في','عن','الى','إلى','ده','دا','دي','هو','هي','ايه','إيه'
   ]);
-  return String(value || '')
+
+  const normalized = String(value || '')
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .split(/\s+/)
-    .map((term) => term.trim())
-    .filter((term) => term.length >= 3 && !stop.has(term))
-    .slice(0, 12);
+    .replace(/برينتر|طابعه|طابعة|طابعات/gi, ' printer ')
+    .replace(/ثري\s*دي|ثلاثي(?:ة)?\s*الأبعاد|ثلاثية\s*الابعاد/gi, ' 3d ')
+    .replace(/لاب\s*توب|لابتوب/gi, ' laptop ')
+    .replace(/موبايل|هاتف/gi, ' phone ')
+    .replace(/سماعات?|هيدفون/gi, ' headphones ')
+    .replace(/كارت\s*شاشه|كارت\s*شاشة/gi, ' gpu ')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ');
+
+  return [...new Set(
+    normalized
+      .split(/\s+/)
+      .map((term) => term.trim())
+      .filter((term) => term.length >= 2 && !stop.has(term))
+  )].slice(0, 12);
 }
 
 function sourceRelevance(query: string, source: SearchSource) {
@@ -152,7 +162,11 @@ function rankSearchSources(query: string, sources: SearchSource[]) {
       return { source, index, ...relevance };
     })
     // Never promote an unrelated result just because the search engine returned it.
-    .filter((item) => terms.length === 0 || (item.matches > 0 && item.score >= 2.4))
+    .filter((item) => {
+      if (terms.length === 0) return true;
+      const requiredMatches = terms.length >= 2 ? Math.min(2, terms.length) : 1;
+      return item.matches >= requiredMatches && item.score >= 2.4;
+    })
     .sort((a, b) => b.score - a.score || b.matches - a.matches || a.index - b.index)
     .map((item) => item.source)
     .slice(0, 8);
