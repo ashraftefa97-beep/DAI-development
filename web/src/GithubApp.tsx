@@ -337,15 +337,9 @@ export default function GithubApp(){
   const [voiceNoteSeconds,setVoiceNoteSeconds]=useState(0);
   const [speakingMessageId,setSpeakingMessageId]=useState('');
   const [browserUrl,setBrowserUrl]=useState('');
-  const [browserReloadKey,setBrowserReloadKey]=useState(0);
   const [browserLoaded,setBrowserLoaded]=useState(false);
   const [browserCanBack,setBrowserCanBack]=useState(false);
   const [browserCanForward,setBrowserCanForward]=useState(false);
-  const [sideBrowserExtensionReady,setSideBrowserExtensionReady]=useState(false);
-  const [sideBrowserExtensionChecked,setSideBrowserExtensionChecked]=useState(false);
-  const [sideBrowserExtensionVersion,setSideBrowserExtensionVersion]=useState('');
-  const webBrowserWindowRef=useRef<Window|null>(null);
-  const sideBrowserRequestRef=useRef('');
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
   const sfxWakePlayedRef=useRef(false);
@@ -505,163 +499,6 @@ export default function GithubApp(){
     return()=>{try{unsubscribe?.();}catch{}};
   },[desktopMode]);
 
-  useEffect(()=>{
-    const markConnected=(version='')=>{
-      setSideBrowserExtensionReady(true);
-      setSideBrowserExtensionChecked(true);
-      if(version)setSideBrowserExtensionVersion(version);
-    };
-
-    const onMessage=(event:MessageEvent)=>{
-      if(event.source!==window)return;
-      if(event.origin!==window.location.origin)return;
-
-      const payload=event.data||{};
-      if(payload.source!=='dai-side-browser-extension')return;
-
-      if(payload.type==='READY'){
-        markConnected(String(payload.version||''));
-        return;
-      }
-
-      if(payload.type==='DAI_SIDE_BROWSER_RESULT'){
-        if(payload.requestId&&payload.requestId!==sideBrowserRequestRef.current)return;
-        if(payload?.result?.ok){
-          setVoiceNotice('المتصفح الجانبي اتثبت 50/50.');
-        }else{
-          const code=String(payload?.result?.code||'SIDE_BROWSER_ERROR');
-          const message=String(payload?.result?.message||'تعذر تشغيل المتصفح الجانبي.');
-          setErrorText('المتصفح الجانبي: '+code+' — '+message);
-        }
-      }
-    };
-
-    const onReadyEvent=(event:Event)=>{
-      const detail=(event as CustomEvent<{version?:string}>).detail||{};
-      markConnected(String(detail.version||''));
-    };
-
-    window.addEventListener('message',onMessage);
-    document.addEventListener('dai-side-browser-ready',onReadyEvent as EventListener);
-
-    const detectMarker=()=>{
-      const marker=document.documentElement?.getAttribute('data-dai-side-browser-extension')||'';
-      if(marker)markConnected(marker);
-    };
-
-    const ping=()=>{
-      detectMarker();
-      window.postMessage({
-        source:'dai-web',
-        type:'DAI_SIDE_BROWSER_PING',
-        requestId:'ping-'+Date.now()
-      },window.location.origin);
-    };
-
-    ping();
-    const retryOne=window.setTimeout(ping,400);
-    const retryTwo=window.setTimeout(ping,1200);
-    const finishCheck=window.setTimeout(()=>{
-      detectMarker();
-      setSideBrowserExtensionChecked(true);
-    },2400);
-
-    return()=>{
-      window.removeEventListener('message',onMessage);
-      document.removeEventListener('dai-side-browser-ready',onReadyEvent as EventListener);
-      window.clearTimeout(retryOne);
-      window.clearTimeout(retryTwo);
-      window.clearTimeout(finishCheck);
-    };
-  },[]);
-
-  function openTopLevelWebBrowser(url:string){
-    if(sideBrowserExtensionReady){
-      const requestId='side-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-      sideBrowserRequestRef.current=requestId;
-      window.postMessage({
-        source:'dai-web',
-        type:'DAI_SIDE_BROWSER_OPEN',
-        requestId,
-        url
-      },window.location.origin);
-      setVoiceNotice('بفتح الموقع جنب ضي…');
-      return true;
-    }
-
-    const screenAny=window.screen as Screen & {availLeft?:number;availTop?:number};
-
-    // Dock relative to the CURRENT DAI browser window, not the whole monitor.
-    // This prevents Chrome/Brave from centering the popup on multi-window setups.
-    const hostLeft=Number.isFinite(window.screenX)?window.screenX:(screenAny.availLeft||0);
-    const hostTop=Number.isFinite(window.screenY)?window.screenY:(screenAny.availTop||0);
-    const hostWidth=Math.max(960,window.outerWidth||window.innerWidth||1280);
-    const hostHeight=Math.max(700,window.outerHeight||window.innerHeight||820);
-
-    const popupWidth=Math.max(560,Math.min(980,Math.floor(hostWidth*.50)));
-    const popupHeight=Math.max(620,Math.min(
-      hostHeight,
-      (window.screen?.availHeight||hostHeight)
-    ));
-    const popupLeft=Math.max(0,Math.round(hostLeft+hostWidth-popupWidth));
-    const popupTop=Math.max(0,Math.round(hostTop));
-
-    const features=[
-      'popup=yes',
-      'resizable=yes',
-      'scrollbars=yes',
-      'menubar=no',
-      'toolbar=no',
-      'location=yes',
-      'status=no',
-      'width='+popupWidth,
-      'height='+popupHeight,
-      'left='+popupLeft,
-      'top='+popupTop
-    ].join(',');
-
-    let popup=webBrowserWindowRef.current;
-
-    const dockPopup=(target:Window)=>{
-      try{target.resizeTo(popupWidth,popupHeight);}catch{}
-      try{target.moveTo(popupLeft,popupTop);}catch{}
-    };
-
-    try{
-      if(!popup||popup.closed){
-        popup=window.open('about:blank','dai-web-browser',features);
-        if(!popup)return false;
-        webBrowserWindowRef.current=popup;
-      }
-
-      // Re-dock reused windows too. Browsers may ignore left/top when a named
-      // popup already exists, so move/resize explicitly before navigation.
-      dockPopup(popup);
-
-      try{
-        popup.location.replace(url);
-      }catch{
-        popup.location.href=url;
-      }
-
-      // Chrome/Brave can apply window geometry one frame late.
-      window.setTimeout(()=>{
-        const current=webBrowserWindowRef.current;
-        if(current&&!current.closed)dockPopup(current);
-      },60);
-      window.setTimeout(()=>{
-        const current=webBrowserWindowRef.current;
-        if(current&&!current.closed)dockPopup(current);
-      },260);
-
-      popup.focus();
-      setVoiceNotice('فتحت الموقع في متصفح ضي على يمين المحادثة.');
-      return true;
-    }catch{
-      webBrowserWindowRef.current=null;
-      return false;
-    }
-  }
 
   function openDaiBrowser(rawUrl:string){
     try{
@@ -671,97 +508,14 @@ export default function GithubApp(){
       if(desktopMode&&window.daiDesktop?.browserOpen){
         setBrowserLoaded(false);
         setBrowserUrl(url.toString());
-        setBrowserReloadKey(value=>value+1);
         void window.daiDesktop.browserOpen(url.toString()).then(result=>{
           if(!result?.ok)setErrorText(result?.message||'تعذر فتح الموقع داخل ضي.');
         }).catch(()=>setErrorText('تعذر فتح الموقع داخل ضي.'));
         return;
       }
 
-      // External sites are opened as a real top-level browsing context, not an iframe.
-      // This is the closest web equivalent to ChatGPT's in-app browser behavior and
-      // avoids X-Frame-Options/CSP failures on YouTube and other sites.
-      if(url.origin!==window.location.origin){
-        if(!openTopLevelWebBrowser(url.toString())){
-          window.open(url.toString(),'_blank','noopener,noreferrer');
-        }
-        return;
-      }
-
-      setBrowserLoaded(false);
-      setBrowserUrl(url.toString());
-      setBrowserReloadKey(value=>value+1);
+      window.open(url.toString(),'_blank','noopener,noreferrer');
     }catch{}
-  }
-
-  function isYouTubeBrowserUrl(rawUrl=browserUrl){
-    try{
-      const host=new URL(String(rawUrl||'').trim()).hostname
-        .replace(/^www\./,'')
-        .toLowerCase();
-      return ['youtube.com','m.youtube.com','music.youtube.com','youtu.be','youtube-nocookie.com'].includes(host);
-    }catch{
-      return false;
-    }
-  }
-
-  function browserEmbedUrl(rawUrl=browserUrl){
-    try{
-      const url=new URL(String(rawUrl||'').trim());
-      const host=url.hostname.replace(/^www\./,'').toLowerCase();
-      const origin=window.location.origin;
-
-      if(host==='youtu.be'){
-        const videoId=url.pathname.split('/').filter(Boolean)[0]||'';
-        if(videoId){
-          const embed=new URL('https://www.youtube.com/embed/'+encodeURIComponent(videoId));
-          const start=url.searchParams.get('t')||url.searchParams.get('start')||'';
-          if(/^\d+$/.test(start))embed.searchParams.set('start',start);
-          embed.searchParams.set('rel','0');
-          embed.searchParams.set('playsinline','1');
-          embed.searchParams.set('origin',origin);
-          return embed.toString();
-        }
-      }
-
-      if(host==='youtube.com'||host==='m.youtube.com'||host==='music.youtube.com'||host==='youtube-nocookie.com'){
-        const parts=url.pathname.split('/').filter(Boolean);
-        let videoId='';
-
-        if(url.pathname==='/watch'){
-          videoId=url.searchParams.get('v')||'';
-        }else if(['shorts','live','embed'].includes(parts[0]||'')){
-          videoId=parts[1]||'';
-        }
-
-        if(videoId){
-          const embed=new URL('https://www.youtube.com/embed/'+encodeURIComponent(videoId));
-          const list=url.searchParams.get('list');
-          const start=url.searchParams.get('start')||url.searchParams.get('t')||'';
-          if(list)embed.searchParams.set('list',list);
-          if(/^\d+$/.test(start))embed.searchParams.set('start',start);
-          embed.searchParams.set('rel','0');
-          embed.searchParams.set('playsinline','1');
-          embed.searchParams.set('origin',origin);
-          return embed.toString();
-        }
-
-        if(url.pathname==='/playlist'){
-          const list=url.searchParams.get('list')||'';
-          if(list){
-            const embed=new URL('https://www.youtube.com/embed/videoseries');
-            embed.searchParams.set('list',list);
-            embed.searchParams.set('playsinline','1');
-            embed.searchParams.set('origin',origin);
-            return embed.toString();
-          }
-        }
-      }
-
-      return url.toString();
-    }catch{
-      return rawUrl;
-    }
   }
 
   function closeDaiBrowser(){
@@ -773,13 +527,9 @@ export default function GithubApp(){
   }
 
   function refreshDaiBrowser(){
-    if(!browserUrl)return;
+    if(!browserUrl||!desktopMode||!window.daiDesktop?.browserReload)return;
     setBrowserLoaded(false);
-    if(desktopMode&&window.daiDesktop?.browserReload){
-      void window.daiDesktop.browserReload();
-      return;
-    }
-    setBrowserReloadKey(value=>value+1);
+    void window.daiDesktop.browserReload();
   }
 
   function browserBack(){
@@ -796,9 +546,7 @@ export default function GithubApp(){
       void window.daiDesktop.browserExternal();
       return;
     }
-    if(!openTopLevelWebBrowser(browserUrl)){
-      window.open(browserUrl,'_blank','noopener,noreferrer');
-    }
+    window.open(browserUrl,'_blank','noopener,noreferrer');
   }
 
   function browserDisplayHost(){
@@ -4392,7 +4140,7 @@ export default function GithubApp(){
     </main>;
   }
 
-  return <main className={'classic-shell '+(browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase}>
+  return <main className={'classic-shell '+(desktopMode&&browserUrl?'dai-browser-open':'')} dir='rtl' data-ai-phase={daiPhase}>
     <div className='classic-bg-grid'/>
     <header className='classic-header'>
       <div className='classic-brand'><DaiLogo/><div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div></div>
@@ -4401,15 +4149,6 @@ export default function GithubApp(){
           {professional?<Crown className='h-3.5 w-3.5'/>:<Sparkles className='h-3.5 w-3.5'/>}
           <span>{planOwner?'Owner Pro':professional?'Professional':'Standard'}</span>
         </button>}
-        {!desktopMode&&sideBrowserExtensionChecked&&<span
-          className={'dai-side-browser-status '+(sideBrowserExtensionReady?'connected':'missing')}
-          title={sideBrowserExtensionReady
-            ? 'إضافة DAI Side Browser متصلة'+(sideBrowserExtensionVersion?' — '+sideBrowserExtensionVersion:'')
-            : 'إضافة DAI Side Browser غير متصلة بهذه الصفحة'}
-        >
-          <Globe2 className='h-3.5 w-3.5'/>
-          <span>{sideBrowserExtensionReady?'Side Browser متصل':'Side Browser غير متصل'}</span>
-        </span>}
         <span className='classic-status' role='status' aria-live='polite'><i className={sending||voiceNoteRecording||voiceNoteProcessing||voiceSessionStatus==='speaking'?'busy':online?'':'offline'}/><span>{daiStatusLabel}</span></span>
         <button onClick={()=>setCapabilitiesOpen(true)} className='classic-icon-button' aria-label='قدرات ضي' title='ضي تقدر تعمل إيه؟'><Info className='h-5 w-5'/></button>
         {professional&&<button onClick={()=>setControlOpen(true)} className='classic-icon-button dai-control-launch' aria-label='DAI Control Center' title='DAI Control Center'><WandSparkles className='h-5 w-5'/></button>}
@@ -4535,17 +4274,17 @@ export default function GithubApp(){
       </div>
     </section>
 
-    {browserUrl&&<aside className='dai-browser-panel' aria-label='متصفح ضي'>
+    {desktopMode&&browserUrl&&<aside className='dai-browser-panel' aria-label='متصفح ضي'>
       <header className='dai-browser-toolbar'>
         <button className='dai-browser-tool-button close' onClick={closeDaiBrowser} aria-label='إغلاق المتصفح' title='إغلاق'>
           <X className='h-4 w-4'/>
         </button>
-        {desktopMode&&<button className='dai-browser-tool-button' disabled={!browserCanBack} onClick={browserBack} aria-label='رجوع' title='رجوع'>
+        <button className='dai-browser-tool-button' disabled={!browserCanBack} onClick={browserBack} aria-label='رجوع' title='رجوع'>
           <ArrowRight className='h-4 w-4'/>
-        </button>}
-        {desktopMode&&<button className='dai-browser-tool-button' disabled={!browserCanForward} onClick={browserForward} aria-label='تقدم' title='تقدم'>
+        </button>
+        <button className='dai-browser-tool-button' disabled={!browserCanForward} onClick={browserForward} aria-label='تقدم' title='تقدم'>
           <ArrowLeft className='h-4 w-4'/>
-        </button>}
+        </button>
         <div className='dai-browser-address' title={browserUrl}>
           <Globe2 className='h-4 w-4'/>
           <div>
@@ -4560,32 +4299,10 @@ export default function GithubApp(){
           <ExternalLink className='h-4 w-4'/>
         </button>
       </header>
-      <div className={'dai-browser-content '+(desktopMode?'native-browser':isYouTubeBrowserUrl()?'youtube-player':'')}>
-        {desktopMode
-          ? <div className='dai-browser-native-placeholder'>
-              {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
-            </div>
-          : <>
-              {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
-              <iframe
-                key={browserReloadKey}
-                src={browserEmbedUrl()}
-                title={'متصفح ضي — '+browserDisplayHost()}
-                referrerPolicy='origin-when-cross-origin'
-                sandbox={isYouTubeBrowserUrl()?undefined:'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'}
-                allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
-                allowFullScreen
-                onLoad={()=>setBrowserLoaded(true)}
-              />
-              {!isYouTubeBrowserUrl()&&<div className='dai-browser-embed-note'>
-                بعض المواقع تمنع العرض داخل التطبيقات.
-                <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح خارجي</button>
-              </div>}
-              {isYouTubeBrowserUrl()&&<div className='dai-browser-youtube-fallback'>
-                لو الفيديو مانع التشغيل المضمّن
-                <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح على YouTube</button>
-              </div>}
-            </>}
+      <div className='dai-browser-content native-browser'>
+        <div className='dai-browser-native-placeholder'>
+          {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
+        </div>
       </div>
     </aside>}
 
