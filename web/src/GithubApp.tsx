@@ -512,6 +512,7 @@ export default function GithubApp(){
   const lastAnimationRequestRef=useRef('');
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
   const perfQualityVotesRef=useRef({down:0,up:0});
+  const avatarPreferenceLoadedRef=useRef(false);
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -543,6 +544,69 @@ export default function GithubApp(){
     document.documentElement.dataset.daiExperience=experiencePreset;
     return()=>{delete document.documentElement.dataset.daiExperience;};
   },[experiencePreset]);
+
+
+  useEffect(()=>{
+    try{localStorage.setItem('dai-avatar-style',avatarStyle);}catch{}
+    document.documentElement.dataset.daiAvatar=avatarStyle;
+    return()=>{delete document.documentElement.dataset.daiAvatar;};
+  },[avatarStyle]);
+
+  useEffect(()=>{
+    if(!supabase||!userId){
+      avatarPreferenceLoadedRef.current=false;
+      return;
+    }
+    let cancelled=false;
+    async function loadAvatarPreference(){
+      setAvatarSyncing(true);
+      try{
+        const {data,error}=await supabase!
+          .from('dai_preferences')
+          .select('avatar_style')
+          .eq('user_id',userId)
+          .maybeSingle();
+        if(cancelled)return;
+        if(!error&&data?.avatar_style){
+          const value=String(data.avatar_style);
+          if(value==='classic'||value==='minimal'||value==='cute'||value==='cyber'){
+            setAvatarStyle(value);
+          }
+        }else if(!error){
+          await supabase!.from('dai_preferences').upsert({
+            user_id:userId,
+            avatar_style:avatarStyle,
+            updated_at:new Date().toISOString()
+          },{onConflict:'user_id'});
+        }
+      }catch(error){
+        console.debug('DAI avatar preference load skipped',error);
+      }finally{
+        if(!cancelled){
+          avatarPreferenceLoadedRef.current=true;
+          setAvatarSyncing(false);
+        }
+      }
+    }
+    void loadAvatarPreference();
+    return()=>{cancelled=true;};
+  },[userId]);
+
+  useEffect(()=>{
+    if(!supabase||!userId||!avatarPreferenceLoadedRef.current)return;
+    const handle=window.setTimeout(async()=>{
+      try{
+        await supabase!.from('dai_preferences').upsert({
+          user_id:userId,
+          avatar_style:avatarStyle,
+          updated_at:new Date().toISOString()
+        },{onConflict:'user_id'});
+      }catch(error){
+        console.debug('DAI avatar preference save skipped',error);
+      }
+    },180);
+    return()=>window.clearTimeout(handle);
+  },[avatarStyle,userId]);
 
   useEffect(()=>{
     try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
