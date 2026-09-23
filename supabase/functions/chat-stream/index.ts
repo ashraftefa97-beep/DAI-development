@@ -71,7 +71,7 @@ function cleanErrorCode(status: number) {
   return 'AI_PROVIDER';
 }
 
-type SearchSource = { title: string; url: string };
+type SearchSource = { title: string; url: string; snippet?: string };
 type DaiTaskRoute = 'command' | 'research' | 'code' | 'image' | 'complex' | 'chat';
 
 const validRoutes = new Set<DaiTaskRoute>([
@@ -152,6 +152,9 @@ function decodeXml(value: string) {
 }
 
 const SEARCH_TOTAL_BUDGET_MS = 30000;
+const SEARCH_BACKOFF_MS = 5 * 60 * 1000;
+let groundingBackoffUntil = 0;
+let synthesisBackoffUntil = 0;
 
 async function timedFetch(
   input: string,
@@ -268,15 +271,36 @@ async function fallbackRssSearch(query: string, deadline = Date.now() + 8000, pa
     const block = itemMatch[1];
     const titleMatch = block.match(/<title>([\s\S]*?)<\/title>/i);
     const linkMatch = block.match(/<link>([\s\S]*?)<\/link>/i);
+    const descriptionMatch = block.match(/<description>([\s\S]*?)<\/description>/i);
     const title = decodeXml(titleMatch?.[1] || '').slice(0, 180);
     const url = decodeXml(linkMatch?.[1] || '').trim();
+    const snippet = decodeXml(descriptionMatch?.[1] || '').slice(0, 320);
     if (!/^https?:\/\//i.test(url) || seen.has(url)) continue;
     if (youtubeOnly && !/youtube\.com\/watch/i.test(url)) continue;
     seen.add(url);
-    sources.push({ title: title || 'نتيجة بحث', url });
+    sources.push({ title: title || 'نتيجة بحث', url, snippet: snippet || undefined });
   }
 
   return sources;
+}
+
+function fallbackAnswerFromSources(query: string, sources: SearchSource[]) {
+  if (!sources.length) return '';
+  if (/(?:يوتيوب|youtube|فيديو)/i.test(query)) {
+    return 'لقيتلك نتائج مناسبة على يوتيوب، والمصادر موجودة تحت الرد.';
+  }
+
+  const useful = sources
+    .slice(0, 3)
+    .map((source, index) => {
+      const detail = source.snippet ? ': ' + source.snippet : '';
+      return `${index + 1}) ${source.title}${detail}`;
+    })
+    .join('\n');
+
+  return useful
+    ? 'لقيت النتائج الأقرب لطلبك:\n' + useful
+    : 'لقيت نتائج مرتبطة بطلبك، والمصادر موجودة تحت الرد.';
 }
 
 async function summarizeFallbackSources(
@@ -289,15 +313,17 @@ async function summarizeFallbackSources(
 ) {
   if (!sources.length) return '';
 
+  if (Date.now() < synthesisBackoffUntil) return '';
+
   const modelCandidates = [
     'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const sourceText = sources
     .slice(0, 6)
-    .map((source, index) => `${index + 1}. ${source.title}\n${source.url}`)
+    .map((source, index) => `${index + 1}. ${source.title}\n${source.snippet || ''}\n${source.url}`)
     .join('\n\n');
 
   const prompt =
@@ -327,7 +353,11 @@ async function summarizeFallbackSources(
         parentSignal,
       );
       if (!response.ok) {
-        if ([400,404,429,503].includes(response.status)) continue;
+        if (response.status === 429) {
+          synthesisBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
+          break;
+        }
+        if ([400,404,503].includes(response.status)) continue;
         break;
       }
       const payload = await response.json().catch(() => ({}));
@@ -352,10 +382,10 @@ async function directWebResearch(
   parentSignal?: AbortSignal,
 ) {
   const modelCandidates = [
+    'gemini-3.8-flash',
     'gemini-3.5-flash-lite',
     ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.1-flash-lite',
   ].filter((model, index, all) => all.indexOf(model) === index);
 
   const researchPrompt =
@@ -370,6 +400,7 @@ async function directWebResearch(
   const groundedDeadline = Math.min(deadline, Date.now() + 19000);
 
   for (const model of modelCandidates) {
+    if (Date.now() < groundingBackoffUntil) break;
     const timeLeft = searchTimeLeft(groundedDeadline);
     if (timeLeft < 700) break;
     try {
@@ -396,7 +427,12 @@ async function directWebResearch(
       lastDetail = responseText.slice(0, 1200);
 
       if (!response.ok) {
-        if ([400, 404, 429, 503].includes(response.status)) continue;
+        if (response.status === 429) {
+          groundingBackoffUntil = Date.now() + SEARCH_BACKOFF_MS;
+          lastDetail = 'Grounding quota backoff';
+          break;
+        }
+        if ([400, 404, 503].includes(response.status)) continue;
         break;
       }
 
@@ -462,11 +498,7 @@ async function directWebResearch(
 
       return {
         ok: true,
-        answer: summarized || (
-          /(?:يوتيوب|youtube|فيديو)/i.test(query)
-            ? 'لقيتلك فيديوهات مرتبطة بطلبك. افتح المصادر تحت الرد واختار الأنسب.'
-            : 'لقيت نتائج مرتبطة بطلبك، والمصادر موجودة تحت الرد.'
-        ),
+        answer: summarized || fallbackAnswerFromSources(query, sources),
         sources,
         model: 'fallback-web',
         status: 200,
