@@ -748,7 +748,14 @@ export default function GithubApp(){
     return true;
   }
 
-  async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void,force=false){
+  async function speakReply(
+    text:string,
+    onStart?:()=>void,
+    onEnd?:()=>void,
+    force=false,
+    requestId=''
+  ){
+    if(requestId&&gatewayRequestRef.current!==requestId)return false;
     if((!voiceEnabled&&!force)||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
@@ -763,6 +770,7 @@ export default function GithubApp(){
 
     try{
       await unlockSpeechAudio();
+      if(requestId&&gatewayRequestRef.current!==requestId)return false;
       const played=await streamSpeech(
         spoken,
         runId,
@@ -1792,7 +1800,8 @@ export default function GithubApp(){
                   setVoiceNotice('ضي بتتكلم.');
                 },
                 undefined,
-                shouldSpeak
+                shouldSpeak,
+                requestId
               );
               if(!spoken){
                 reveal();
@@ -2264,6 +2273,11 @@ export default function GithubApp(){
       fromVoice?'voice':desktopMode?'desktop':'text'
     );
     gatewayRequestRef.current=gatewayRequest.id;
+    // A new request owns every response surface. Stop stale speech immediately,
+    // even when the previous text response has already finished streaming.
+    speechRunRef.current++;
+    stopSpeechAudio();
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
     const routeDecision=gatewayRequest.decision;
     const predictedCommand=routeDecision.route==='command';
     const predictedResearch=routeDecision.route==='research';
@@ -2978,6 +2992,18 @@ export default function GithubApp(){
       setErrorText('المتصفح ده مش بيدعم المحادثة الصوتية.');
       return;
     }
+
+    const liveGateway=createDaiRequest('محادثة صوتية مباشرة','live');
+    gatewayRequestRef.current=liveGateway.id;
+    textRequestAbortRef.current?.abort();
+    textRequestAbortRef.current=null;
+    localCoderStopRef.current?.();
+    localGeneralStopRef.current?.();
+    localCoderStopRef.current=null;
+    localGeneralStopRef.current=null;
+    speechRunRef.current++;
+    stopSpeechAudio();
+    if('speechSynthesis' in window)window.speechSynthesis.cancel();
 
     setErrorText('');
     setVoiceSessionStatus('connecting');
