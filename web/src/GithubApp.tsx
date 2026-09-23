@@ -484,23 +484,37 @@ export default function GithubApp(){
     }catch{}
   }
 
+  function isYouTubeBrowserUrl(rawUrl=browserUrl){
+    try{
+      const host=new URL(String(rawUrl||'').trim()).hostname
+        .replace(/^www\./,'')
+        .toLowerCase();
+      return ['youtube.com','m.youtube.com','music.youtube.com','youtu.be','youtube-nocookie.com'].includes(host);
+    }catch{
+      return false;
+    }
+  }
+
   function browserEmbedUrl(rawUrl=browserUrl){
     try{
       const url=new URL(String(rawUrl||'').trim());
       const host=url.hostname.replace(/^www\./,'').toLowerCase();
+      const origin=window.location.origin;
 
       if(host==='youtu.be'){
         const videoId=url.pathname.split('/').filter(Boolean)[0]||'';
         if(videoId){
-          const embed=new URL('https://www.youtube-nocookie.com/embed/'+encodeURIComponent(videoId));
+          const embed=new URL('https://www.youtube.com/embed/'+encodeURIComponent(videoId));
           const start=url.searchParams.get('t')||url.searchParams.get('start')||'';
           if(/^\d+$/.test(start))embed.searchParams.set('start',start);
           embed.searchParams.set('rel','0');
+          embed.searchParams.set('playsinline','1');
+          embed.searchParams.set('origin',origin);
           return embed.toString();
         }
       }
 
-      if(host==='youtube.com'||host==='m.youtube.com'||host==='music.youtube.com'){
+      if(host==='youtube.com'||host==='m.youtube.com'||host==='music.youtube.com'||host==='youtube-nocookie.com'){
         const parts=url.pathname.split('/').filter(Boolean);
         let videoId='';
 
@@ -511,20 +525,24 @@ export default function GithubApp(){
         }
 
         if(videoId){
-          const embed=new URL('https://www.youtube-nocookie.com/embed/'+encodeURIComponent(videoId));
+          const embed=new URL('https://www.youtube.com/embed/'+encodeURIComponent(videoId));
           const list=url.searchParams.get('list');
           const start=url.searchParams.get('start')||url.searchParams.get('t')||'';
           if(list)embed.searchParams.set('list',list);
           if(/^\d+$/.test(start))embed.searchParams.set('start',start);
           embed.searchParams.set('rel','0');
+          embed.searchParams.set('playsinline','1');
+          embed.searchParams.set('origin',origin);
           return embed.toString();
         }
 
         if(url.pathname==='/playlist'){
           const list=url.searchParams.get('list')||'';
           if(list){
-            const embed=new URL('https://www.youtube-nocookie.com/embed/videoseries');
+            const embed=new URL('https://www.youtube.com/embed/videoseries');
             embed.searchParams.set('list',list);
+            embed.searchParams.set('playsinline','1');
+            embed.searchParams.set('origin',origin);
             return embed.toString();
           }
         }
@@ -4301,15 +4319,20 @@ export default function GithubApp(){
           key={browserReloadKey}
           src={browserEmbedUrl()}
           title={'متصفح ضي — '+browserDisplayHost()}
-          referrerPolicy='strict-origin-when-cross-origin'
-          sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'
+          referrerPolicy='origin-when-cross-origin'
+          sandbox={isYouTubeBrowserUrl()?undefined:'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'}
           allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
+          allowFullScreen
           onLoad={()=>setBrowserLoaded(true)}
         />
-        <div className='dai-browser-embed-note'>
+        {!isYouTubeBrowserUrl()&&<div className='dai-browser-embed-note'>
           بعض المواقع تمنع العرض داخل التطبيقات.
           <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح خارجي</button>
-        </div>
+        </div>}
+        {isYouTubeBrowserUrl()&&<div className='dai-browser-youtube-fallback'>
+          لو الفيديو مانع التشغيل المضمّن
+          <button onClick={openBrowserExternally}><ExternalLink className='h-3.5 w-3.5'/> فتح على YouTube</button>
+        </div>}
       </div>
     </aside>}
 
