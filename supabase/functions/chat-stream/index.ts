@@ -1863,6 +1863,15 @@ Deno.serve(async (req) => {
   const user = authData.user;
   if (authError || !user) return json({ error: 'Unauthorized' }, 401);
 
+  const serviceRoleKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
+  const admin = serviceRoleKey
+    ? createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        serviceRoleKey,
+        { auth: { persistSession:false, autoRefreshToken:false } },
+      )
+    : null;
+
   const { data: rateAllowed, error: rateError } = await supabase.rpc('dai_rate_limit_hit', {
     p_limit: 14,
     p_window_seconds: 60,
@@ -1951,20 +1960,38 @@ Deno.serve(async (req) => {
   }
 
   let savedUserMessage: any = null;
+  let reusedOrphanUserMessage = false;
   if (!isRegenerate) {
-    const { data, error } = await supabase
-      .from('dai_messages')
-      .insert({
-        conversation_id: conversationId,
-        user_id: user.id,
-        role: 'user',
-        content: message,
-      })
-      .select('id,role,content,created_at')
-      .single();
+    const normalizeTurn = (value:string) =>
+      String(value || '').toLowerCase().replace(/\s+/g,' ').trim();
+    const latest = historyRows[0];
+    const latestAgeMs = latest?.created_at
+      ? Date.now() - new Date(latest.created_at).getTime()
+      : Number.POSITIVE_INFINITY;
 
-    if (error || !data) return json({ error: 'Could not save message' }, 500);
-    savedUserMessage = data;
+    if (
+      latest?.role === 'user' &&
+      latestAgeMs >= 0 &&
+      latestAgeMs < 10*60*1000 &&
+      normalizeTurn(latest.content) === normalizeTurn(message)
+    ) {
+      savedUserMessage = latest;
+      reusedOrphanUserMessage = true;
+    } else {
+      const { data, error } = await supabase
+        .from('dai_messages')
+        .insert({
+          conversation_id: conversationId,
+          user_id: user.id,
+          role: 'user',
+          content: message,
+        })
+        .select('id,role,content,created_at')
+        .single();
+
+      if (error || !data) return json({ error: 'Could not save message' }, 500);
+      savedUserMessage = data;
+    }
   }
 
   const rollbackFailedTurn = async () => {
@@ -2069,7 +2096,11 @@ Deno.serve(async (req) => {
   const genericLinkRequest = route === 'link' && isGenericContextLinkRequest(message);
 
   const lastHistory = orderedHistory[orderedHistory.length - 1];
-  if (!(isRegenerate && lastHistory?.role === 'user' && String(lastHistory.content || '').trim() === message)) {
+  const sameAsLastHistory =
+    lastHistory?.role === 'user' &&
+    String(lastHistory.content || '').replace(/\s+/g,' ').trim().toLowerCase() ===
+      message.replace(/\s+/g,' ').trim().toLowerCase();
+  if (!((isRegenerate || reusedOrphanUserMessage) && sameAsLastHistory)) {
     contents.push({ role: 'user', parts: [{ text: message }] });
   }
 
@@ -2144,7 +2175,7 @@ Deno.serve(async (req) => {
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
           researchAnnounced = true;
           push('research', { queries: [message], sources: [] });
-          const research = await directWebResearch(apiKey, configuredModel, message, req.signal);
+          const research = await directWebResearch(apiKey, configuredModel, message, req.signal, admin);
 
           if (!research.ok || !research.answer) {
             console.error(
