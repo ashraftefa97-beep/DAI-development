@@ -3704,3 +3704,175 @@ html[data-dai-theme="light"] .classic-chat-message.user {
     flex: 0 0 auto;
   }
 }
+
+
+/* DAI 1.7 diagnostics + mobile hardening */
+.dai-metrics-dashboard {
+  margin: 14px 0 16px;
+  padding: 12px;
+  border: 1px solid #2f3348;
+  border-radius: 16px;
+  background: rgba(16,20,34,.66);
+}
+.dai-metrics-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.dai-metrics-head > div { min-width:0; }
+.dai-metrics-head strong { display:block; color:#f4edf4; font-size:13px; }
+.dai-metrics-head small { display:block; margin-top:3px; color:#8f91a7; font-size:10px; }
+.dai-metrics-head button {
+  flex:0 0 auto;
+  border:1px solid #3b4057;
+  border-radius:10px;
+  background:#1d2235;
+  color:#d8ccda;
+  padding:7px 10px;
+  font-size:10px;
+  cursor:pointer;
+}
+.dai-metrics-head button:disabled { opacity:.48; cursor:default; }
+.dai-metrics-empty {
+  padding:14px 10px;
+  border-radius:12px;
+  background:rgba(255,255,255,.025);
+  color:#8e91a4;
+  text-align:center;
+  font-size:11px;
+}
+.dai-metrics-rows { display:grid; gap:8px; }
+.dai-metric-card {
+  padding:10px;
+  border:1px solid #303449;
+  border-radius:12px;
+  background:rgba(28,32,50,.72);
+}
+.dai-metric-card.pass { border-inline-start:3px solid #78c890; }
+.dai-metric-card.fail { border-inline-start:3px solid #e78698; }
+.dai-metric-main {
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+}
+.dai-metric-main strong {
+  color:#eee7ef;
+  font-size:11px;
+  white-space:nowrap;
+}
+.dai-metric-main small {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#8f91a4;
+  font-size:9px;
+  direction:ltr;
+  text-align:left;
+}
+.dai-metric-tags {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:8px;
+}
+.dai-metric-tags span {
+  padding:4px 7px;
+  border-radius:999px;
+  background:#21263a;
+  border:1px solid #343a51;
+  color:#aeb0c0;
+  font-size:9px;
+  direction:ltr;
+}
+.dai-metric-tags span.warn {
+  background:rgba(224,174,90,.10);
+  border-color:rgba(224,174,90,.28);
+  color:#e6c585;
+}
+.dai-metric-tags span.fail {
+  background:rgba(231,134,152,.10);
+  border-color:rgba(231,134,152,.28);
+  color:#efadba;
+}
+html[data-dai-theme="light"] .dai-metrics-dashboard {
+  background:#f8f5f8;
+  border-color:#ddd5df;
+}
+html[data-dai-theme="light"] .dai-metric-card {
+  background:#fff;
+  border-color:#e2dbe4;
+}
+html[data-dai-theme="light"] .dai-metrics-head strong,
+html[data-dai-theme="light"] .dai-metric-main strong { color:#312834; }
+html[data-dai-theme="light"] .dai-metric-tags span {
+  background:#f2edf3;
+  border-color:#e0d7e3;
+  color:#655b69;
+}
+
+/* Keep the interactive shell inside the real iOS/Android visual viewport. */
+.classic-shell {
+  height: var(--dai-viewport-height, 100dvh);
+  max-height: var(--dai-viewport-height, 100dvh);
+}
+@media(max-width:640px) {
+  .classic-header {
+    min-height: calc(64px + env(safe-area-inset-top));
+    height: calc(64px + env(safe-area-inset-top));
+    flex-basis: calc(64px + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+  }
+  .classic-stage {
+    min-height:0;
+    padding-left:max(8px,env(safe-area-inset-left));
+    padding-right:max(8px,env(safe-area-inset-right));
+    padding-bottom:max(10px,env(safe-area-inset-bottom));
+    overscroll-behavior-y:contain;
+  }
+  .classic-input-bar {
+    width:100%;
+    margin-bottom:max(0px,env(safe-area-inset-bottom));
+  }
+  .classic-chat-panel {
+    scroll-padding-bottom:18px;
+  }
+  .dai-web-panel {
+    max-height:min(90dvh,var(--dai-viewport-height,90dvh));
+    padding-bottom:max(18px,env(safe-area-inset-bottom));
+  }
+  .dai-metric-main {
+    display:grid;
+    gap:3px;
+  }
+  .dai-metric-main small {
+    text-align:right;
+    direction:ltr;
+  }
+}
+html[data-dai-keyboard="open"] .classic-header {
+  min-height:56px;
+  height:56px;
+  flex-basis:56px;
+  padding-top:0;
+}
+html[data-dai-keyboard="open"] .classic-stage {
+  padding-bottom:6px;
+}
+html[data-dai-keyboard="open"] .classic-face-wrap.classic-logo-stage {
+  min-height:72px;
+  flex:.22 1 84px;
+}
+html[data-dai-keyboard="open"] .classic-chat-panel {
+  flex:1 1 auto;
+  height:auto;
+  min-height:96px;
+  max-height:42vh;
+}
+html[data-dai-keyboard="open"] .classic-input-bar {
+  margin-top:4px;
+  margin-bottom:0;
+}
