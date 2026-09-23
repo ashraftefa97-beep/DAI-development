@@ -489,28 +489,52 @@ function hand(c,x,y,rotation,opacity,mirror,grip,avatar='classic') {
   path(c,d,null,style.edge,2.4);
   path(c,'M-10 3 Q1 -2 5 8',null,style.palm,1.5);c.restore();
 }
+const AVATAR_FACE_SHAPES={
+  balanced:{eyeRadius:.47,browStroke:2.8,cheekX:13,cheekY:5,mouthWidth:20,mouthStroke:3.5,speechBase:22,happyStroke:7},
+  minimal:{eyeRadius:.28,browStroke:0,cheekX:10,cheekY:4,mouthWidth:16,mouthStroke:2.6,speechBase:19,happyStroke:5.5},
+  cute:{eyeRadius:.50,browStroke:3.0,cheekX:15,cheekY:6,mouthWidth:18,mouthStroke:3.7,speechBase:20,happyStroke:7.5},
+  tech:{eyeRadius:.22,browStroke:2.2,cheekX:11,cheekY:4,mouthWidth:18,mouthStroke:2.8,speechBase:20,happyStroke:6.2},
+  elegant:{eyeRadius:.34,browStroke:2.4,cheekX:11,cheekY:4.5,mouthWidth:18,mouthStroke:3.0,speechBase:20,happyStroke:6.5},
+  soft:{eyeRadius:.46,browStroke:2.7,cheekX:14,cheekY:5.5,mouthWidth:19,mouthStroke:3.3,speechBase:21,happyStroke:7},
+  warm:{eyeRadius:.30,browStroke:2.7,cheekX:13,cheekY:5,mouthWidth:20,mouthStroke:3.4,speechBase:22,happyStroke:6.8},
+  fluid:{eyeRadius:.40,browStroke:2.6,cheekX:12,cheekY:4.5,mouthWidth:19,mouthStroke:3.2,speechBase:21,happyStroke:6.8},
+  cosmic:{eyeRadius:.38,browStroke:2.6,cheekX:12,cheekY:4.5,mouthWidth:19,mouthStroke:3.2,speechBase:21,happyStroke:6.8}
+};
+const AVATAR_FACE_SHAPE_BY_STYLE={
+  classic:'balanced',minimal:'minimal',cute:'cute',
+  cyber:'tech',hologram:'tech',matrix:'tech',lime:'tech',
+  pro:'elegant',pearl:'elegant',ice:'elegant',
+  soft:'soft',rose:'soft',lavender:'soft',sakura:'soft',
+  solar:'warm',ember:'warm',crimson:'warm',desert:'warm',
+  ocean:'fluid',mint:'fluid',aurora:'fluid',
+  midnight:'cosmic',galaxy:'cosmic',violet:'cosmic'
+};
+function avatarFaceShape(avatar='classic'){
+  return AVATAR_FACE_SHAPES[AVATAR_FACE_SHAPE_BY_STYLE[avatar]||'balanced'];
+}
+
 function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
-  const q=m.pose,theme=avatarTheme(c,avatar);
+  const q=m.pose,theme=avatarTheme(c,avatar),shape=avatarFaceShape(avatar);
   c.save();c.translate(x+q.gaze_x,-17+q.gaze_y);c.rotate(rad(tilt));
   const blink=m.blinkTime<.19?1-.97*Math.sin(Math.PI*m.blinkTime/.19):1;
   const w=35*width*theme.eyeW,h=Math.max(4,75*openness*blink*theme.eyeH);
-  const r=avatar==='cyber'?Math.min(10,h/2):Math.min(w*.47,h/2);
+  const r=Math.min(w*shape.eyeRadius,h/2);
   const g=c.createLinearGradient(-w/2,-h/2,w/2,h/2);
   g.addColorStop(0,theme.eyeA);g.addColorStop(.55,theme.eyeB);g.addColorStop(1,theme.eyeC);
   c.globalAlpha=1-happy*.94;c.beginPath();c.roundRect(-w/2,-h/2,w,h,r);
   c.fillStyle=g;c.fill();c.strokeStyle=theme.eyeStroke;c.lineWidth=theme.stroke;c.stroke();
 
-  if(avatar==='cute'&&happy<.72){
+  if(['cute','sakura','rose','lavender'].includes(avatar)&&happy<.72){
     c.globalAlpha=(1-happy)*.55;
     ellipse(c,-w*.18,-h*.20,Math.max(1.5,w*.07),Math.max(2,h*.08),'rgba(255,255,255,.85)');
   }
-  if(avatar==='cyber'&&happy<.78){
+  if(['cyber','hologram','matrix','lime'].includes(avatar)&&happy<.78){
     c.globalAlpha=(1-happy)*.46;
     line(c,-w*.32,0,w*.32,0,'rgba(255,255,255,.62)',1.1);
   }
 
   c.globalAlpha=happy;
-  path(c,'M-22 5 C-16 -19 16 -19 22 5',null,theme.happy,avatar==='minimal'?5.5:7);
+  path(c,'M-22 5 C-16 -19 16 -19 22 5',null,theme.happy,shape.happyStroke);
   c.restore();
 }
 
@@ -612,7 +636,7 @@ function personality(c,m) {
 export function stageScale(w,h) { return Math.max(.35,Math.min(w/600,h/420,1.12)); }
 export function drawDai(c,m,w,h,avatar='classic') {
   c.clearRect(0,0,w,h);c.save();c.lineCap='round';c.lineJoin='round';
-  const isLight=lightTheme(c),theme=avatarTheme(c,avatar);
+  const isLight=lightTheme(c),theme=avatarTheme(c,avatar),faceShape=avatarFaceShape(avatar);
   c.filter=isLight?'brightness(.88) saturate(1.18) contrast(1.10)':'none';
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
@@ -627,20 +651,19 @@ export function drawDai(c,m,w,h,avatar='classic') {
   eye(c,m,-spacing,q.left,q.lw,q.happy,-2,avatar);
   eye(c,m,spacing,q.right,q.rw,q.happy,2,avatar);
 
-  const alpha=clamp(Math.abs(q.tilt)/10+q.brow*.5,.08,.72)*(isLight?220:160)/255;
-  if(avatar!=='minimal'){
+  if(faceShape.browStroke>0){
     for(const [x,dy] of [[-spacing,3],[spacing,-3]]) {
-      path(c,`M${x-13} ${-73+dy} Q${x} ${-79+dy} ${x+13} ${-73+dy}`,null,theme.brow,avatar==='cyber'?2.2:2.8);
+      path(c,`M${x-13} ${-73+dy} Q${x} ${-79+dy} ${x+13} ${-73+dy}`,null,theme.brow,faceShape.browStroke);
     }
   }
 
   const cheekAlpha=(isLight?112:78)*q.cheek*theme.cheekBoost/255;
-  ellipse(c,-82,40,avatar==='cute'?15:13,avatar==='cute'?6:5,`rgba(${theme.cheek},${cheekAlpha})`);
-  ellipse(c,82,40,avatar==='cute'?15:13,avatar==='cute'?6:5,`rgba(${theme.cheek},${cheekAlpha})`);
+  ellipse(c,-82,40,faceShape.cheekX,faceShape.cheekY,`rgba(${theme.cheek},${cheekAlpha})`);
+  ellipse(c,82,40,faceShape.cheekX,faceShape.cheekY,`rgba(${theme.cheek},${cheekAlpha})`);
 
   if(q.mouth>.055) {
     const speechWide=clamp(q.mouthWide||0,0,1);
-    const mw=(avatar==='cute'?20:22)+q.smile*6+speechWide*13;
+    const mw=faceShape.speechBase+q.smile*6+speechWide*13;
     const mh=4+q.mouth*29;
     const upperCurve=53+speechWide*2.2;
     const shape=path(c,`M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*.53} ${54+mh} ${-mw*.53} ${54+mh} ${-mw/2} 52`,theme.mouth);
@@ -648,8 +671,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
     ellipse(c,1.5,53.5+mh,mw*.39,mh*.27,theme.tongue);
     c.restore();
   } else {
-    const mouthWidth=avatar==='minimal'?16:avatar==='cute'?18:20;
-    path(c,`M${-mouthWidth} 55 C-8 ${55+q.smile*22} 8 ${55+q.smile*22} ${mouthWidth} 55`,null,theme.mouth,avatar==='minimal'?2.6:3.5);
+    const mouthWidth=faceShape.mouthWidth;
+    path(c,`M${-mouthWidth} 55 C-8 ${55+q.smile*22} 8 ${55+q.smile*22} ${mouthWidth} 55`,null,theme.mouth,faceShape.mouthStroke);
   }
 
   if(m.state==='thinking'&&!['search','found'].includes(m.gesture)) for(let i=0;i<3;i++) {
