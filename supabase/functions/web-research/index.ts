@@ -42,8 +42,59 @@ function unwrapSearchUrl(value: string) {
   }
 }
 
+async function fallbackYoutubeSearch(query: string) {
+  const cleanQuery = query.replace(/(?:يوتيوب|youtube|فيديو)/ig, '').trim();
+  const response = await fetch(
+    'https://www.youtube.com/results?search_query=' + encodeURIComponent(cleanQuery || query),
+    {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DAI-Research/1.0)',
+        'Accept-Language': 'ar,en;q=0.8',
+      },
+    },
+  );
+
+  if (!response.ok) return [] as SearchSource[];
+  const html = await response.text();
+  const results: SearchSource[] = [];
+  const seen = new Set<string>();
+  const pattern = /"videoId":"([^"]+)"/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(html)) && results.length < 8) {
+    const videoId = match[1];
+    if (!videoId || seen.has(videoId)) continue;
+    seen.add(videoId);
+
+    const nearby = html.slice(Math.max(0, match.index - 650), match.index + 1200);
+    const titleMatch = nearby.match(/"title":\{"runs":\[\{"text":"([^"]+)"/);
+    const title = String(titleMatch?.[1] || 'فيديو يوتيوب')
+      .replace(/\\u0026/g, '&')
+      .replace(/\\n/g, ' ')
+      .replace(/\\\"/g, '"')
+      .trim()
+      .slice(0, 180);
+
+    results.push({
+      title: title || 'فيديو يوتيوب',
+      url: 'https://www.youtube.com/watch?v=' + videoId,
+    });
+  }
+
+  return results;
+}
+
 async function fallbackWebSearch(query: string) {
   const youtubeOnly = /(?:يوتيوب|youtube|فيديو)/i.test(query);
+
+  if (youtubeOnly) {
+    try {
+      const youtubeResults = await fallbackYoutubeSearch(query);
+      if (youtubeResults.length) return youtubeResults;
+    } catch {
+      // Fall through to RSS search.
+    }
+  }
   const searchQuery = youtubeOnly
     ? 'site:youtube.com/watch ' + query.replace(/(?:يوتيوب|youtube)/ig, '').trim()
     : query;
