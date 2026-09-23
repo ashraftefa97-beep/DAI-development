@@ -3876,3 +3876,315 @@ html[data-dai-keyboard="open"] .classic-input-bar {
   margin-top:4px;
   margin-bottom:0;
 }
+
+
+/* DAI organized settings v1.7.1 */
+.classic-settings.dai-settings-organized {
+  width:min(720px,calc(100vw - 28px));
+  max-height:min(92dvh,900px);
+  padding:0;
+  overflow:hidden;
+  border-radius:24px;
+  background:
+    radial-gradient(circle at 86% -8%,rgba(246,169,193,.08),transparent 26%),
+    radial-gradient(circle at 8% 4%,rgba(185,154,222,.055),transparent 25%),
+    #151927;
+  border-color:#303449;
+}
+.dai-settings-organized {
+  scrollbar-width:thin;
+  scrollbar-color:rgba(246,169,193,.24) transparent;
+}
+.dai-settings-organized > *:not(.dai-settings-head) {
+  margin-inline:20px;
+}
+.dai-settings-head {
+  position:sticky;
+  top:0;
+  z-index:4;
+  padding:18px 20px 15px;
+  background:rgba(21,25,39,.94);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.055);
+}
+.dai-settings-organized {
+  overflow-y:auto !important;
+}
+.dai-settings-section {
+  margin-top:18px;
+}
+.dai-settings-section + .dai-settings-section {
+  padding-top:18px;
+  border-top:1px solid rgba(255,255,255,.055);
+}
+.dai-settings-section-title {
+  margin-bottom:10px;
+}
+.dai-settings-section-title > div {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.dai-settings-section-title svg {
+  width:18px;
+  height:18px;
+  color:#e5abc0;
+  flex:0 0 auto;
+}
+.dai-settings-section-title strong,
+.dai-settings-section-title small {
+  display:block;
+}
+.dai-settings-section-title strong {
+  color:#f5eef4;
+  font-size:13px;
+}
+.dai-settings-section-title small {
+  margin-top:2px;
+  color:#85889b;
+  font-size:10px;
+  line-height:1.55;
+}
+.dai-settings-card {
+  padding:14px;
+  border:1px solid #2d3145;
+  border-radius:16px;
+  background:rgba(18,22,36,.72);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.018);
+}
+.dai-settings-account-card {
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:14px;
+  border:1px solid rgba(246,169,193,.16);
+  border-radius:17px;
+  background:
+    linear-gradient(135deg,rgba(246,169,193,.075),rgba(185,154,222,.035)),
+    rgba(20,24,39,.88);
+}
+.dai-settings-avatar {
+  width:48px;
+  height:48px;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(145deg,#e89ab7,#9c7bc0);
+  color:#fff;
+  font-size:18px;
+  font-weight:900;
+  box-shadow:0 8px 24px rgba(215,127,163,.16);
+}
+.dai-settings-account-info {
+  min-width:0;
+}
+.dai-settings-account-info strong,
+.dai-settings-account-info small {
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.dai-settings-account-info strong {
+  color:#f8f1f6;
+  font-size:14px;
+}
+.dai-settings-account-info small {
+  margin-top:4px;
+  color:#9a9caf;
+  font-size:10px;
+}
+.dai-settings-account-actions {
+  display:flex;
+  gap:7px;
+}
+.dai-settings-account-actions button {
+  min-height:36px;
+  padding:0 11px;
+  border:1px solid #373b50;
+  border-radius:11px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  background:#171b2b;
+  color:#ddd5df;
+  font-size:10px;
+  font-weight:700;
+  cursor:pointer;
+}
+.dai-settings-account-actions button:hover {
+  border-color:#795b74;
+  background:#211c2b;
+}
+.dai-settings-account-actions button.logout {
+  color:#dfa6b5;
+  border-color:rgba(223,133,155,.18);
+}
+.dai-settings-account-actions svg {
+  width:15px;
+  height:15px;
+}
+.dai-settings-card .classic-setting {
+  margin-top:0;
+}
+.dai-settings-card .classic-setting + .dai-setting-grid,
+.dai-settings-card .dai-setting-grid + .dai-voice-health,
+.dai-settings-card .dai-voice-health + .dai-live-voice-setting {
+  margin-top:12px;
+}
+.dai-settings-card .dai-setting-grid {
+  margin-top:0;
+}
+.dai-settings-card .dai-voice-rate {
+  margin-top:0;
+  min-height:100%;
+}
+.dai-settings-card .dai-live-voice-setting {
+  margin-top:12px;
+}
+.dai-settings-card.dai-sfx-settings {
+  margin-top:0;
+}
+.dai-settings-card.plan-card .dai-plan-setting {
+  margin-top:0;
+}
+.dai-settings-card.plan-card .dai-plan-setting + .dai-plan-setting,
+.dai-settings-card.plan-card .dai-plan-setting + .classic-setting,
+.dai-settings-card.plan-card .classic-setting + .classic-privacy {
+  margin-top:10px;
+}
+.classic-setting.compact {
+  margin-top:0;
+  min-height:42px;
+  padding:10px 11px;
+  border:1px solid #34384d;
+  border-radius:12px;
+  background:#121625;
+}
+.dai-settings-tools.organized {
+  margin-top:0;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.dai-settings-tools.organized > button {
+  min-height:62px;
+}
+.dai-settings-footer {
+  margin-top:18px !important;
+  margin-bottom:18px !important;
+  padding:13px 0 0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-top:1px solid rgba(255,255,255,.055);
+  color:#777b90;
+}
+.dai-settings-footer span {
+  font-size:10px;
+  white-space:nowrap;
+}
+.dai-settings-footer small {
+  font-size:9px;
+  text-align:left;
+  line-height:1.5;
+}
+html[data-dai-theme="light"] .classic-settings.dai-settings-organized {
+  background:#f7f3f7;
+  border-color:#d9d0dc;
+}
+html[data-dai-theme="light"] .dai-settings-head {
+  background:rgba(250,247,250,.95);
+  border-bottom-color:#ddd5df;
+}
+html[data-dai-theme="light"] .dai-settings-section + .dai-settings-section,
+html[data-dai-theme="light"] .dai-settings-footer {
+  border-color:#dfd7e2;
+}
+html[data-dai-theme="light"] .dai-settings-section-title strong,
+html[data-dai-theme="light"] .dai-settings-account-info strong {
+  color:#342b36;
+}
+html[data-dai-theme="light"] .dai-settings-section-title small,
+html[data-dai-theme="light"] .dai-settings-account-info small {
+  color:#746a78;
+}
+html[data-dai-theme="light"] .dai-settings-card {
+  background:#fff;
+  border-color:#dfd7e2;
+}
+html[data-dai-theme="light"] .dai-settings-account-card {
+  background:linear-gradient(135deg,#fff7fa,#f7f2fb);
+  border-color:#dfcbd5;
+}
+html[data-dai-theme="light"] .dai-settings-account-actions button {
+  background:#fff;
+  border-color:#ddd4df;
+  color:#4b414e;
+}
+html[data-dai-theme="light"] .classic-setting.compact {
+  background:#fff;
+  border-color:#d8cfdb;
+}
+@media(max-width:640px) {
+  .classic-settings.dai-settings-organized {
+    width:calc(100vw - 16px);
+    max-height:calc(var(--dai-viewport-height,100dvh) - 16px);
+    border-radius:20px;
+  }
+  .dai-settings-head {
+    padding:14px 14px 12px;
+  }
+  .dai-settings-organized > *:not(.dai-settings-head) {
+    margin-inline:14px;
+  }
+  .dai-settings-section {
+    margin-top:14px;
+  }
+  .dai-settings-section + .dai-settings-section {
+    padding-top:14px;
+  }
+  .dai-settings-account-card {
+    grid-template-columns:44px minmax(0,1fr);
+    gap:10px;
+    padding:12px;
+  }
+  .dai-settings-avatar {
+    width:44px;
+    height:44px;
+    border-radius:14px;
+  }
+  .dai-settings-account-actions {
+    grid-column:1/-1;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .dai-settings-account-actions button {
+    width:100%;
+  }
+  .dai-settings-card {
+    padding:12px;
+  }
+  .dai-settings-tools.organized {
+    grid-template-columns:1fr;
+  }
+  .dai-settings-tools.organized > button {
+    min-height:56px;
+  }
+  .dai-settings-footer {
+    display:grid;
+    gap:4px;
+  }
+  .dai-settings-footer small {
+    text-align:right;
+  }
+}
+@media(max-width:380px) {
+  .dai-settings-account-actions {
+    grid-template-columns:1fr;
+  }
+  .dai-settings-section-title small {
+    display:none;
+  }
+}
