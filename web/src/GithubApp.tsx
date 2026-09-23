@@ -3916,15 +3916,17 @@ export default function GithubApp(){
 
     {capabilitiesOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setCapabilitiesOpen(false)}}>
       <section className='dai-web-panel dai-capabilities-panel'>
-        <div className='classic-drawer-head'><div><span>DAI Web 1.0</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
+        <div className='classic-drawer-head'><div><span>DAI Web 1.4</span><h3>ضي تقدر تعمل إيه؟</h3></div><button className='classic-icon-button' onClick={()=>setCapabilitiesOpen(false)}><X className='h-5 w-5'/></button></div>
         <p className='dai-panel-intro'>نسخة الويب مركزة على المحادثة والصوت والذاكرة وتجربة ضي. صلاحيات Windows الكاملة تفضل لتطبيق DAI Desktop.</p>
         <div className='dai-capability-grid'>
-          <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>Streaming، Regenerate، سجل محادثات وبحث وتثبيت.</small></article>
+          <article><MessageSquareWarning/><strong>محادثة ذكية</strong><small>ردود Streaming وسجل محادثات وتجربة سريعة للمحادثة اليومية.</small></article>
+          <article><Search/><strong>بحث فعلي</strong><small>ضي تقدر تدور على الويب، تجمع مصادر وروابط، وترجع بحل عملي.</small></article>
+          <article><Pencil/><strong>برمجة محلية</strong><small>طلبات الكود تتوجه لمحرك مفتوح يعمل على جهازك بدون تكلفة لكل طلب.</small></article>
+          <article><Brain/><strong>تحليل محلي</strong><small>المهام التقيلة والخطط الطويلة تتوجه لمحرك تفكير محلي منفصل.</small></article>
+          <article><Sparkles/><strong>إنشاء صور</strong><small>طلبات الصور لها مسار مستقل، وتظهر النتيجة داخل نفس المحادثة.</small></article>
           <article><Headphones/><strong>صوت ضي</strong><small>رسائل صوتية، قراءة الردود ومحادثة صوتية مباشرة اختيارية.</small></article>
-          <article><Brain/><strong>ذاكرة اختيارية</strong><small>في Professional وتقدر توقفها أو تمسحها في أي وقت.</small></article>
-          <article><Sparkles/><strong>شخصية وحركات</strong><small>حالات وتعبيرات وحركات مرتبطة بالسياق.</small></article>
-          <article><Activity/><strong>تشخيص ذاتي</strong><small>فحص اتصال ومايك وصوت وخدمات ضي من داخل الموقع.</small></article>
-          <article><ShieldCheck/><strong>خصوصية واضحة</strong><small>تحكم في محادثاتك وذاكرتك وحسابك.</small></article>
+          <article><Orbit/><strong>توجيه ذكي</strong><small>ضي تختار المسار المناسب تلقائيًا حسب نوع الطلب مع fallback عند الحاجة.</small></article>
+          <article><ShieldCheck/><strong>خصوصية واضحة</strong><small>الكود والتحليل المحليان يعملان على جهازك، وتحكمك في المحادثات والذاكرة يفضل واضح.</small></article>
         </div>
         <div className='dai-panel-actions'>
           <button onClick={()=>{setCapabilitiesOpen(false);void runDiagnostics()}}><Activity/> فحص ضي</button>
