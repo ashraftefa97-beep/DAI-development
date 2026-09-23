@@ -956,14 +956,18 @@ export default function GithubApp(){
     const token=session?.access_token||'';
     if(!token)throw new Error('tts-session');
 
-    let speechParts=splitSpeechText(spoken,650);
-    if(speechParts[0]?.length>360){
-      const firstParts=splitSpeechText(speechParts[0],360);
-      speechParts=[...firstParts,...speechParts.slice(1)];
+    let speechParts:string[]=[];
+    if(spoken.length<=520){
+      speechParts=[spoken];
+    }else{
+      const firstCandidate=splitSpeechText(spoken,420)[0]||spoken.slice(0,420).trim();
+      const firstLength=Math.max(1,spoken.indexOf(firstCandidate)+firstCandidate.length);
+      const remainder=spoken.slice(firstLength).trim();
+      speechParts=remainder?[firstCandidate,remainder]:[firstCandidate];
     }
     if(!speechParts.length)return false;
 
-    const fetchSpeechPart=async(part:string)=>{
+    const fetchSpeechPart=async(part:string,index:number)=>{
       if(runId!==speechRunRef.current)throw new Error('tts-cancelled');
 
       const partController=new AbortController();
@@ -980,7 +984,12 @@ export default function GithubApp(){
               apikey:supabasePublishableKey,
               'Content-Type':'application/json'
             },
-            body:JSON.stringify({text:part})
+            body:JSON.stringify({
+              text:part,
+              segmentIndex:index,
+              segmentCount:speechParts.length,
+              previousTail:index>0?speechParts[index-1].slice(-180):''
+            })
           }
         );
       }catch(error){
@@ -1005,7 +1014,7 @@ export default function GithubApp(){
     // Generate only the first short chunk before playback. Remaining chunks are
     // fetched while the first one is already speaking, which removes the long
     // "prepare all audio first" delay on mobile.
-    const firstBuffer=await fetchSpeechPart(speechParts[0]);
+    const firstBuffer=await fetchSpeechPart(speechParts[0],0);
     if(runId!==speechRunRef.current)return false;
 
     stopSpeechAudio();
@@ -1064,7 +1073,7 @@ export default function GithubApp(){
       void (async()=>{
         try{
           for(let index=1;index<speechParts.length;index++){
-            const decoded=await fetchSpeechPart(speechParts[index]);
+            const decoded=await fetchSpeechPart(speechParts[index],index);
             if(runId!==speechRunRef.current)return;
             const startAt=Math.max(nextStart,ctx.currentTime+.025);
             nextStart=playBuffer(decoded,startAt,index===speechParts.length-1);
