@@ -662,6 +662,71 @@ export default function GithubApp(){
     return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
+  async function directSpeech(
+    text:string,
+    runId:number,
+    onStart?:()=>void,
+    onEnd?:()=>void
+  ){
+    if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
+    const spoken=cleanForSpeech(text).slice(0,2800);
+    if(!spoken)return false;
+
+    const ctx=ensureSpeechAudioContext();
+    if(!ctx)return false;
+    if(ctx.state==='suspended'){
+      try{await ctx.resume();}catch{}
+    }
+    if(ctx.state!=='running')throw new Error('audio-context-not-running');
+
+    let {data:{session}}=await supabase.auth.getSession();
+    if(!session){
+      const refreshed=await supabase.auth.refreshSession();
+      session=refreshed.data.session;
+    }
+    const token=session?.access_token||'';
+    if(!token)throw new Error('tts-session');
+
+    const response=await fetch(
+      supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts',
+      {
+        method:'POST',
+        headers:{
+          Authorization:'Bearer '+token,
+          apikey:supabasePublishableKey,
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({text:spoken})
+      }
+    );
+
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok||!payload?.audioBase64){
+      throw new Error(String(payload?.code||payload?.error||'tts-direct-failed'));
+    }
+    if(runId!==speechRunRef.current)return false;
+
+    const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
+    const decoded=await ctx.decodeAudioData(audioBytes.slice(0));
+    if(runId!==speechRunRef.current)return false;
+
+    stopSpeechAudio();
+
+    const source=ctx.createBufferSource();
+    source.buffer=decoded;
+    source.playbackRate.value=voiceRate;
+    source.connect(ctx.destination);
+    speechStreamSourcesRef.current.add(source);
+    source.onended=()=>{
+      speechStreamSourcesRef.current.delete(source);
+      if(runId===speechRunRef.current)onEnd?.();
+    };
+
+    source.start(0);
+    onStart?.();
+    return true;
+  }
+
   async function streamSpeech(
     text:string,
     runId:number,
@@ -842,16 +907,79 @@ export default function GithubApp(){
         }
       );
       if(!played&&runId===speechRunRef.current){
+        try{
+          const fallback=await directSpeech(
+            spoken,
+            runId,
+            ()=>{
+              if(runId!==speechRunRef.current)return;
+              clearTimeout(timer.current);
+              setDaiState('talk');
+              setVoiceNotice('ضي بتتكلم.');
+              onStart?.();
+            },
+            ()=>{
+              if(runId!==speechRunRef.current)return;
+              const finishState=responseState==='talk'?'idle':responseState;
+              if(finishState==='idle')setDaiState('idle');
+              else animate(finishState,1100);
+              setVoiceNotice('الصوت خلص.');
+              onEnd?.();
+            }
+          );
+          if(fallback)return true;
+        }catch(fallbackError){
+          const code=String((fallbackError as Error)?.message||'tts-fallback-failed');
+          console.error('DAI direct voice fallback failed',fallbackError);
+          setDaiState('idle');
+          setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+code);
+          setErrorText('تشخيص الصوت: '+code);
+          return false;
+        }
         setDaiState('idle');
-        setVoiceNotice('صوت ضي الأساسي ما اشتغلش؛ الرد ظاهر كتابة.');
+        setVoiceNotice('صوت ضي متعطل مؤقتًا.');
         return false;
       }
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
-      console.error('DAI voice playback failed',error);
+      const primaryCode=String((error as Error)?.message||'tts-stream-failed');
+      console.error('DAI streamed voice failed',error);
+
+      try{
+        const fallback=await directSpeech(
+          spoken,
+          runId,
+          ()=>{
+            if(runId!==speechRunRef.current)return;
+            clearTimeout(timer.current);
+            setDaiState('talk');
+            setVoiceNotice('ضي بتتكلم.');
+            onStart?.();
+          },
+          ()=>{
+            if(runId!==speechRunRef.current)return;
+            const finishState=responseState==='talk'?'idle':responseState;
+            if(finishState==='idle')setDaiState('idle');
+            else animate(finishState,1100);
+            setVoiceNotice('الصوت خلص.');
+            onEnd?.();
+          }
+        );
+        if(fallback)return true;
+      }catch(fallbackError){
+        const fallbackCode=String((fallbackError as Error)?.message||'tts-fallback-failed');
+        const diagnostic=primaryCode+' / '+fallbackCode;
+        console.error('DAI direct voice fallback failed',fallbackError);
+        setDaiState('idle');
+        setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+diagnostic);
+        setErrorText('تشخيص الصوت: '+diagnostic);
+        return false;
+      }
+
       setDaiState('idle');
-      setVoiceNotice('صوت ضي الأساسي ما اشتغلش؛ الرد ظاهر كتابة.');
+      setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+primaryCode);
+      setErrorText('تشخيص الصوت: '+primaryCode);
       return false;
     }
   }
