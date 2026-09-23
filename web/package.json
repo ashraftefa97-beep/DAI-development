@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.github.json --noEmit",
     "security-check": "node scripts/security-check.mjs",
-    "test": "node --import tsx --test src/taskRouter.test.ts"
+    "test": "node --import tsx --test src/taskRouter.test.ts",
+    "test:router": "rm -rf .tmp-tests && tsc src/taskRouter.ts tests/taskRouter.test.ts --outDir .tmp-tests --module NodeNext --moduleResolution NodeNext --target ES2022 --skipLibCheck && node .tmp-tests/tests/taskRouter.test.js",
+    "architecture-check": "node scripts/architecture-check.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
