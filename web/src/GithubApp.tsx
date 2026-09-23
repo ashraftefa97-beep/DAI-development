@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
+import DaiFace, { type DaiAvatarStyle, type DaiRenderQuality, type DaiState } from './DaiFace';
 import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
@@ -171,7 +171,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.8.0';
+const DAI_WEB_VERSION='1.9.0';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -330,6 +330,13 @@ export default function GithubApp(){
       return value==='calm'||value==='minimal'?value:'cinematic';
     }catch{return 'cinematic';}
   });
+  const [avatarStyle,setAvatarStyle]=useState<DaiAvatarStyle>(()=>{
+    try{
+      const value=localStorage.getItem('dai-avatar-style');
+      return value==='minimal'||value==='cute'||value==='cyber'?value:'classic';
+    }catch{return 'classic';}
+  });
+  const [avatarSyncing,setAvatarSyncing]=useState(false);
   const [renderQuality,setRenderQuality]=useState<DaiRenderQuality>(()=>{
     try{
       const memory=Number((navigator as Navigator & {deviceMemory?:number}).deviceMemory||0);
