@@ -29,6 +29,7 @@ export class DaiMotion {
     this.state = this.gesture = 'idle';
     this.elapsed = this.gestureTime = 0;
     this.reduced = false;
+    this.quality = 'high';
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -57,6 +58,11 @@ export class DaiMotion {
       this.burst(0,-65,burstCount);
     }
   }
+  setQuality(level='high') {
+    this.quality=['high','medium','low'].includes(level)?level:'high';
+    if(this.quality==='low')this.particles=this.particles.slice(-10);
+    else if(this.quality==='medium')this.particles=this.particles.slice(-22);
+  }
   setVoiceLevel(level=0, active=true) {
     const value=clamp(Number(level)||0,0,1);
     this.voiceDriven=Boolean(active);
@@ -69,11 +75,14 @@ export class DaiMotion {
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
+    const qualityScale=this.quality==='high'?1:this.quality==='medium'?.68:.36;
+    count=Math.max(1,Math.round(count*qualityScale));
     for(let i=0;i<count;i++) {
       const angle=-Math.PI+this.random()*Math.PI, speed=45+this.random()*70;
       this.particles.push([x,y,Math.cos(angle)*speed,Math.sin(angle)*speed,0,.6+this.random()*.6,i%3]);
     }
-    this.particles=this.particles.slice(-40);
+    const cap=this.quality==='high'?40:this.quality==='medium'?24:10;
+    this.particles=this.particles.slice(-cap);
   }
   targets() {
     let e=this.gestureTime; const t=this.elapsed;
@@ -92,7 +101,8 @@ export class DaiMotion {
       else { active=action; e=1.7-(this.idleUntil-this.elapsed); }
     }
     if(this.mouseInside&&!this.dragging) set({gaze_x:clamp(this.pointer.x/22,-10,10),gaze_y:clamp(this.pointer.y/32,-5,5)});
-    if(!this.reduced) p.bob=Math.sin(t*1.7)*2.2;
+    const qualityScale=this.quality==='high'?1:this.quality==='medium'?.72:.42;
+    if(!this.reduced) p.bob=Math.sin(t*1.7)*2.2*qualityScale;
     const enter=e<.62?back(e/.62,.8):1;
     if(e<.14 && active!=='idle') set({sx:1.018,sy:.985});
     if(active==='typing') {
@@ -507,6 +517,28 @@ export class DaiMotion {
       const pop=e<.5?back(e/.5,.6):1;
       set({left:.74,right:1.02,smile:.95,mouth:.10,cheek:.7,happy:.85,ra:1,rx:118,ry:-36*pop,rr:-12,tilt:-7,gaze_x:3});
     } else if(this.state==='thinking') set({gaze_x:-7,gaze_y:-6,tilt:-5,brow:1});
+
+    if(!this.reduced){
+      const microScale=qualityScale;
+      if(active==='idle'){
+        p.gaze_y+=Math.sin(t*.62)*.35*microScale;
+        p.smile+=Math.sin(t*.43+.8)*.025*microScale;
+        p.sy+=Math.sin(t*.72)*.003*microScale;
+      }else if(active==='listen'){
+        p.gaze_x+=Math.sin(t*.9)*.55*microScale;
+        p.brow+=Math.sin(t*.7+.5)*.08*microScale;
+      }else if(active==='search'||active==='scan'||active==='scout'){
+        p.gaze_x+=Math.sin(t*1.15)*.75*microScale;
+        p.left-=Math.max(0,Math.sin(t*.8))*.035*microScale;
+      }else if(active==='thinking_deep'||this.state==='thinking'){
+        p.gaze_y-=Math.sin(t*.58+.4)*.45*microScale;
+        p.brow+=Math.sin(t*.64)*.07*microScale;
+      }else if(active==='response_ready'||active==='reply'){
+        p.smile+=Math.max(0,Math.sin(t*.75))*.04*microScale;
+        p.cheek+=Math.max(0,Math.sin(t*.75))*.035*microScale;
+      }
+    }
+
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
     if(this.reduced) set({bob:0,sx:1,sy:1});
     return p;
@@ -660,9 +692,10 @@ export class DaiMotion {
     this.blinkTime+=elapsedDt;
     if(this.elapsed>this.nextIdle&&this.state==='idle'&&this.gesture==='idle'&&!this.dragging&&!this.reduced) {
       const v=this.random()*100;
-      this.idleAction=v<39?'look':v<66?'smile':v<88?'tilt':v<96?'stretch':'sleepy';
+      this.idleAction=v<45?'look':v<72?'smile':v<91?'tilt':v<97?'stretch':'sleepy';
       this.idleSide=this.random()<.5?-1:1;
-      this.idleUntil=this.elapsed+1.7; this.nextIdle=this.elapsed+5+this.random()*3;
+      const quietFactor=this.quality==='low'?1.55:this.quality==='medium'?1.22:1;
+      this.idleUntil=this.elapsed+1.55; this.nextIdle=this.elapsed+(5.8+this.random()*3.8)*quietFactor;
     }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
