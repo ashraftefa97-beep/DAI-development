@@ -4188,3 +4188,148 @@ html[data-dai-theme="light"] .classic-setting.compact {
     display:none;
   }
 }
+
+
+/* DAI cinematic phase aura v1.7.2 */
+.classic-logo-stage::after {
+  content:'';
+  position:absolute;
+  z-index:0;
+  left:50%;
+  top:49%;
+  width:min(420px,72vw);
+  height:min(280px,48vw);
+  border-radius:50%;
+  pointer-events:none;
+  opacity:.18;
+  transform:translate(-50%,-50%) scale(.96);
+  filter:blur(26px);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(246,169,193,.15) 0%,
+    rgba(185,154,222,.07) 38%,
+    transparent 75%
+  );
+  transition:
+    opacity .42s ease,
+    transform .52s cubic-bezier(.2,.8,.2,1),
+    filter .42s ease,
+    background .42s ease;
+}
+.classic-shell[data-ai-phase="idle"] .classic-logo-stage::after {
+  opacity:.14;
+  transform:translate(-50%,-50%) scale(.95);
+}
+.classic-shell[data-ai-phase="attention"] .classic-logo-stage::after {
+  opacity:.25;
+  transform:translate(-50%,-50%) scale(1.01);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(246,169,193,.19) 0%,
+    rgba(185,154,222,.08) 42%,
+    transparent 74%
+  );
+}
+.classic-shell[data-ai-phase="listening"] .classic-logo-stage::after {
+  opacity:.33;
+  transform:translate(-50%,-50%) scale(1.035);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(109,220,201,.16) 0%,
+    rgba(122,171,211,.07) 40%,
+    transparent 75%
+  );
+  animation:daiPhaseAuraListen 2.8s ease-in-out infinite;
+}
+.classic-shell[data-ai-phase="thinking"] .classic-logo-stage::after {
+  opacity:.31;
+  transform:translate(-50%,-50%) scale(1.02);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(185,154,222,.18) 0%,
+    rgba(113,96,170,.09) 42%,
+    transparent 76%
+  );
+  animation:daiPhaseAuraThink 3.6s ease-in-out infinite;
+}
+.classic-shell[data-ai-phase="responding"] .classic-logo-stage::after {
+  opacity:.32;
+  transform:translate(-50%,-50%) scale(1.04);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(246,169,193,.18) 0%,
+    rgba(215,126,163,.08) 42%,
+    transparent 76%
+  );
+  animation:daiPhaseAuraReply 2.2s ease-in-out infinite;
+}
+.classic-shell[data-ai-phase="speaking"] .classic-logo-stage::after {
+  opacity:.23;
+  transform:translate(-50%,-50%) scale(1.00);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(246,169,193,.16) 0%,
+    rgba(185,154,222,.055) 43%,
+    transparent 76%
+  );
+  animation:daiPhaseAuraSpeak 2.6s ease-in-out infinite;
+}
+.classic-shell[data-ai-phase="complete"] .classic-logo-stage::after {
+  opacity:.38;
+  transform:translate(-50%,-50%) scale(1.08);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(255,223,158,.18) 0%,
+    rgba(246,169,193,.08) 43%,
+    transparent 76%
+  );
+}
+.classic-shell[data-ai-phase="error"] .classic-logo-stage::after {
+  opacity:.27;
+  transform:translate(-50%,-50%) scale(.99);
+  background:radial-gradient(
+    ellipse at center,
+    rgba(231,115,145,.18) 0%,
+    rgba(154,80,116,.08) 44%,
+    transparent 76%
+  );
+}
+@keyframes daiPhaseAuraListen {
+  0%,100% { transform:translate(-50%,-50%) scale(1.01); opacity:.27; }
+  50% { transform:translate(-50%,-50%) scale(1.055); opacity:.35; }
+}
+@keyframes daiPhaseAuraThink {
+  0%,100% { transform:translate(-50%,-50%) scale(.99); opacity:.26; }
+  50% { transform:translate(-50%,-50%) scale(1.045); opacity:.34; }
+}
+@keyframes daiPhaseAuraReply {
+  0%,100% { transform:translate(-50%,-50%) scale(1.01); opacity:.29; }
+  50% { transform:translate(-50%,-50%) scale(1.055); opacity:.34; }
+}
+@keyframes daiPhaseAuraSpeak {
+  0%,100% { transform:translate(-50%,-50%) scale(.995); opacity:.19; }
+  50% { transform:translate(-50%,-50%) scale(1.025); opacity:.25; }
+}
+html[data-dai-theme="light"] .classic-logo-stage::after {
+  filter:blur(30px);
+  opacity:.14;
+}
+html[data-dai-theme="light"] .classic-shell[data-ai-phase="listening"] .classic-logo-stage::after,
+html[data-dai-theme="light"] .classic-shell[data-ai-phase="thinking"] .classic-logo-stage::after,
+html[data-dai-theme="light"] .classic-shell[data-ai-phase="responding"] .classic-logo-stage::after,
+html[data-dai-theme="light"] .classic-shell[data-ai-phase="speaking"] .classic-logo-stage::after {
+  opacity:.20;
+}
+@media(max-width:640px) {
+  .classic-logo-stage::after {
+    width:min(330px,80vw);
+    height:min(220px,53vw);
+    filter:blur(22px);
+  }
+}
+@media(prefers-reduced-motion:reduce) {
+  .classic-logo-stage::after {
+    animation:none !important;
+    transition:none !important;
+  }
+}
