@@ -3667,3 +3667,40 @@ html[data-dai-theme="light"] .classic-chat-message.user {
   unicode-bidi: plaintext;
   text-align: start;
 }
+
+
+/* Mobile viewport + keyboard stability */
+.classic-shell {
+  height: var(--dai-viewport-height, 100dvh);
+  min-height: 0;
+}
+.classic-stage {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  scroll-padding-bottom: max(90px, calc(70px + env(safe-area-inset-bottom)));
+}
+@media(max-width:640px) {
+  .classic-header {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+  .classic-stage {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  html[data-dai-keyboard="open"] .classic-stage {
+    padding-top: 4px;
+    gap: 2px;
+  }
+  html[data-dai-keyboard="open"] .classic-face-wrap.classic-logo-stage {
+    min-height: 88px;
+    flex: .35 1 110px;
+  }
+  html[data-dai-keyboard="open"] .classic-chat-panel {
+    height: clamp(108px, 28vh, 176px);
+    min-height: 108px;
+    padding: 12px 10px 16px;
+    margin-top: 2px;
+  }
+  html[data-dai-keyboard="open"] .classic-input-bar {
+    margin-top: 4px;
+    flex: 0 0 auto;
+  }
+}
