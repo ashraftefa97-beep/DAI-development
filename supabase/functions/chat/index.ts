@@ -13,6 +13,35 @@ function json(body: unknown, status = 200) {
   });
 }
 
+type SearchSource = { title: string; url: string };
+
+function webSearchAllowed(text: string) {
+  return !/(?:سلاح|أسلحة|مسدس|بندقي|ذخيرة|سكين|خنجر|صاعق|تيزر|pepper\s*spray|gun|firearm|ammo|knife|taser|مخدر|حشيش|ماريجوانا|كوكايين|هيروين|فودكا|ويسكي|كحول|alcohol|cannabis|marijuana|cocaine|heroin|قمار|مراهن|كازينو|betting|casino|gambling|تحدي خطير|dangerous challenge)/i.test(text);
+}
+
+function parseGrounding(metadata: any) {
+  const sources = new Map<string, SearchSource>();
+  const queries = new Set<string>();
+
+  for (const query of metadata?.webSearchQueries || []) {
+    const value = String(query || '').trim();
+    if (value) queries.add(value.slice(0, 240));
+  }
+
+  for (const chunk of metadata?.groundingChunks || []) {
+    const web = chunk?.web;
+    const url = String(web?.uri || '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    const title = String(web?.title || '').trim().slice(0, 180) || 'مصدر';
+    sources.set(url, { title, url });
+  }
+
+  return {
+    sources: [...sources.values()].slice(0, 8),
+    searchQueries: [...queries].slice(0, 6),
+  };
+}
+
 function pickInstantReply(text: string) {
   const normalized = text
     .trim()
@@ -181,7 +210,7 @@ Deno.serve(async (req) => {
     : 'لا توجد ذاكرة Professional مفعلة للمستخدم حاليًا.';
 
   const systemPrompt =
-    `أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية قصيرة وطبيعية ومتنوعة بدل جملة محفوظة، ومتسأليش تلقائيًا «أقدر أساعدك بإيه النهارده؟» إلا لو السياق محتاج سؤال متابعة. تجنبي تكرار نفس افتتاحية الرد من رسالة للتانية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة «قولي بصوتك» أو «اتكلمي بصوتك» أو طلب سماع الرد، جاوبي على المحتوى طبيعي من غير ما تقولي إن الصوت غير ممكن؛ الواجهة هتشغل الرد بصوت ضي. لو المستخدم سأل عن صوتك، قولي إن ضي بتتكلم بصوتها في المحادثة الصوتية. لا تذكري اسم مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
+    `أنت ضي، مساعدة ذكية ودودة ومختصرة، وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية قصيرة وطبيعية ومتنوعة بدل جملة محفوظة، ومتسأليش تلقائيًا «أقدر أساعدك بإيه النهارده؟» إلا لو السياق محتاج سؤال متابعة. تجنبي تكرار نفس افتتاحية الرد من رسالة للتانية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة «قولي بصوتك» أو «اتكلمي بصوتك» أو طلب سماع الرد، جاوبي على المحتوى طبيعي من غير ما تقولي إن الصوت غير ممكن؛ الواجهة هتشغل الرد بصوت ضي. لو المستخدم سأل عن صوتك، قولي إن ضي بتتكلم بصوتها في المحادثة الصوتية. عندك بحث ويب مباشر: لو السؤال عن معلومة حديثة أو رابط أو فيديو أو سعر أو منتج أو مصدر أو مقارنة أو حل مشكلة محتاج معلومات حديثة، استخدمي البحث بنفسك. بعد البحث اختصري أهم النتائج وقدمي حل عملي واضح، وما تختلقيش روابط. لا تذكري اسم مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
   const contents = [
     ...(historyRows || [])
@@ -203,7 +232,8 @@ Deno.serve(async (req) => {
     message.length > 700 ||
     /(?:كود|برمج|debug|حلل|تحليل|بالتفصيل|خطوة بخطوة|خطة كاملة|code|refactor|analy[sz]e|explain in detail)/i.test(message);
   const thinkingLevel = 'minimal';
-  const maxOutputTokens = complexRequest ? 420 : 220;
+  const maxOutputTokens = complexRequest ? 620 : 260;
+  const allowWebSearch = !instantAnswer && webSearchAllowed(message);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), complexRequest ? 25000 : 16000);
@@ -212,6 +242,7 @@ Deno.serve(async (req) => {
   let usedModel = instantAnswer ? 'local-fast-path' : '';
   let lastStatus = 0;
   let lastDetail = '';
+  let groundingMetadata: any = null;
 
   const aiStartedAt = performance.now();
 
@@ -237,6 +268,7 @@ Deno.serve(async (req) => {
               parts: [{ text: systemPrompt }],
             },
             contents,
+            ...(allowWebSearch ? { tools: [{ google_search: {} }] } : {}),
             generationConfig: {
               maxOutputTokens,
               thinkingConfig: {
@@ -263,6 +295,7 @@ Deno.serve(async (req) => {
 
       if (response.ok) {
         const payload = JSON.parse(responseText || '{}');
+        groundingMetadata = payload?.candidates?.[0]?.groundingMetadata || null;
         answer = String(
           payload?.candidates?.[0]?.content?.parts
             ?.map((part: any) => part?.text || '')
@@ -387,16 +420,22 @@ Deno.serve(async (req) => {
     return json({ error: 'Could not read saved conversation messages' }, 500);
   }
 
+  const grounding = parseGrounding(groundingMetadata);
+
   return json({
     conversationId,
     userMessage,
     assistantMessage,
+    researched: grounding.sources.length > 0 || grounding.searchQueries.length > 0,
+    sources: grounding.sources,
+    searchQueries: grounding.searchQueries,
     performance: {
       aiMs: Math.round(performance.now() - aiStartedAt),
       totalMs: Math.round(performance.now() - requestStartedAt),
       thinkingLevel,
       historyMessages: historyRows.length,
       fastPath: Boolean(instantAnswer),
+      searched: grounding.sources.length > 0 || grounding.searchQueries.length > 0,
     },
   });
 });
