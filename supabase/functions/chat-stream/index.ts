@@ -1186,6 +1186,7 @@ Deno.serve(async (req) => {
     .replace(/[^a-zA-Z0-9_-]/g, '')
     .slice(0, 120) || crypto.randomUUID();
   const route = resolveGatewayRoute(message, body?.routeHint);
+  const brainProfile = selectBrainProfile(route, message);
   const desktopActionResult = String(body?.desktopActionResult || '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .trim()
@@ -1218,7 +1219,17 @@ Deno.serve(async (req) => {
         .select('id,role,content,created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
-        .limit(isRegenerate ? 6 : 4),
+        .limit(
+          isRegenerate
+            ? 20
+            : brainProfile === 'deep'
+              ? 18
+              : brainProfile === 'smart'
+                ? 12
+                : brainProfile === 'research'
+                  ? 10
+                  : 7
+        ),
     ]);
 
     if (!ownedResult.data) return json({ error: 'Conversation not found' }, 404);
@@ -1314,10 +1325,29 @@ Deno.serve(async (req) => {
   const systemPrompt =
     `أنت ضي، مساعدة ذكية ودودة ومختصرة وشخصيتك أنثوية. في الأسئلة العادية جاوبي غالبًا في 1 إلى 4 جمل من غير حشو إلا لو المستخدم طلب تفاصيل. اسم المستخدم الأول هو «${userFirstName}». استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل. ما تبدأيش كل رد بتحية أو باسم المستخدم. خلي أسلوبك بالمصري الطبيعي السليم نحويًا وإملائيًا، بجمل واضحة ومكتملة ومش مكسرة، وكحوار حقيقي مش خدمة عملاء. ما تخلطيش بين مصري وفصحى ثقيلة أو لهجات خليجية في نفس الجملة، وتجنبي التركيبات الركيكة أو الترجمة الحرفية. الرسالة الحالية هي المطلوب الأساسي: افهمي الأمر الحالي أولًا، وما تكمليش موضوع قديم من التاريخ لو الرسالة الحالية غير مرتبطة به. لو الرسالة أمر قصير وواضح، نفذّي معناه مباشرة وما تفترضي تفاصيل من رسائل سابقة. تجنبي الافتتاحيات المتكررة والأسئلة الآلية. ${userGenderRule} ${nicknameRule} ${desktopRule} ${memoryRule} ${animationRule} الرسائل المكتوبة تظهر كتابة افتراضيًا، لكن لو المستخدم طلب صراحة سماع الرد أو قال «قولي بصوتك» أو «اتكلمي بصوتك»، جاوبي على المحتوى طبيعي من غير رفض أو ادعاء إن الصوت غير متاح؛ الواجهة هتشغل الرد بصوت ضي. عندك بحث ويب مباشر: لو السؤال عن معلومات حديثة، رابط أو فيديو، سعر أو منتج، مصدر، مقارنة، خبر، أو حل مشكلة يستفيد من معلومات حديثة، استخدمي البحث بنفسك بدل ما تقولي إنك مش قادرة تتصفحي. اجمعي أهم النتائج، قارنيها بمعايير واضحة، وبعدها ادي حل عملي. في الترشيحات غير السياسية ما تكتفيش بسرد النتائج: اختاري الأنسب للطلب واذكري باختصار ليه هو الأنسب وما المعيار اللي اعتمدتي عليه. في السياسة والانتخابات التزمي بالمقارنة المحايدة وما تختاريش أو تأيدي طرفًا. لو المستخدم طلب «لينك الموقع» أو «ابعت الرابط» من غير اسم جديد، استخدمي سياق المحادثة أولًا وما تعمليش بحث عشوائي؛ لو المقصود غير واضح اسألي عن اسم الموقع. لو المستخدم ذكر اسم موقع أو خدمة جديدة وطلب رابطها، ساعتها ابحثي واختاري الرابط الرسمي أو الأنسب. ما تختلقيش روابط أو مصادر. قبل ما تردي، افهمي الهدف والقيود الموجودة في الرسالة كلها. لو الطلب فيه أكتر من نقطة، ما تسقطيش أي نقطة مهمة. لو فيه تعارض أو معلومة ناقصة مؤثرة، وضحيها بدل التخمين. في الطلبات المعقدة راجعي النتيجة داخليًا قبل الإرسال وتأكدي إن الرد فعلاً بيحل المطلوب. لا تذكري مزود الذكاء أو تفاصيل تقنية إلا لو المستخدم سأل صراحة. لا تدّعي معلومات أو مصادر غير مؤكدة.`;
 
-  const orderedHistory = historyRows
+  const historyCandidates = historyRows
     .slice()
     .reverse()
     .filter((item) => item.role === 'user' || item.role === 'assistant');
+
+  const historyCharBudget =
+    brainProfile === 'deep'
+      ? 28000
+      : brainProfile === 'smart'
+        ? 18000
+        : brainProfile === 'research'
+          ? 14000
+          : 9000;
+
+  const orderedHistory: HistoryRow[] = [];
+  let historyChars = 0;
+  for (let index = historyCandidates.length - 1; index >= 0; index--) {
+    const item = historyCandidates[index];
+    const size = String(item.content || '').length;
+    if (orderedHistory.length && historyChars + size > historyCharBudget) break;
+    orderedHistory.unshift(item);
+    historyChars += size;
+  }
 
   const contents = orderedHistory.map((item) => ({
     role: item.role === 'assistant' ? 'model' : 'user',
@@ -1334,7 +1364,6 @@ Deno.serve(async (req) => {
     contents.push({ role: 'user', parts: [{ text: message }] });
   }
 
-  const brainProfile = selectBrainProfile(route, message);
   const maxOutputTokens = outputBudgetForBrain(brainProfile);
   const instantAnswer = isRegenerate ? '' : pickInstantReply(message);
   const allowWebSearch =
