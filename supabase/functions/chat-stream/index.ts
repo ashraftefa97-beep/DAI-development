@@ -1064,7 +1064,8 @@ async function summarizeFallbackSources(
 }
 
 function normalizedResearchKey(query: string) {
-  return String(query || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 500);
+  const canonical = heuristicSearchQuery(query) || String(query || '');
+  return canonical.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 500);
 }
 
 function cachedResearch(query: string) {
