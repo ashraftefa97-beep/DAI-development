@@ -73,7 +73,7 @@ export class DaiMotion {
     const [left,right,lw,rw,smile,mouth,tilt,cheek]=expressions[this.state];
     const p={left,right,lw,rw,smile,mouth,tilt,cheek,happy:this.state==='happy'?1:0,
       gaze_x:0,gaze_y:0,sx:1,sy:1,bob:0,lx:-118,ly:72,rx:118,ry:72,la:0,ra:0,lr:-10,rr:10,
-      hat:0,wand:0,listen:0,rod:0,fish:0,brow:0,heart:0,notes:0,bulb:0,sleep:0};
+      mouthWide:0,hat:0,wand:0,listen:0,rod:0,fish:0,brow:0,heart:0,notes:0,bulb:0,sleep:0};
     const set = values => Object.assign(p, values);
     let active=this.gesture;
     if(this.state==='idle' && active==='idle' && this.elapsed<this.idleUntil) {
@@ -130,49 +130,59 @@ export class DaiMotion {
     } else if(active==='talk'||this.state==='talking') {
       let beat=this.voice;
       if(!this.voiceDriven) {
-        beat=this.reduced?.22:(.20+.34*(.5+.5*Math.sin(e*8.6)))*(.70+.30*Math.sin(e*2.3)**2);
+        beat=this.reduced?.18:(.16+.28*(.5+.5*Math.sin(e*7.4)))*(.78+.22*Math.sin(e*2.0)**2);
       }
       beat=clamp(beat,0,1);
-      const emphasis=clamp((beat-.34)/.66,0,1);
-      const phrase=this.reduced?0:Math.sin(e*1.25);
-      const micro=this.reduced?0:Math.sin(e*2.1+.7);
 
-      let speechSmile=.48;
-      let speechCheek=.14;
-      let speechLeft=.92;
-      let speechRight=.94;
-      let speechTilt=phrase*1.15;
+      // Gate tiny room/noise energy so the mouth actually closes between words.
+      const speechOpen=beat<.035?0:Math.pow(clamp((beat-.035)/.72,0,1),.68);
+      const mouthWide=speechOpen*(.62-.26*speechOpen);
+      const phrase=this.reduced?0:Math.sin(e*.82);
+      const micro=this.reduced?0:Math.sin(e*1.55+.7);
+
+      let speechSmile=.44;
+      let speechCheek=.12;
+      let speechLeft=.94;
+      let speechRight=.96;
+      let speechTilt=phrase*.55;
 
       if(this.speechMood==='warm') {
-        speechSmile=.68; speechCheek=.28; speechLeft=.86; speechRight=.90; speechTilt=-2+phrase*.9;
+        speechSmile=.64; speechCheek=.24; speechLeft=.88; speechRight=.91; speechTilt=-1.2+phrase*.45;
       } else if(this.speechMood==='happy') {
-        speechSmile=.86; speechCheek=.48; speechLeft=.78; speechRight=.82; speechTilt=-2.6+phrase*1.2;
+        speechSmile=.80; speechCheek=.42; speechLeft=.80; speechRight=.83; speechTilt=-1.7+phrase*.55;
       } else if(this.speechMood==='curious') {
-        speechSmile=.40; speechCheek=.12; speechLeft=1.04; speechRight=.78; speechTilt=5+phrase*1.4;
+        speechSmile=.38; speechCheek=.10; speechLeft=1.02; speechRight=.80; speechTilt=3.2+phrase*.65;
       } else if(this.speechMood==='calm') {
-        speechSmile=.42; speechCheek=.12; speechLeft=.82; speechRight=.86; speechTilt=-1+phrase*.6;
+        speechSmile=.40; speechCheek=.10; speechLeft=.86; speechRight=.88; speechTilt=-.7+phrase*.30;
       } else if(this.speechMood==='serious') {
-        speechSmile=.20; speechCheek=.05; speechLeft=.88; speechRight=.90; speechTilt=phrase*.45;
+        speechSmile=.18; speechCheek=.04; speechLeft=.90; speechRight=.92; speechTilt=phrase*.22;
       }
 
-      const hand=emphasis*emphasis;
       set({
         left:speechLeft,
         right:speechRight,
         smile:speechSmile,
         cheek:speechCheek,
-        mouth:.018+Math.pow(beat,.78)*.66,
+        mouth:speechOpen*.78,
+        mouthWide,
         tilt:speechTilt,
-        gaze_x:phrase*1.7,
-        gaze_y:-1.2+micro*.45,
-        ra:.08+hand*.58,
-        rx:112+phrase*2.4,
-        ry:78-hand*38,
-        rr:-3-phrase*3-hand*8
+        gaze_x:phrase*.72,
+        gaze_y:-.8+micro*.18,
+
+        // Speaking is face-led. Keep both hands completely at rest/invisible.
+        la:0,
+        ra:0,
+        lx:-118,
+        ly:72,
+        rx:118,
+        ry:72,
+        lr:-10,
+        rr:10
       });
+
       if(!this.reduced) {
-        p.bob+=micro*.45+beat*.55;
-        p.sy+=beat*.008;
+        p.bob+=micro*.16+speechOpen*.14;
+        p.sy+=speechOpen*.0025;
       }
     } else if(active==='happy'||active==='wave') {
       const wave=this.reduced?0:Math.sin(e*9);
@@ -670,7 +680,19 @@ export class DaiMotion {
     if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*2.2);
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
-    for(const key of Object.keys(this.pose)) this.pose[key]=mix(this.pose[key],target[key],this.reduced?22:['mouth','left','right','gaze_x','gaze_y'].includes(key)?10:6.2);
+    const speechFace=this.voiceDriven&&(this.gesture==='talk'||this.state==='talking');
+    for(const key of Object.keys(this.pose)) {
+      const rate=this.reduced
+        ? 22
+        : speechFace&&key==='mouth'
+          ? 24
+          : speechFace&&key==='mouthWide'
+            ? 18
+            : ['left','right','gaze_x','gaze_y'].includes(key)
+              ? 10
+              : 6.2;
+      this.pose[key]=mix(this.pose[key],target[key],rate);
+    }
     for(const axis of ['x','y']) {
       if(!this.dragging) this.offsetTarget[axis]*=Math.exp(-dt*2.3);
       this.offset[axis]=mix(this.offset[axis],this.offsetTarget[axis],9);
