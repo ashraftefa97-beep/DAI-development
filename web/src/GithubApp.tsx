@@ -506,8 +506,9 @@ export default function GithubApp(){
     const screenHeight=Math.max(700,window.screen?.availHeight||window.innerHeight||820);
     const popupWidth=Math.max(560,Math.min(980,Math.round(screenWidth*.48)));
     const popupHeight=Math.max(620,screenHeight-70);
-    const popupLeft=Math.max(0,(window.screen?.availLeft||0)+screenWidth-popupWidth);
-    const popupTop=Math.max(0,(window.screen?.availTop||0)+28);
+    const screenAny=window.screen as Screen & {availLeft?:number;availTop?:number};
+    const popupLeft=Math.max(0,(screenAny.availLeft||0)+screenWidth-popupWidth);
+    const popupTop=Math.max(0,(screenAny.availTop||0)+28);
     const features=[
       'popup=yes',
       'resizable=yes',
