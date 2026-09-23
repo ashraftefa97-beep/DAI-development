@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
 import { DAI_AVATAR_IDS, DAI_AVATAR_OPTIONS, isDaiAvatarStyle, type DaiAvatarStyle } from './avatarCatalog';
 import DaiFaceBoundary from './DaiFaceBoundary';
@@ -5120,7 +5120,7 @@ export default function GithubApp(){
                   tabIndex={avatarStyle===item.id?0:-1}
                   className={'dai-avatar-choice '+item.id+(avatarStyle===item.id?' active':'')}
                   onClick={()=>setAvatarStyle(item.id)}
-                  onKeyDown={(event:KeyboardEvent<HTMLButtonElement>)=>{
+                  onKeyDown={(event:ReactKeyboardEvent<HTMLButtonElement>)=>{
                     const next=avatarKeyTarget(event.key,item.id);
                     if(!next)return;
                     event.preventDefault();
