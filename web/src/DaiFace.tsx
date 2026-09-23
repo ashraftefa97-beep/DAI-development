@@ -4,10 +4,12 @@ import { drawDai, stageScale } from './draw.mjs';
 import { daiSfx } from './daiSfx';
 
 export type DaiState = 'idle' | 'typing' | 'reply' | 'listen' | 'wave' | 'search' | 'found' | 'talk' | 'happy' | 'stretch' | 'fishing' | 'heart' | 'dance' | 'idea' | 'sleep' | 'blush' | 'wow' | 'approve' | 'focus' | 'relax' | 'working' | 'response_ready' | 'peek' | 'nod_yes' | 'shake_no' | 'celebrate' | 'shy' | 'alert' | 'look_around' | 'recharge' | 'success' | 'error' | 'music_groove' | 'wake_up' | 'roam_walk' | 'bounce' | 'bow' | 'double_wave' | 'side_stretch' | 'startled' | 'scout' | 'window_peek' | 'tip_toe' | 'thought_orbit' | 'cozy_sway' | 'welcome_back' | 'giggle' | 'laugh' | 'proud' | 'excited' | 'confused' | 'thinking_deep' | 'question' | 'surprise_soft' | 'cheer' | 'clap' | 'salute' | 'hello_shy' | 'goodbye' | 'yawn' | 'dream' | 'meditate' | 'breathe' | 'read' | 'write' | 'type_fast' | 'code_focus' | 'brainstorm' | 'lightbulb_pop' | 'scan' | 'detect' | 'loading' | 'wait_patient' | 'impatient' | 'sneak' | 'hop_left' | 'hop_right' | 'spin' | 'sway' | 'pose_star' | 'party' | 'music_nod' | 'camera_pose' | 'victory' | 'high_five' | 'peace' | 'curious' | 'voicewait';
-export default function DaiFace({state='idle', reduced=false}: {state?:DaiState; reduced?:boolean}) {
+export type DaiRenderQuality='high'|'medium'|'low';
+export default function DaiFace({state='idle', reduced=false, quality='high'}: {state?:DaiState; reduced?:boolean; quality?:DaiRenderQuality}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
   useEffect(()=>{ motion.current.setGesture(state); },[state]);
+  useEffect(()=>{ motion.current.setQuality(quality); },[quality]);
   useEffect(()=>{
     const onVoice=(event:Event)=>{
       const detail=(event as CustomEvent<{level?:number;active?:boolean}>).detail||{};
@@ -23,7 +25,7 @@ export default function DaiFace({state='idle', reduced=false}: {state?:DaiState;
       window.removeEventListener('dai:voice-level',onVoice as EventListener);
       window.removeEventListener('dai:speech-mood',onMood as EventListener);
     };
-  },[]);
+  },[quality]);
   useEffect(()=>{
     const m=motion.current, query=matchMedia('(prefers-reduced-motion: reduce)');
     const update=()=>{ m.reduced=reduced||query.matches; if(m.reduced)m.particles=[]; };
@@ -34,19 +36,24 @@ export default function DaiFace({state='idle', reduced=false}: {state?:DaiState;
     const node=canvas.current!, c=node.getContext('2d');
     if(!c)return;
     const m=motion.current;
-    let w=600,h=420,frame=0,last=performance.now(),dragTotal=0,px=0,py=0;
+    let w=600,h=420,frame=0,last=performance.now(),lastDraw=0,dragTotal=0,px=0,py=0;
     const resize=()=>{
       const rect=node.getBoundingClientRect(); w=rect.width;h=rect.height;
-      const dpr=Math.min(devicePixelRatio||1,2);
+      const dprCap=quality==='high'?2:quality==='medium'?1.6:1.25;
+      const dpr=Math.min(devicePixelRatio||1,dprCap);
       node.width=Math.round(w*dpr);node.height=Math.round(h*dpr);c.setTransform(dpr,0,0,dpr,0,0);
       drawDai(c,m,w,h);
     };
     const observer=new ResizeObserver(resize);observer.observe(node);resize();
     const tick=(now:number)=>{
       if(!document.hidden) {
-        m.advance(Math.min((now-last)/1000,.1));
-        for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
-        drawDai(c,m,w,h);
+        const minFrameMs=quality==='low'?32:quality==='medium'?21:0;
+        if(!minFrameMs||now-lastDraw>=minFrameMs){
+          m.advance(Math.min((now-last)/1000,.1));
+          for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
+          drawDai(c,m,w,h);
+          lastDraw=now;
+        }
       }
       last=now;frame=requestAnimationFrame(tick);
     };
