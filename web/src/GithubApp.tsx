@@ -665,6 +665,50 @@ export default function GithubApp(){
     return bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength);
   }
 
+  async function speakWithBrowserVoice(
+    text:string,
+    onStart?:()=>void,
+    onEnd?:()=>void
+  ){
+    if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined')return false;
+    const spoken=cleanForSpeech(text).slice(0,2200);
+    if(!spoken)return false;
+
+    try{
+      window.speechSynthesis.cancel();
+      const utterance=new SpeechSynthesisUtterance(spoken);
+      const voices=window.speechSynthesis.getVoices();
+      const arabicVoices=voices.filter(voice=>/^ar(?:-|$)/i.test(voice.lang||''));
+      utterance.voice=
+        arabicVoices.find(voice=>/^ar-EG$/i.test(voice.lang||''))||
+        arabicVoices.find(voice=>/^ar-SA$/i.test(voice.lang||''))||
+        arabicVoices[0]||
+        null;
+      utterance.lang=utterance.voice?.lang||'ar-EG';
+      utterance.rate=Math.max(.88,Math.min(1.08,voiceRate));
+      utterance.pitch=1.03;
+      utterance.volume=1;
+
+      return await new Promise<boolean>(resolve=>{
+        let settled=false;
+        const finish=(value:boolean)=>{
+          if(settled)return;
+          settled=true;
+          resolve(value);
+        };
+        utterance.onstart=()=>{onStart?.();};
+        utterance.onend=()=>{onEnd?.();finish(true);};
+        utterance.onerror=()=>finish(false);
+        window.speechSynthesis.speak(utterance);
+        window.setTimeout(()=>{
+          if(!settled&&window.speechSynthesis.speaking)finish(true);
+        },900);
+      });
+    }catch{
+      return false;
+    }
+  }
+
   async function streamSpeech(
     text:string,
     runId:number,
@@ -707,8 +751,8 @@ export default function GithubApp(){
     return true;
   }
 
-  async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void){
-    if(!voiceEnabled||!supabase)return false;
+  async function speakReply(text:string,onStart?:()=>void,onEnd?:()=>void,force=false){
+    if((!voiceEnabled&&!force)||!supabase)return false;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
@@ -742,16 +786,55 @@ export default function GithubApp(){
         }
       );
       if(!played&&runId===speechRunRef.current){
-        setDaiState('idle');
-        setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+        const fallback=await speakWithBrowserVoice(
+          spoken,
+          ()=>{
+            if(runId!==speechRunRef.current)return;
+            clearTimeout(timer.current);
+            setDaiState('talk');
+            setVoiceNotice('ضي بتتكلم.');
+            onStart?.();
+          },
+          ()=>{
+            if(runId!==speechRunRef.current)return;
+            const finishState=responseState==='talk'?'idle':responseState;
+            if(finishState==='idle')setDaiState('idle');
+            else animate(finishState,1100);
+            setVoiceNotice('الصوت خلص.');
+            onEnd?.();
+          }
+        );
+        if(!fallback){
+          setDaiState('idle');
+          setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+        }
+        return fallback;
       }
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
       console.error('DAI voice playback failed',error);
-      setDaiState('idle');
-      setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
-      return false;
+      const fallback=await speakWithBrowserVoice(
+        spoken,
+        ()=>{
+          if(runId!==speechRunRef.current)return;
+          clearTimeout(timer.current);
+          setDaiState('talk');
+          setVoiceNotice('ضي بتتكلم.');
+          onStart?.();
+        },
+        ()=>{
+          if(runId!==speechRunRef.current)return;
+          setDaiState('idle');
+          setVoiceNotice('الصوت خلص.');
+          onEnd?.();
+        }
+      );
+      if(!fallback){
+        setDaiState('idle');
+        setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
+      }
+      return fallback;
     }
   }
 
@@ -1558,10 +1641,9 @@ export default function GithubApp(){
     let conversationId=activeIdRef.current;
     let doneReceived=false;
     let firstDelta=false;
-    const shouldSpeak=voiceEnabled && responseMode!=='text' && (
-      speechMode==='always' ||
-      responseMode==='voice' ||
-      (responseMode==='auto' && speechMode==='auto' && wantsSpokenReply(text))
+    const explicitSpeech=speechMode==='always'||wantsSpokenReply(text);
+    const shouldSpeak=explicitSpeech || (
+      voiceEnabled && responseMode!=='text' && responseMode==='voice'
     );
 
     const revealAssistant=(assistantMessage:Message)=>{
@@ -1705,7 +1787,9 @@ export default function GithubApp(){
                 ()=>{
                   reveal();
                   setVoiceNotice('ضي بتتكلم.');
-                }
+                },
+                undefined,
+                shouldSpeak
               );
               if(!spoken){
                 reveal();
@@ -2167,6 +2251,11 @@ export default function GithubApp(){
     const fromVoice=typeof messageOverride==='string'&&source!=='typed';
     const text=(fromVoice?messageOverride:input).trim();
     if(!text||!supabase||loadingData||sending)return;
+    const explicitVoiceRequest=wantsSpokenReply(text);
+    if(explicitVoiceRequest||responseMode==='voice'||fromVoice){
+      void unlockSpeechAudio();
+    }
+
     const routeDecision=routeDaiTask(text);
     const predictedResearch=routeDecision.route==='research';
     const predictedCode=routeDecision.route==='code';
@@ -2291,7 +2380,7 @@ export default function GithubApp(){
 
     if(!fromVoice){
       try{
-        await streamTypedReply(text,desktopActionResult,'','auto');
+        await streamTypedReply(text,desktopActionResult,'',explicitVoiceRequest?'always':'auto');
       }catch(error){
         const aborted=(error as Error)?.name==='AbortError';
         sonicRequestRef.current++;
