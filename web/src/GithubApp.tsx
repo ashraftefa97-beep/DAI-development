@@ -484,6 +484,58 @@ export default function GithubApp(){
     }catch{}
   }
 
+  function browserEmbedUrl(rawUrl=browserUrl){
+    try{
+      const url=new URL(String(rawUrl||'').trim());
+      const host=url.hostname.replace(/^www\./,'').toLowerCase();
+
+      if(host==='youtu.be'){
+        const videoId=url.pathname.split('/').filter(Boolean)[0]||'';
+        if(videoId){
+          const embed=new URL('https://www.youtube-nocookie.com/embed/'+encodeURIComponent(videoId));
+          const start=url.searchParams.get('t')||url.searchParams.get('start')||'';
+          if(/^\d+$/.test(start))embed.searchParams.set('start',start);
+          embed.searchParams.set('rel','0');
+          return embed.toString();
+        }
+      }
+
+      if(host==='youtube.com'||host==='m.youtube.com'||host==='music.youtube.com'){
+        const parts=url.pathname.split('/').filter(Boolean);
+        let videoId='';
+
+        if(url.pathname==='/watch'){
+          videoId=url.searchParams.get('v')||'';
+        }else if(['shorts','live','embed'].includes(parts[0]||'')){
+          videoId=parts[1]||'';
+        }
+
+        if(videoId){
+          const embed=new URL('https://www.youtube-nocookie.com/embed/'+encodeURIComponent(videoId));
+          const list=url.searchParams.get('list');
+          const start=url.searchParams.get('start')||url.searchParams.get('t')||'';
+          if(list)embed.searchParams.set('list',list);
+          if(/^\d+$/.test(start))embed.searchParams.set('start',start);
+          embed.searchParams.set('rel','0');
+          return embed.toString();
+        }
+
+        if(url.pathname==='/playlist'){
+          const list=url.searchParams.get('list')||'';
+          if(list){
+            const embed=new URL('https://www.youtube-nocookie.com/embed/videoseries');
+            embed.searchParams.set('list',list);
+            return embed.toString();
+          }
+        }
+      }
+
+      return url.toString();
+    }catch{
+      return rawUrl;
+    }
+  }
+
   function closeDaiBrowser(){
     setBrowserUrl('');
     setBrowserLoaded(false);
@@ -4247,11 +4299,11 @@ export default function GithubApp(){
         {!browserLoaded&&<div className='dai-browser-loading'><span/><strong>جاري فتح الصفحة…</strong></div>}
         <iframe
           key={browserReloadKey}
-          src={browserUrl}
+          src={browserEmbedUrl()}
           title={'متصفح ضي — '+browserDisplayHost()}
           referrerPolicy='strict-origin-when-cross-origin'
-          sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads'
-          allow='autoplay; clipboard-read; clipboard-write; fullscreen'
+          sandbox='allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation'
+          allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
           onLoad={()=>setBrowserLoaded(true)}
         />
         <div className='dai-browser-embed-note'>
