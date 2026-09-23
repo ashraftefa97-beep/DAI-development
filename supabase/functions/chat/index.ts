@@ -143,11 +143,6 @@ Deno.serve(async (req) => {
   ).trim();
 
   const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
-  const modelCandidates = [
-    'gemini-3.5-flash-lite',
-    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
-    'gemini-3.1-flash-lite',
-  ].filter((model, index, all) => all.indexOf(model) === index);
 
   if (!geminiApiKey) {
     return json({ error: 'خدمة ضي الذكية غير متاحة حاليًا.', code: 'AI_CONFIG' }, 503);
@@ -234,6 +229,11 @@ Deno.serve(async (req) => {
   const thinkingLevel = 'minimal';
   const maxOutputTokens = complexRequest ? 620 : 260;
   const allowWebSearch = !instantAnswer && webSearchAllowed(message);
+  const modelCandidates = [
+    ...(allowWebSearch ? ['gemini-3.8-flash'] : ['gemini-3.5-flash-lite']),
+    ...(configuredModel.startsWith('gemini-') ? [configuredModel] : []),
+    'gemini-3.1-flash-lite',
+  ].filter((model, index, all) => all.indexOf(model) === index);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), complexRequest ? 25000 : 16000);
@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
 
       // Try another free Gemini model when the requested model is unavailable
       // or its free quota is temporarily exhausted.
-      if (response.status === 404 || response.status === 429 || response.status === 503) {
+      if (response.status === 404 || response.status === 429 || response.status === 503 || (allowWebSearch && response.status === 400)) {
         continue;
       }
 
