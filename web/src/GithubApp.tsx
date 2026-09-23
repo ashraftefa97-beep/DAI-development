@@ -215,7 +215,7 @@ function renderLinkedText(content:string,onOpenLink?:(url:string)=>void){
 }
 
 export default function GithubApp(){
-  const [daiState,setDaiState]=useState<DaiState>('wave');
+  const [daiState,setDaiState]=useState<DaiState>('idle');
   const [reduced,setReduced]=useState(()=>{
     try{return localStorage.getItem('dai-reduced-motion')==='1';}catch{return false;}
   });
@@ -383,6 +383,7 @@ export default function GithubApp(){
   const voiceRecorderTimerRef=useRef<number|undefined>(undefined);
   const animationLockUntilRef=useRef(0);
   const animationCooldownUntilRef=useRef(0);
+  const behaviorCycleTimerRef=useRef<number|undefined>(undefined);
   const pendingAutoAnimationRef=useRef('');
   const lastAnimationRequestRef=useRef('');
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
@@ -1117,15 +1118,85 @@ export default function GithubApp(){
   },[proAnimations]);
 
   useEffect(()=>{
-    if(plan!=='professional'||!proAnimations||reduced||sending||voiceSessionActive||daiState!=='idle')return;
-    const actions:DaiState[]=['peek','look_around','cozy_sway','scout','window_peek','relax','sway','wait_patient'];
-    const delay=9000+Math.floor(Math.random()*7000);
+    if(reduced||sending||voiceSessionActive||daiState!=='idle')return;
+    const actions:DaiState[]=['cozy_sway','look_around','relax','breathe','wait_patient','peek','sway'];
+    const delay=12000+Math.floor(Math.random()*10000);
     const id=window.setTimeout(()=>{
-      const next=actions[Math.floor(Math.random()*actions.length)]||'curious';
-      animate(next,next==='focus'?1900:2600);
+      if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
+      const recent=recentAutoAnimationsRef.current.map(item=>item.id);
+      const pool=actions.filter(state=>!recent.includes('ambient:'+state));
+      const next=(pool.length?pool:actions)[Math.floor(Math.random()*(pool.length?pool.length:actions.length))]||'relax';
+      recentAutoAnimationsRef.current.push({id:'ambient:'+next,at:Date.now()});
+      recentAutoAnimationsRef.current=recentAutoAnimationsRef.current
+        .filter(item=>Date.now()-item.at<50000)
+        .slice(-5);
+      animate(next,2200+Math.floor(Math.random()*1200));
     },delay);
     return()=>window.clearTimeout(id);
-  },[plan,proAnimations,reduced,sending,voiceSessionActive,daiState]);
+  },[reduced,sending,voiceSessionActive,daiState]);
+
+  useEffect(()=>{
+    window.clearTimeout(behaviorCycleTimerRef.current);
+    behaviorCycleTimerRef.current=undefined;
+
+    if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
+
+    let sequence:DaiState[]=[];
+    let interval=3200;
+
+    if(researching){
+      sequence=['search','scan','detect','scout'];
+      interval=3000;
+    }else if(codeEnginePhase==='loading'){
+      sequence=['loading','focus'];
+      interval=2600;
+    }else if(codeEnginePhase==='coding'){
+      sequence=['code_focus','type_fast','working'];
+      interval=2800;
+    }else if(generalEnginePhase==='loading'){
+      sequence=['loading','thought_orbit'];
+      interval=2800;
+    }else if(generalEnginePhase==='thinking'){
+      sequence=['thinking_deep','thought_orbit','brainstorm','focus'];
+      interval=3300;
+    }else if(imageGenerating){
+      sequence=['brainstorm','idea','lightbulb_pop'];
+      interval=3200;
+    }else if(voiceNoteProcessing){
+      sequence=['listen','thinking_deep'];
+      interval=3000;
+    }else if(sending&&!streamingText){
+      sequence=['thinking_deep','focus','thought_orbit'];
+      interval=3200;
+    }
+
+    if(!sequence.length)return;
+
+    let index=0;
+    const apply=()=>{
+      if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
+      const next=sequence[index%sequence.length]||'focus';
+      setDaiState(next);
+      index++;
+      behaviorCycleTimerRef.current=window.setTimeout(apply,interval);
+    };
+
+    apply();
+    return()=>{
+      window.clearTimeout(behaviorCycleTimerRef.current);
+      behaviorCycleTimerRef.current=undefined;
+    };
+  },[
+    researching,
+    codeEnginePhase,
+    generalEnginePhase,
+    imageGenerating,
+    voiceNoteProcessing,
+    sending,
+    streamingText,
+    voiceSessionStatus,
+    speakingMessageId
+  ]);
 
   useEffect(()=>{
     if(plan!=='professional'||!proAnimations||sending||animationAudioBusy())return;
@@ -1145,9 +1216,10 @@ export default function GithubApp(){
     daiState
   ]);
 
-  useEffect(()=>{ animate('wave',2600); return()=>{
+  useEffect(()=>{ animate('welcome_back',1900); return()=>{
     clearTimeout(timer.current);
     clearTimeout(typingTimer.current);
+    clearTimeout(behaviorCycleTimerRef.current);
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
     textRequestAbortRef.current?.abort();
@@ -4159,22 +4231,6 @@ export default function GithubApp(){
 
     <section className='classic-stage'>
       <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced}/></DaiFaceBoundary></div>
-
-      <div className='classic-motion-controls'>
-        <button onClick={()=>animate('fishing',7400)}>صيد</button>
-        <button onClick={()=>animate('heart',3800)}>قلب</button>
-        <button onClick={()=>animate('dance',4800)}>رقصة</button>
-        <button aria-pressed={reduced} onClick={()=>setReduced(!reduced)}>حركة هادية</button>
-        <button onClick={()=>animate('wave',3800)}>تحية</button>
-        <button onClick={()=>animate('happy',3800)}>فرحة</button>
-        <button onClick={()=>animate('idea',3800)}>فكرة</button>
-        <button onClick={()=>animate('search',3800)}>بحث</button>
-        <button onClick={()=>animate('sleep',5400)}>نعاس</button>
-        <button onClick={()=>animate('stretch',3800)}>تمدد</button>
-        <button onClick={()=>animate('curious',3200)}>فضول</button>
-        <button onClick={()=>animate('celebrate',4200)}>احتفال</button>
-        <button onClick={()=>animate('focus',3400)}>تركيز</button>
-      </div>
 
       <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
         {voiceSessionActive&&
