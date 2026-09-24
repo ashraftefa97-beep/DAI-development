@@ -38,6 +38,46 @@ export function animationModeForMotion(m){
   return 'idle';
 }
 
+export function animationModeForGesture(gesture='idle'){
+  const value=String(gesture||'idle');
+  if(ERROR_GESTURES.has(value))return 'error';
+  if(SUCCESS_GESTURES.has(value))return 'success';
+  if(SPEAK_GESTURES.has(value))return 'speaking';
+  if(LISTEN_GESTURES.has(value))return 'listening';
+  if(SEARCH_GESTURES.has(value))return 'searching';
+  if(THINK_GESTURES.has(value))return 'thinking';
+  if(value==='working'||value==='loading'||value==='wait_patient')return 'working';
+  return 'idle';
+}
+
+export function requestAnimationTransition(currentGesture,nextGesture,context={}){
+  const currentMode=animationModeForGesture(currentGesture);
+  const nextMode=animationModeForGesture(nextGesture);
+  const currentPriority=DAI_ANIMATION_PRIORITIES[currentMode]||0;
+  const nextPriority=DAI_ANIMATION_PRIORITIES[nextMode]||0;
+  const now=Number(context.now)||0;
+  const lockedUntil=Number(context.lockedUntil)||0;
+  const voiceActive=Boolean(context.voiceActive);
+
+  if(nextMode==='error')return {accept:true,mode:nextMode,lockMs:650};
+  if(currentMode==='speaking'&&voiceActive&&nextMode!=='error'&&nextPriority<currentPriority){
+    return {accept:false,mode:currentMode,lockMs:0};
+  }
+  if(now<lockedUntil&&nextPriority<currentPriority){
+    return {accept:false,mode:currentMode,lockMs:0};
+  }
+
+  const lockMs=
+    nextMode==='success'?480:
+    nextMode==='error'?650:
+    nextMode==='speaking'?120:
+    nextMode==='listening'?100:
+    nextMode==='searching'||nextMode==='thinking'?140:
+    0;
+
+  return {accept:true,mode:nextMode,lockMs};
+}
+
 function pickAccessory(pose={}){
   const options=[
     ['fishing',Number(pose.rod)||0],
