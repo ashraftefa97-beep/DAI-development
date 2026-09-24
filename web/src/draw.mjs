@@ -10,7 +10,7 @@ const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
 }
-export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix''];
+export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix'];
 
 function avatarTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
