@@ -252,3 +252,36 @@ test('animation state changes become visible within one simulation frame',()=>{
     }
   }
 });
+
+
+test('same avatar and gesture always select the same motion variant',()=>{
+  const gestures=['idle','listen','thinking_deep','search','reply','talk','success','error'];
+  for(const avatar of avatarIds){
+    for(const gesture of gestures){
+      const ids=new Set();
+      for(let i=0;i<12;i++){
+        const motion=new DaiMotion(()=>Math.random());
+        motion.setAvatar(avatar);
+        motion.setGesture(gesture);
+        ids.add(motion.avatarVariantId);
+      }
+      assert.equal(ids.size,1,`${avatar}/${gesture}: variant selection is still random`);
+    }
+  }
+});
+
+test('idle remains semantically and visually stable for one minute',()=>{
+  for(const avatar of avatarIds){
+    const motion=prepare(avatar,'idle');
+    const variant=motion.avatarVariantId;
+    const initialAction=motion.idleAction;
+    const initialUntil=motion.idleUntil;
+
+    for(let i=0;i<1200;i++)motion.advance(.05);
+
+    assert.equal(motion.requestedGesture,'idle');
+    assert.equal(motion.avatarVariantId,variant,`${avatar}: idle variant changed by time`);
+    assert.equal(motion.idleAction,initialAction,`${avatar}: autonomous idle action changed`);
+    assert.equal(motion.idleUntil,initialUntil,`${avatar}: autonomous idle expression started`);
+  }
+});
