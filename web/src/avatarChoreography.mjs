@@ -1,0 +1,265 @@
+const sin=Math.sin, cos=Math.cos;
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+
+export const AVATAR_CHOREOGRAPHY_DNA=Object.freeze({
+  classic:{motif:'balanced-sway'},
+  minimal:{motif:'micro-still'},
+  cute:{motif:'double-pop'},
+  cyber:{motif:'servo-snap'},
+  soft:{motif:'floating-breath'},
+  pro:{motif:'formal-present'},
+  hologram:{motif:'phase-shift'},
+  sakura:{motif:'petal-arc'},
+  ocean:{motif:'wave-flow'},
+  solar:{motif:'radial-rise'},
+  midnight:{motif:'moon-drift'},
+  mint:{motif:'sprout-bounce'},
+  aurora:{motif:'ribbon-cross'},
+  ember:{motif:'ember-punch'},
+  rose:{motif:'wrist-bloom'},
+  ice:{motif:'crystal-lock'},
+  lime:{motif:'zigzag-snap'},
+  violet:{motif:'orbital-hands'},
+  pearl:{motif:'poised-glide'},
+  crimson:{motif:'heartbeat-hit'},
+  galaxy:{motif:'counter-orbit'},
+  desert:{motif:'dune-sway'},
+  lavender:{motif:'butterfly-flutter'},
+  matrix:{motif:'quantized-code'}
+});
+
+function variantIndex(m){
+  const match=String(m?.avatarVariantId||'').match(/-(\d+)$/);
+  return Math.max(1,Number(match?.[1]||1));
+}
+function slot(m){
+  return String(m?.avatarVariantSlot||'idle');
+}
+function strengthForSlot(name){
+  if(name==='success')return 1;
+  if(name==='error')return .82;
+  if(name==='searching')return .78;
+  if(name==='thinking')return .72;
+  if(name==='listening')return .62;
+  if(name==='speaking')return .28;
+  return .52;
+}
+function showLeft(p,a,x,y,r){p.la=Math.max(p.la||0,a);p.lx=x;p.ly=y;p.lr=r;}
+function showRight(p,a,x,y,r){p.ra=Math.max(p.ra||0,a);p.rx=x;p.ry=y;p.rr=r;}
+function faceOnly(p,tilt,gx,gy,bob=0){
+  p.tilt=(p.tilt||0)+tilt;p.gaze_x=(p.gaze_x||0)+gx;p.gaze_y=(p.gaze_y||0)+gy;p.bob=(p.bob||0)+bob;
+}
+function subtleSpeaking(p,id,t,phase){
+  const a=.35+.08*(id%3);
+  faceOnly(p,sin(t*.8+phase)*a,cos(t*.55+phase)*.8,sin(t*.7+phase)*.18,sin(t*1.1+phase)*.08);
+}
+
+export function applyAvatarChoreography(p,m){
+  if(!p||!m)return p;
+  const avatar=String(m.avatarStyle||'classic');
+  const s=slot(m);
+  const v=variantIndex(m);
+  const reduced=Boolean(m.reduced);
+  const t=reduced?0:Number(m.gestureTime||0);
+  const phase=(v%11)*.47;
+  const k=strengthForSlot(s);
+  const a=sin(t*(.9+(v%5)*.11)+phase);
+  const b=cos(t*(1.15+(v%7)*.09)+phase*.6);
+  const c=sin(t*(1.8+(v%3)*.23)+phase*1.4);
+
+  if(s==='speaking'){
+    subtleSpeaking(p,v,t,phase);
+    if(avatar==='minimal'||avatar==='pro'||avatar==='pearl')p.tilt*=.72;
+    if(avatar==='cute'||avatar==='solar'||avatar==='ember')p.cheek=clamp((p.cheek||0)+.05,0,1.2);
+    return p;
+  }
+
+  switch(avatar){
+    case 'minimal':{
+      faceOnly(p,a*.65*k,b*.8*k,-1.5*k,0);
+      if(s==='thinking'||s==='searching')showRight(p,.28,-0+118,58+b*3,-4+a*3);
+      p.sx=1+(c>0?.002:0);p.sy=1;
+      break;
+    }
+    case 'cute':{
+      const pop=Math.max(0,sin(t*3.4+phase));
+      faceOnly(p,a*3.2*k,b*2.2*k,-2*k,-pop*2.2*k);
+      showLeft(p,.72*k,-104-a*10,38-pop*32,-28-a*12);
+      showRight(p,.72*k,104+a*10,38-(1-pop)*28,28+a*12);
+      p.smile=clamp((p.smile||0)+.18*k,0,1.2);
+      p.cheek=clamp((p.cheek||0)+.22*k,0,1.2);
+      break;
+    }
+    case 'cyber':{
+      const q=Math.round(sin(t*4.2+phase)*3)/3;
+      faceOnly(p,q*2.8*k,q*4*k,-3*k,0);
+      showLeft(p,.82*k,-112-q*13,42-q*18,-18+q*24);
+      showRight(p,.34*k,118,66,18);
+      p.brow=clamp((p.brow||0)+.22*k,0,1.2);
+      break;
+    }
+    case 'soft':{
+      faceOnly(p,a*2*k,b*1.8*k,1.5*k,sin(t*.9+phase)*1.6*k);
+      showLeft(p,.42*k,-116-a*8,70+b*8,-14+a*6);
+      showRight(p,.42*k,116+a*8,70-b*8,14+a*6);
+      p.sy+=sin(t*.8+phase)*.006*k;
+      break;
+    }
+    case 'pro':{
+      faceOnly(p,a*.8*k,b*1.2*k,-1*k,0);
+      if(s==='listening'||s==='thinking'||s==='searching')showRight(p,.72*k,116,24+b*9,-12+a*5);
+      if(s==='success')showLeft(p,.48,-112,34,-18);
+      p.brow=clamp((p.brow||0)+.12*k,0,1.2);
+      break;
+    }
+    case 'hologram':{
+      const q=sin(t*2.7+phase);
+      faceOnly(p,q*2.4*k,cos(t*1.9+phase)*3*k,-2*k,q*.7*k);
+      showLeft(p,.58*k,-108-q*12,48+cos(t*2.1+phase)*16,-24+q*18);
+      showRight(p,.58*k,108+q*12,48-cos(t*2.1+phase)*16,24-q*18);
+      break;
+    }
+    case 'sakura':{
+      faceOnly(p,a*2.6*k,b*2*k,-2.2*k,sin(t*1.1+phase)*.8*k);
+      showLeft(p,.58*k,-102-a*14,44+b*14,-36+a*18);
+      showRight(p,.32*k,120,70,14);
+      if((v%2)===0)showRight(p,.58*k,102+a*14,44-b*14,36-a*18);
+      p.cheek=clamp((p.cheek||0)+.12*k,0,1.2);
+      break;
+    }
+    case 'ocean':{
+      const wave=sin(t*1.35+phase);
+      faceOnly(p,wave*2.2*k,cos(t*.9+phase)*2.4*k,1.2*k,wave*1.2*k);
+      showLeft(p,.64*k,-118,58+wave*22,-18+wave*20);
+      showRight(p,.64*k,118,58-wave*22,18+wave*20);
+      break;
+    }
+    case 'solar':{
+      const rise=Math.max(0,sin(t*2.4+phase));
+      faceOnly(p,a*2.4*k,b*1.6*k,-3*k,-rise*2.8*k);
+      showLeft(p,.72*k,-126,52-rise*72,-28+rise*12);
+      showRight(p,.72*k,126,52-rise*72,28-rise*12);
+      p.smile=clamp((p.smile||0)+.16*k,0,1.2);
+      break;
+    }
+    case 'midnight':{
+      faceOnly(p,a*1.8*k,b*2.8*k,2*k,sin(t*.7+phase)*1.4*k);
+      showRight(p,.48*k,98+b*8,34+a*16,-34+a*7);
+      p.left=clamp((p.left||1)-.08*k,.05,1.35);
+      p.right=clamp((p.right||1)-.05*k,.05,1.35);
+      break;
+    }
+    case 'mint':{
+      const sprout=Math.max(0,sin(t*2+phase));
+      faceOnly(p,a*2*k,b*1.7*k,-1.4*k,-sprout*1.6*k);
+      showLeft(p,.55*k,-110,62-sprout*38,-22);
+      showRight(p,.55*k,110,62-sprout*38,22);
+      break;
+    }
+    case 'aurora':{
+      faceOnly(p,a*3*k,b*2.2*k,-1.6*k,a*1.1*k);
+      showLeft(p,.60*k,-122+a*22,54+b*20,-30+a*24);
+      showRight(p,.60*k,122-a*22,54-b*20,30-a*24);
+      break;
+    }
+    case 'ember':{
+      const hit=Math.max(0,sin(t*3.2+phase));
+      faceOnly(p,c*2.8*k,b*1.6*k,-2.5*k,-hit*3*k);
+      showLeft(p,.44*k,-118,62,-22);
+      showRight(p,.82*k,108+hit*18,58-hit*72,-12+hit*38);
+      p.brow=clamp((p.brow||0)+.20*k,0,1.2);
+      break;
+    }
+    case 'rose':{
+      faceOnly(p,a*1.8*k,b*1.5*k,-1.2*k,.4*a*k);
+      showLeft(p,.52*k,-104-a*10,52+b*12,-42+a*20);
+      showRight(p,.38*k,116,66,18+b*7);
+      p.cheek=clamp((p.cheek||0)+.10*k,0,1.2);
+      break;
+    }
+    case 'ice':{
+      const q=Math.round(a*2)/2;
+      faceOnly(p,q*1.8*k,q*1.5*k,-3*k,0);
+      showLeft(p,.58*k,-120-q*8,46-q*16,-34+q*14);
+      showRight(p,.58*k,120+q*8,46+q*16,34-q*14);
+      p.sx=1;p.sy=1;
+      break;
+    }
+    case 'lime':{
+      const q=sin(t*4.8+phase)>0?1:-1;
+      faceOnly(p,q*3.2*k,q*3.8*k,-2*k,0);
+      showLeft(p,.70*k,-112-q*12,q>0?20:64,-38*q);
+      showRight(p,.44*k,118,q>0?64:20,30*q);
+      break;
+    }
+    case 'violet':{
+      const orb=t*1.3+phase;
+      faceOnly(p,sin(orb)*2.5*k,cos(orb)*3*k,-1.5*k,0);
+      showLeft(p,.62*k,-108+cos(orb)*18,50+sin(orb)*22,-24+sin(orb)*18);
+      showRight(p,.62*k,108+cos(orb+Math.PI)*18,50+sin(orb+Math.PI)*22,24+sin(orb+Math.PI)*18);
+      break;
+    }
+    case 'pearl':{
+      faceOnly(p,a*.7*k,b*.9*k,-.8*k,0);
+      showRight(p,.30*k,114,56+b*6,-10+a*4);
+      p.smile=clamp((p.smile||0)+.04*k,-.35,1.2);
+      break;
+    }
+    case 'crimson':{
+      const beat=Math.max(0,sin(t*3.7+phase));
+      faceOnly(p,(beat-.5)*3*k,b*1.4*k,-2*k,-beat*2*k);
+      showLeft(p,.34*k,-120,66,-18);
+      showRight(p,.78*k,112,56-beat*54,-10+beat*22);
+      p.brow=clamp((p.brow||0)+.18*k,0,1.2);
+      break;
+    }
+    case 'galaxy':{
+      const orb=t*.92+phase;
+      faceOnly(p,sin(orb)*2.2*k,cos(orb)*2.8*k,-1.4*k,sin(orb*.7)*1.2*k);
+      showLeft(p,.58*k,-112+cos(orb)*20,52+sin(orb)*18,-24+sin(orb)*16);
+      showRight(p,.58*k,112+cos(orb+Math.PI)*20,52+sin(orb+Math.PI)*18,24+sin(orb+Math.PI)*16);
+      p.sx+=sin(orb*.6)*.008*k;p.sy-=sin(orb*.6)*.006*k;
+      break;
+    }
+    case 'desert':{
+      const dune=sin(t*.95+phase);
+      faceOnly(p,dune*2.6*k,cos(t*.7+phase)*1.6*k,1.8*k,dune*.8*k);
+      showLeft(p,.46*k,-118-dune*10,72+dune*8,-12+dune*8);
+      showRight(p,.46*k,118-dune*10,72-dune*8,12+dune*8);
+      break;
+    }
+    case 'lavender':{
+      const flap=sin(t*2.2+phase);
+      faceOnly(p,flap*2.1*k,b*1.8*k,-1.8*k,-Math.abs(flap)*1.2*k);
+      showLeft(p,.58*k,-106,46-flap*24,-38+flap*18);
+      showRight(p,.58*k,106,46+flap*24,38+flap*18);
+      break;
+    }
+    case 'matrix':{
+      const q=Math.round(sin(t*5.2+phase)*4)/4;
+      faceOnly(p,q*2.8*k,q*4*k,-3*k,0);
+      showLeft(p,.62*k,-116-q*18,50+(v%2?18:-10),-30+q*26);
+      showRight(p,.62*k,116+q*18,50+(v%2?-10:18),30-q*26);
+      p.gaze_y=Math.round((p.gaze_y||0)*2)/2;
+      break;
+    }
+    default:{
+      faceOnly(p,a*1.6*k,b*1.2*k,-1*k,a*.6*k);
+      if(s==='success')showRight(p,.62,124,-8,-6);
+      break;
+    }
+  }
+  return p;
+}
+
+export function validateAvatarChoreography(ids=[]){
+  const errors=[];
+  const motifs=new Set();
+  for(const id of ids){
+    const dna=AVATAR_CHOREOGRAPHY_DNA[id];
+    if(!dna?.motif)errors.push(`${id}: missing choreography motif`);
+    else if(motifs.has(dna.motif))errors.push(`${id}: duplicate choreography motif`);
+    else motifs.add(dna.motif);
+  }
+  return errors;
+}
