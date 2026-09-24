@@ -1,4 +1,5 @@
 import test from 'node:test';
+import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 import { createAnimationPlan } from '../src/animationDirector.mjs';
@@ -141,4 +142,13 @@ test('animation plans keep head-only semantic reactions hand-free',()=>{
     },{width:1200,height:700});
     assert.equal(plan.handScale,0,`${gesture}: render plan still allows hands`);
   }
+});
+
+
+test('renderer hard-gates hand draw calls even if pose alpha is stale',()=>{
+  const draw=fs.readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
+  assert.match(draw,/const handIntent=handIntentScale\(/);
+  assert.match(draw,/alpha:q\.la\*plan\.handScale\*handIntent/);
+  assert.match(draw,/alpha:q\.ra\*plan\.handScale\*handIntent/);
+  assert.match(draw,/if\(handIntent>\.01&&plan\.handScale>\.01\)\{/);
 });
