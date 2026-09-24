@@ -455,6 +455,7 @@ export default function GithubApp(){
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
   const perfQualityVotesRef=useRef({down:0,up:0});
   const avatarPreferenceLoadedRef=useRef(false);
+  const avatarStyleRef=useRef<DaiAvatarStyle>(avatarStyle);
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -489,6 +490,7 @@ export default function GithubApp(){
 
 
   useEffect(()=>{
+    avatarStyleRef.current=avatarStyle;
     try{localStorage.setItem('dai-avatar-style',avatarStyle);}catch{}
     document.documentElement.dataset.daiAvatar=avatarStyle;
     return()=>{delete document.documentElement.dataset.daiAvatar;};
@@ -501,7 +503,16 @@ export default function GithubApp(){
     }
     let cancelled=false;
     async function loadAvatarPreference(){
-      setAvatarSyncing(true);
+      let localAvatar:DaiAvatarStyle|null=null;
+      try{
+        const stored=localStorage.getItem('dai-avatar-style');
+        if(isDaiAvatarStyle(stored))localAvatar=stored;
+      }catch{}
+
+      // If this device already knows the user's avatar, keep it visually
+      // authoritative. Cloud reconciliation happens silently in the background
+      // so reload can never flash/swap to an older remote preference.
+      setAvatarSyncing(!localAvatar);
       try{
         const {data,error}=await supabase!
           .from('dai_preferences')
@@ -509,15 +520,34 @@ export default function GithubApp(){
           .eq('user_id',userId)
           .maybeSingle();
         if(cancelled)return;
-        if(!error&&data?.avatar_style){
-          const value=String(data.avatar_style);
-          if(isDaiAvatarStyle(value)){
-            setAvatarStyle(value);
+
+        const remoteValue=!error&&data?.avatar_style?String(data.avatar_style):'';
+        const remoteAvatar=isDaiAvatarStyle(remoteValue)?remoteValue:null;
+
+        if(localAvatar){
+          const currentLocal=(()=>{
+            try{
+              const stored=localStorage.getItem('dai-avatar-style');
+              return isDaiAvatarStyle(stored)?stored:avatarStyleRef.current;
+            }catch{return avatarStyleRef.current;}
+          })();
+
+          if(!remoteAvatar||remoteAvatar!==currentLocal){
+            await supabase!.from('dai_preferences').upsert({
+              user_id:userId,
+              avatar_style:currentLocal,
+              updated_at:new Date().toISOString()
+            },{onConflict:'user_id'});
           }
+        }else if(remoteAvatar){
+          // Cloud is allowed to hydrate only a device that has no local choice.
+          avatarStyleRef.current=remoteAvatar;
+          setAvatarStyle(remoteAvatar);
         }else if(!error){
+          const current=avatarStyleRef.current;
           await supabase!.from('dai_preferences').upsert({
             user_id:userId,
-            avatar_style:avatarStyle,
+            avatar_style:current,
             updated_at:new Date().toISOString()
           },{onConflict:'user_id'});
         }
