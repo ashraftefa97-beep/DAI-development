@@ -56,7 +56,14 @@ export function getAvatarAnimationLibrary(id='classic'){
 }
 
 export function chooseAvatarAnimation(id,requestedGesture,options={}){
-  return selectAvatarVariant(getAvatarAnimationLibrary(id),requestedGesture,options);
+  const library=getAvatarAnimationLibrary(id);
+  const variant=selectAvatarVariant(library,requestedGesture,options);
+  return variant?{
+    ...variant,
+    cooldownMs:library.cooldownMs,
+    reducedIntensity:library.reducedMotion?.intensity??.22,
+    personality:library.personality
+  }:null;
 }
 
 export { validateAvatarLibrary, shouldAutoCycleAvatarSlot };
