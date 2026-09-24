@@ -95,7 +95,7 @@ export class DaiMotion {
       allowSleepyIdle:requestedGesture==='idle'&&(this.elapsed-this.lastMeaningfulAt)>=55
     });
     const candidate=selection&&gestures.includes(selection.gesture)?selection.gesture:requestedGesture;
-    const changed=this.gesture!==candidate||force;
+    const changed=this.gesture!==candidate;
     this.gesture=candidate;
     this.state=moods[requestedGesture]||moods[candidate]||'idle';
     if(selection){
@@ -105,7 +105,7 @@ export class DaiMotion {
       this.avatarVariantMotion=selection.motion||null;
       this.avatarPreviousVariantMotion=previousMotion;
       this.avatarVariantBlendStartedAt=this.elapsed;
-      this.avatarVariantBlendUntil=this.elapsed+(force?.18:.38);
+      this.avatarVariantBlendUntil=this.elapsed+(changed?.24:.38);
       this.avatarVariantAccent=selection.accent||'pulse';
       this.avatarVariantPersonality=selection.personality||this.avatarStyle;
       this.avatarVariantReducedIntensity=Number(selection.reducedIntensity)||.22;
@@ -113,7 +113,9 @@ export class DaiMotion {
       this.avatarVariantRecentIds=[selection.id,...this.avatarVariantRecentIds.filter(id=>id!==selection.id)].slice(0,8);
       const cooldown=Math.max(0,Number(selection.cooldownMs)||0);
       this.avatarVariantStartedAt=this.elapsed;
-      this.avatarVariantUntil=this.elapsed+Math.max(selection.durationMs||2200,cooldown)/1000;
+      this.avatarVariantUntil=selection.slot==='idle'
+        ?this.elapsed+Math.max(selection.durationMs||2200,cooldown)/1000
+        :Number.POSITIVE_INFINITY;
     }else{
       this.avatarVariantId='';
       this.avatarVariantSlot='';
