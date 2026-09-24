@@ -51,7 +51,7 @@ function buildVariants(slot,gestures,base){
       Math.round((base.durationMax||4200)*(1+index*.08))
     ],
     reducedSafe:index===0||slot==='speaking',
-    accent:base.accent||'pulse',
+    accent:(base.accent||'pulse')+'-'+(index+1),
     motion:normalizeMotion(base,index)
   }));
 }
