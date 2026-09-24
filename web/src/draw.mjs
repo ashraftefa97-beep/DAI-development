@@ -1,6 +1,7 @@
 // Canvas equivalents of DaiFace's QPainter paths. No head, body, or ears.
 import { clamp } from './motion.mjs';
 import { getAvatarVisualDNA } from './avatarVisualDNA.mjs';
+import { createAnimationPlan } from './animationDirector.mjs';
 const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
@@ -894,21 +895,26 @@ export function stageScale(w,h) { return Math.max(.35,Math.min(w/600,h/420,1.12)
 export function drawDai(c,m,w,h,avatar='classic') {
   c.clearRect(0,0,w,h);c.save();c.lineCap='round';c.lineJoin='round';
   const isLight=lightTheme(c),theme=avatarTheme(c,avatar),faceShape=avatarFaceShape(avatar);
+  const plan=createAnimationPlan(m);
+  m.animationPlan=plan;
   c.filter=isLight?'brightness(.88) saturate(1.18) contrast(1.10)':'none';
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
-  avatarAccent(c,m,avatar,isLight);
-  avatarSignatureVisual(c,m,avatar,isLight,theme);
-  avatarLibraryAccent(c,m,theme);
-  hat(c,m);wand(c,m);fishing(c,m);
+  if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
+  if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
+  if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
+  if(plan.accessory==='hat')hat(c,m);
+  else if(plan.accessory==='wand')wand(c,m);
+  else if(plan.accessory==='fishing')fishing(c,m);
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
-  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la,true,q.wand>.3,avatar);
-  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra,false,q.rod>.3,avatar);
-  listen(c,m);personality(c,m);
+  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la*plan.handScale,true,q.wand>.3,avatar);
+  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra*plan.handScale,false,q.rod>.3,avatar);
+  if(plan.overlays.listen)listen(c,m);
+  if(plan.overlays.personality)personality(c,m);
 
   const spacing=theme.spacing;
   eye(c,m,-spacing,q.left,q.lw,q.happy,-2,avatar);
@@ -937,13 +943,13 @@ export function drawDai(c,m,w,h,avatar='classic') {
     drawRestMouth(c,m,avatar,theme,faceShape,q);
   }
 
-  if(m.state==='thinking'&&!['search','found'].includes(m.gesture)) for(let i=0;i<3;i++) {
+  if(plan.overlays.thoughtDots) for(let i=0;i<3;i++) {
     const a=m.reduced?110:90+100*(.5+.5*Math.sin(m.elapsed*4-i));
     ellipse(c,(i-1)*12,118,3,3,`rgba(${theme.dots},${a/255})`);
   }
   c.restore();
 
-  for(const [x,y,,,age,life,kind] of m.particles) {
+  if(plan.channels.particles) for(const [x,y,,,age,life,kind] of m.particles) {
     c.globalAlpha=clamp(1-age/life,0,1);
     star(c,x,y,3.5*(1-age/life)+1,theme.particles[kind]||theme.particles[0],age*100);
   }
