@@ -878,6 +878,10 @@ export class DaiMotion {
       this.pose[key]=mix(this.pose[key],target[key],rate);
     }
 
+    // The search wand must never float after its hand-intent window closes.
+    // Target fade handles normal frames; this snap protects long frame gaps.
+    if((target.wand||0)<=.01)this.pose.wand=0;
+
     const liveAccessory=this.pose.rod>.03?'fishing':this.pose.wand>.03?'wand':this.pose.hat>.03?'hat':null;
     guardInterpolatedPose(this.pose,{
       mode:animationModeForGesture(this.requestedGesture),
