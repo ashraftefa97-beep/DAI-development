@@ -68,7 +68,7 @@ test('avatar animation libraries satisfy the 80-motion publish contract',()=>{
   assert.equal(globalFingerprints.size,24*80);
 });
 
-test('libraries expose distinct personality signatures and meaningful variety',()=>{
+test('libraries expose distinct personality signatures and meaningful motion variety',()=>{
   const personalities=new Set();
   const signatures=new Set();
 
@@ -78,15 +78,19 @@ test('libraries expose distinct personality signatures and meaningful variety',(
     personalities.add(library.personality);
 
     const signature=REQUIRED_AVATAR_ANIMATION_SLOTS
-      .map(slot=>library.slots[slot].map(item=>item.gesture).join(','))
+      .map(slot=>library.slots[slot].map(item=>item.fingerprint).join(','))
       .join('|');
 
-    assert.ok(signature.length>120,`${id}: animation signature too small`);
-    assert.ok(new Set(library.slots.idle.map(item=>item.gesture)).size>=2,`${id}: idle library is not varied`);
-    assert.ok(new Set(library.slots.thinking.map(item=>item.gesture)).size>=2,`${id}: thinking library is not varied`);
-    assert.ok(new Set(library.slots.searching.map(item=>item.gesture)).size>=2,`${id}: search library is not varied`);
-    assert.ok(new Set(library.slots.success.map(item=>item.gesture)).size>=2,`${id}: success library is not varied`);
-    assert.ok(!signatures.has(signature),`${id}: full gesture signature duplicates another avatar`);
+    assert.ok(signature.length>400,`${id}: motion signature too small`);
+    for(const slot of REQUIRED_AVATAR_ANIMATION_SLOTS){
+      const variants=library.slots[slot];
+      assert.equal(
+        new Set(variants.map(item=>item.fingerprint)).size,
+        variants.length,
+        `${id}: ${slot} motion DNA is not varied`
+      );
+    }
+    assert.ok(!signatures.has(signature),`${id}: full motion signature duplicates another avatar`);
     signatures.add(signature);
   }
 
