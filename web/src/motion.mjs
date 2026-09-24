@@ -40,6 +40,9 @@ export class DaiMotion {
     this.avatarVariantId = '';
     this.avatarVariantSlot = 'idle';
     this.avatarVariantMotion = null;
+    this.avatarPreviousVariantMotion = null;
+    this.avatarVariantBlendStartedAt = 0;
+    this.avatarVariantBlendUntil = 0;
     this.avatarVariantAccent = 'pulse';
     this.avatarVariantPersonality = 'balanced';
     this.avatarVariantReducedIntensity = .22;
@@ -73,6 +76,9 @@ export class DaiMotion {
     this.avatarSwapUntil=this.elapsed+(this.reduced?.12:.26);
     this.avatarVariantStartedAt=this.elapsed;
     this.avatarVariantUntil=0;
+    this.avatarPreviousVariantMotion=null;
+    this.avatarVariantBlendStartedAt=this.elapsed;
+    this.avatarVariantBlendUntil=this.elapsed;
     this.pose.hat=0;
     this.pose.wand=0;
     this.pose.rod=0;
@@ -93,9 +99,13 @@ export class DaiMotion {
     this.gesture=candidate;
     this.state=moods[requestedGesture]||moods[candidate]||'idle';
     if(selection){
+      const previousMotion=this.avatarVariantMotion?{...this.avatarVariantMotion}:null;
       this.avatarVariantId=selection.id;
       this.avatarVariantSlot=selection.slot;
       this.avatarVariantMotion=selection.motion||null;
+      this.avatarPreviousVariantMotion=previousMotion;
+      this.avatarVariantBlendStartedAt=this.elapsed;
+      this.avatarVariantBlendUntil=this.elapsed+(force?.18:.38);
       this.avatarVariantAccent=selection.accent||'pulse';
       this.avatarVariantPersonality=selection.personality||this.avatarStyle;
       this.avatarVariantReducedIntensity=Number(selection.reducedIntensity)||.22;
@@ -107,7 +117,10 @@ export class DaiMotion {
     }else{
       this.avatarVariantId='';
       this.avatarVariantSlot='';
+      this.avatarPreviousVariantMotion=this.avatarVariantMotion?{...this.avatarVariantMotion}:null;
       this.avatarVariantMotion=null;
+      this.avatarVariantBlendStartedAt=this.elapsed;
+      this.avatarVariantBlendUntil=this.elapsed+.18;
       this.avatarVariantAccent='pulse';
       this.avatarVariantPersonality=this.avatarStyle;
       this.avatarVariantReducedIntensity=.22;
@@ -810,6 +823,9 @@ export class DaiMotion {
 
     if(this.avatarVariantUntil>0&&this.elapsed>=this.avatarVariantUntil&&shouldAutoCycleAvatarSlot(this.avatarVariantSlot)&&!this.dragging){
       this._applyAvatarVariant(this.requestedGesture,false);
+    }
+    if(this.avatarPreviousVariantMotion&&this.elapsed>=this.avatarVariantBlendUntil){
+      this.avatarPreviousVariantMotion=null;
     }
     const prevGestureTime=this.gestureTime;
     this.gestureTime+=elapsedDt;
