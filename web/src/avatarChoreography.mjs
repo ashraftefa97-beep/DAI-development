@@ -71,34 +71,65 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
       p.right=clamp((p.right||1)*.94,.05,1.35);
       break;
     case 'bouncy':
-      faceOnly(p,a*.72,b*1.05,-.28,Math.max(0,c)*.22);p.cheek=clamp((p.cheek||0)+.07,0,1.2);break;
+      faceOnly(p,a*.84,b*1.16,-.62,Math.max(0,c)*.28);
+      p.smile=clamp((p.smile||0)+.08,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.12,0,1.2);
+      break;
     case 'servo':{
       const q=Math.round(a*4)/4;faceOnly(p,q*.82,q*1.15,-.18,0);p.brow=clamp((p.brow||0)+.08,0,1.2);break;
     }
     case 'breath':
-      faceOnly(p,a*.38,b*.58,.18,sin(t*.66+phase)*.32);p.sy+=(sin(t*.66+phase)*.0018);break;
+      faceOnly(p,a*.30,b*.46,.48,sin(t*.66+phase)*.38);
+      p.smile=clamp((p.smile||0)+.035,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.045,0,1.2);
+      p.sy+=(sin(t*.66+phase)*.0024);
+      break;
     case 'formal':
-      faceOnly(p,a*.18,b*.42,-.16,0);p.brow=clamp((p.brow||0)+.04,0,1.2);break;
+      faceOnly(p,a*.12,b*.28,-.48,0);
+      p.smile=clamp((p.smile||0)-.045,-.35,1.2);
+      p.brow=clamp((p.brow||0)+.12,0,1.2);
+      break;
     case 'phase':
       faceOnly(p,a*.58,cos(t*1.34+phase)*.92,-.20,sin(t*1.62+phase)*.10);break;
     case 'petal':
-      faceOnly(p,a*.50,b*.72,-.30,sin(t*.82+phase)*.14);p.cheek=clamp((p.cheek||0)+.04,0,1.2);break;
+      faceOnly(p,a*.54,b*.76,-.52,sin(t*.82+phase)*.16);
+      p.smile=clamp((p.smile||0)+.04,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.085,0,1.2);
+      break;
     case 'wave':
-      faceOnly(p,sin(t*.92+phase)*.54,cos(t*.72+phase)*.88,.16,sin(t*.92+phase)*.18);break;
+      faceOnly(p,sin(t*.92+phase)*.58,cos(t*.72+phase)*.94,.50,sin(t*.92+phase)*.22);
+      p.cheek=clamp((p.cheek||0)+.035,0,1.2);
+      break;
     case 'radiant':
-      faceOnly(p,a*.64,b*.64,-.34,Math.max(0,c)*.26);p.smile=clamp((p.smile||0)+.05,0,1.2);break;
+      faceOnly(p,a*.72,b*.68,-.60,Math.max(0,c)*.30);
+      p.smile=clamp((p.smile||0)+.11,0,1.2);
+      p.cheek=clamp((p.cheek||0)+.08,0,1.2);
+      break;
     case 'moon':
-      faceOnly(p,a*.30,b*.76,.24,sin(t*.52+phase)*.20);p.left=clamp((p.left||1)-.025,.05,1.35);break;
+      faceOnly(p,a*.24,b*.70,.58,sin(t*.52+phase)*.22);
+      p.smile=clamp((p.smile||0)-.035,-.35,1.2);
+      p.left=clamp((p.left||1)-.04,.05,1.35);
+      p.right=clamp((p.right||1)-.025,.05,1.35);
+      break;
     case 'sprout':
-      faceOnly(p,a*.44,b*.58,-.18,Math.max(0,sin(t*.88+phase))*.18);break;
+      faceOnly(p,a*.48,b*.62,-.48,Math.max(0,sin(t*.88+phase))*.22);
+      p.smile=clamp((p.smile||0)+.055,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.045,0,1.2);
+      break;
     case 'ribbon':
       faceOnly(p,a*.70,b*.82,-.22,sin(t*.76+phase)*.17);p.gaze_x+=(sin(t*.48+phase)*.35);break;
     case 'ember':
       faceOnly(p,c*.72,b*.48,-.30,Math.max(0,sin(t*1.55+phase))*.25);p.brow=clamp((p.brow||0)+.07,0,1.2);break;
     case 'bloom':
-      faceOnly(p,a*.34,b*.46,-.20,sin(t*.64+phase)*.10);p.cheek=clamp((p.cheek||0)+.035,0,1.2);break;
+      faceOnly(p,a*.30,b*.42,-.46,sin(t*.64+phase)*.12);
+      p.smile=clamp((p.smile||0)+.045,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.09,0,1.2);
+      break;
     case 'crystal':{
-      const q=Math.round(a*3)/3;faceOnly(p,q*.42,q*.50,-.20,0);break;
+      const q=Math.round(a*3)/3;
+      faceOnly(p,q*.40,q*.46,-.56,0);
+      p.brow=clamp((p.brow||0)+.055,0,1.2);
+      break;
     }
     case 'zigzag':{
       const q=sin(t*2.2+phase)>0?1:-1;faceOnly(p,q*.48,q*.72,-.20,0);break;
@@ -118,9 +149,14 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
     case 'cosmic':
       faceOnly(p,sin(t*.62+phase)*.48,cos(t*.62+phase)*.76,-.18,sin(t*.43+phase)*.16);p.gaze_x+=cos(t*.31+phase)*.28;break;
     case 'dune':
-      faceOnly(p,sin(t*.58+phase)*.46,cos(t*.44+phase)*.44,.16,sin(t*.58+phase)*.10);break;
+      faceOnly(p,sin(t*.58+phase)*.42,cos(t*.44+phase)*.40,.52,sin(t*.58+phase)*.12);
+      p.smile=clamp((p.smile||0)-.035,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.035,0,1.2);
+      break;
     case 'flutter':
-      faceOnly(p,sin(t*1.08+phase)*.50,b*.58,-.24,-Math.abs(sin(t*1.08+phase))*.10);break;
+      faceOnly(p,sin(t*1.08+phase)*.56,b*.64,-.50,-Math.abs(sin(t*1.08+phase))*.14);
+      p.cheek=clamp((p.cheek||0)+.055,0,1.2);
+      break;
     case 'code':{
       const q=Math.round(sin(t*2.45+phase)*5)/5;faceOnly(p,q*.50,q*.80,-.18,0);p.gaze_y=Math.round((p.gaze_y||0)*4)/4;break;
     }
