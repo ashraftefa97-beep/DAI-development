@@ -54,15 +54,15 @@ function subtleSpeaking(p,id,t,phase){
   faceOnly(p,sin(t*.8+phase)*a,cos(t*.55+phase)*.8,sin(t*.7+phase)*.18,sin(t*1.1+phase)*.08);
 }
 const SPEECH_STANCES=Object.freeze({
-  servo:{gazeY:-.34,smile:-.025,brow:.045},
-  phase:{gazeY:-.42,smile:-.020,brow:.055},
-  ribbon:{gazeY:-.32,smile:.035,cheek:.030},
-  ember:{gazeY:-.38,smile:.035,brow:.045},
-  zigzag:{gazeY:-.30,smile:-.030,brow:.060},
-  orbit:{gazeY:.32,cheek:.035,brow:.025},
-  heartbeat:{gazeY:-.32,smile:-.025,brow:.045},
-  cosmic:{gazeY:.34,cheek:.025,smile:.020},
-  code:{gazeY:-.34,smile:-.025,brow:.060}
+  servo:{gazeY:-.40,smile:-.035,brow:.060},
+  phase:{gazeY:-.46,smile:-.030,brow:.070},
+  ribbon:{gazeY:-.40,smile:.045,cheek:.045,brow:.020},
+  ember:{gazeY:-.42,smile:.045,cheek:.025,brow:.050},
+  zigzag:{gazeY:-.36,smile:-.040,brow:.070},
+  orbit:{gazeY:.42,smile:.040,cheek:.055,brow:.035},
+  heartbeat:{gazeY:-.42,smile:-.040,cheek:.025,brow:.060},
+  cosmic:{gazeY:.44,cheek:.045,smile:.035,brow:.025},
+  code:{gazeY:-.40,smile:-.035,brow:.070}
 });
 
 function applySpeechStance(p,style){
