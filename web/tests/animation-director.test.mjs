@@ -108,3 +108,35 @@ test('particles are reserved for high-quality success moments',()=>{
   assert.equal(mediumSuccess.channels.particles,false);
   assert.equal(highSuccess.channels.particles,true);
 });
+
+
+test('idle and listening stay visually restrained',()=>{
+  const idle=createAnimationPlan(motion({quality:'high',requestedGesture:'idle',gesture:'idle'}));
+  const idleDecorative=['signatureFx','avatarFx','libraryFx'].filter(key=>idle.channels[key]).length;
+  assert.ok(idleDecorative<=1,'idle should not stack decorative FX');
+
+  const listening=createAnimationPlan(motion({
+    quality:'high',
+    requestedGesture:'listen',
+    gesture:'listen',
+    state:'curious',
+    pose:{listen:1,rod:0,wand:0,hat:0}
+  }));
+  assert.equal(listening.mode,'listening');
+  assert.equal(listening.channels.stateFx,true);
+  assert.equal(listening.overlays.listen,false);
+  assert.equal(listening.overlays.thoughtDots,false);
+  assert.deepEqual(validateAnimationPlan(listening),[]);
+});
+
+test('thinking uses avatar state FX instead of shared thought dots',()=>{
+  const plan=createAnimationPlan(motion({
+    quality:'high',
+    requestedGesture:'thinking_deep',
+    gesture:'thinking_deep',
+    state:'thinking'
+  }));
+  assert.equal(plan.channels.stateFx,true);
+  assert.equal(plan.overlays.thoughtDots,false);
+  assert.deepEqual(validateAnimationPlan(plan),[]);
+});
