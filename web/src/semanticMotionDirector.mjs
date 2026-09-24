@@ -89,7 +89,7 @@ const PHASE_BY_INTENT={
   },
   apology:{
     understanding:['listen','thinking_deep'],
-    responding:['calm','reply'],
+    responding:['relax','reply'],
     complete:['nod_yes','idle']
   },
   problem:{
