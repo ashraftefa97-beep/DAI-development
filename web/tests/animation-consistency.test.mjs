@@ -160,3 +160,95 @@ test('motion engine has no stale queued gesture system',()=>{
   const motion=fs.readFileSync(new URL('../src/motion.mjs',import.meta.url),'utf8');
   assert.doesNotMatch(motion,/pendingGesture/);
 });
+
+
+test('rapid state stress keeps the latest DAI state authoritative',()=>{
+  const sequence=[
+    ['listen',.12],
+    ['thinking_deep',.18],
+    ['search',.24],
+    ['reply',.16],
+    ['talk',.14],
+    ['listen',.10],
+    ['thinking_deep',.20],
+    ['found',.18],
+    ['idle',.25]
+  ];
+
+  for(const avatar of avatarIds){
+    const motion=prepare(avatar,'idle');
+    let previousVariant='';
+
+    for(let round=0;round<12;round++){
+      for(const [gesture,duration] of sequence){
+        if(gesture==='talk')motion.setVoiceLevel(.72,true);
+        else motion.setVoiceLevel(0,false);
+
+        motion.setGesture(gesture);
+        motion.advance(1/60);
+
+        assert.equal(
+          motion.requestedGesture,
+          gesture,
+          `${avatar}: latest state ${gesture} did not become authoritative`
+        );
+
+        const variantAtEntry=motion.avatarVariantId;
+        const steps=Math.max(1,Math.round(duration*60));
+        for(let i=1;i<steps;i++)motion.advance(1/60);
+
+        if(gesture!=='idle'){
+          assert.equal(
+            motion.avatarVariantId,
+            variantAtEntry,
+            `${avatar}/${gesture}: active variant changed during one state`
+          );
+        }
+
+        for(const value of poseVector(motion)){
+          assert.ok(Number.isFinite(value),`${avatar}/${gesture}: non-finite pose during stress sequence`);
+        }
+
+        if(!['search','fishing'].includes(gesture)){
+          assert.ok((motion.pose.wand||0)<=.01,`${avatar}/${gesture}: stale wand during stress sequence`);
+          assert.ok((motion.pose.rod||0)<=.01,`${avatar}/${gesture}: stale rod during stress sequence`);
+        }
+
+        previousVariant=motion.avatarVariantId;
+      }
+    }
+
+    assert.equal(motion.requestedGesture,'idle');
+    assert.ok((motion.pose.wand||0)<=.01);
+    assert.ok((motion.pose.rod||0)<=.01);
+  }
+});
+
+test('animation state changes become visible within one simulation frame',()=>{
+  const changes=[
+    ['idle','listen'],
+    ['listen','thinking_deep'],
+    ['thinking_deep','search'],
+    ['search','reply'],
+    ['reply','idle']
+  ];
+
+  for(const avatar of avatarIds){
+    for(const [from,to] of changes){
+      const motion=prepare(avatar,from);
+      runFor(motion,.5,60);
+      motion.setGesture(to);
+      motion.advance(1/60);
+
+      assert.equal(motion.requestedGesture,to,`${avatar}: ${from}->${to} state latency exceeded one frame`);
+      assert.equal(
+        animationModeForMotion(motion),
+        to==='listen'?'listening':
+        to==='thinking_deep'?'thinking':
+        to==='search'?'searching':
+        to==='reply'?'idle':
+        'idle'
+      );
+    }
+  }
+});
