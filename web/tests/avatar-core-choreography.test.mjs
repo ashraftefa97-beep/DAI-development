@@ -22,12 +22,12 @@ function signature(p){
 }
 
 test('every avatar owns a unique core choreography motif',()=>{
-  assert.equal(avatarIds.length,25);
+  assert.equal(avatarIds.length,24);
   assert.deepEqual(validateAvatarChoreography(avatarIds),[]);
   assert.deepEqual(Object.keys(AVATAR_CHOREOGRAPHY_DNA).sort(),[...avatarIds].sort());
 });
 
-test('same semantic state produces 25 visibly different core poses',()=>{
+test('same semantic state produces 24 visibly different core poses',()=>{
   const signatures=new Map();
   for(const id of avatarIds){
     const p=basePose();
@@ -42,7 +42,7 @@ test('same semantic state produces 25 visibly different core poses',()=>{
     assert.ok(!signatures.has(sig),`${id} duplicates ${signatures.get(sig)} core pose`);
     signatures.set(sig,id);
   }
-  assert.equal(signatures.size,25);
+  assert.equal(signatures.size,24);
 });
 
 test('each avatar idle library drives several different core poses, not palette-only variants',()=>{
@@ -103,7 +103,7 @@ function trajectorySignature(id,slotName,variant=7){
   }).join('>>');
 }
 
-test('all semantic slots produce 25 distinct avatar trajectories over time',()=>{
+test('all semantic slots produce 24 distinct avatar trajectories over time',()=>{
   const slots=['idle','listening','thinking','searching','speaking','success','error'];
   for(const slotName of slots){
     const seen=new Map();
@@ -112,7 +112,7 @@ test('all semantic slots produce 25 distinct avatar trajectories over time',()=>
       assert.ok(!seen.has(sig),`${slotName}: ${id} duplicates ${seen.get(sig)} trajectory`);
       seen.set(sig,id);
     }
-    assert.equal(seen.size,25,`${slotName}: expected 25 unique trajectories`);
+    assert.equal(seen.size,24,`${slotName}: expected 24 unique trajectories`);
   }
 });
 
