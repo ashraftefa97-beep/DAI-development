@@ -290,15 +290,54 @@ const AVATAR_MOTION_PROFILES={
 };
 function applyAvatarMotion(c,m,avatar='classic'){
   const p=AVATAR_MOTION_PROFILES[avatar]||AVATAR_MOTION_PROFILES.classic;
-  const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(m.gesture);
+  const v=m.avatarVariantMotion||{};
+  const semantic=m.requestedGesture||m.gesture;
+  const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(semantic);
   const activity=calm?1:.28;
-  const reduced=m.reduced?.18:1;
-  const t=m.elapsed*p.speed+p.phase;
-  const dx=Math.sin(t)*p.x*activity*reduced;
-  const dy=Math.sin(t*1.31+p.phase*.21)*p.y*activity*reduced;
-  const tilt=Math.sin(t*.83+p.phase*.37)*p.tilt*activity*reduced;
-  const scale=1+Math.sin(t*1.11+p.phase*.13)*p.scale*activity*reduced;
+  const reduced=m.reduced?(m.avatarVariantReducedIntensity||.22):1;
+  const speed=p.speed*(Number(v.speed)||1);
+  const t=m.elapsed*speed+p.phase+(Number(v.phase)||0);
+  const xAmp=p.x*(.72+(Number(v.x)||1)*.34);
+  const yAmp=p.y*(.72+(Number(v.y)||1)*.30);
+  const tiltAmp=p.tilt*(.74+(Number(v.tilt)||1)*.32);
+  const scaleAmp=p.scale*(.75+(Number(v.scale)||.004)*58);
+  const orbit=(Number(v.orbit)||0)*7;
+  const bounce=(Number(v.bounce)||0)*6;
+  const nod=(Number(v.nod)||0)*1.6;
+  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit)*activity*reduced;
+  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce)*activity*reduced;
+  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod)*activity*reduced;
+  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*activity*reduced;
   c.translate(dx,dy);c.rotate(rad(tilt));c.scale(scale,scale);
+}
+
+function avatarLibraryAccent(c,m,theme){
+  if(!m.avatarVariantId)return;
+  const accent=String(m.avatarVariantAccent||'pulse-1');
+  const variant=Math.max(1,Number(accent.match(/-(\d+)$/)?.[1]||1));
+  const family=accent.replace(/-\d+$/,'');
+  const reduced=m.reduced?.24:1;
+  const alpha=(.10+.025*((variant-1)%3))*reduced;
+  const primary=theme.particles?.[(variant-1)%Math.max(1,theme.particles?.length||1)]||theme.happy;
+  const t=m.elapsed*(.7+variant*.18);
+  c.save();c.globalAlpha=alpha;
+  if(['scan','code','laser','holo','line','frame'].includes(family)){
+    const y=-72+((m.elapsed*(24+variant*7))%144);
+    line(c,-104,y,104,y,primary,variant===2?1.3:1);
+  }else if(['spark','embers','flare','glint','crystal'].includes(family)){
+    const rise=(m.elapsed*(18+variant*5))%86;
+    star(c,-94+variant*5,64-rise,1.6+variant*.25,primary,-8+variant*6);
+    star(c,96-variant*4,84-rise*.72,1.2+variant*.2,primary,10-variant*4);
+  }else if(['stars','orbit','ribbon','petal','float','drift','rose','leaf'].includes(family)){
+    ellipse(c,Math.cos(t)*108,Math.sin(t)*54,1.4+variant*.35,1.4+variant*.35,primary);
+    ellipse(c,Math.cos(t+Math.PI)*96,Math.sin(t+Math.PI)*46,1.1+variant*.28,1.1+variant*.28,primary);
+  }else if(['wave','heat'].includes(family)){
+    const y=72+Math.sin(t)*4;
+    path(c,`M-108 ${y} Q-72 ${y-6-variant} -36 ${y} T36 ${y} T108 ${y}`,null,primary,1);
+  }else{
+    ellipse(c,0,-2,114+variant*2,88+variant,null,primary,.8+variant*.15);
+  }
+  c.restore();
 }
 
 function avatarAccent(c,m,avatar,isLight) {
@@ -643,6 +682,7 @@ export function drawDai(c,m,w,h,avatar='classic') {
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
   avatarAccent(c,m,avatar,isLight);
+  avatarLibraryAccent(c,m,theme);
   hat(c,m);wand(c,m);fishing(c,m);
   hand(c,q.lx,q.ly,q.lr,q.la,true,q.wand>.3,avatar);hand(c,q.rx,q.ry,q.rr,q.ra,false,q.rod>.3,avatar);
   listen(c,m);personality(c,m);
