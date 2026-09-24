@@ -1321,6 +1321,144 @@ export default function GithubApp(){
     let token=session?.access_token||'';
     if(!token)throw new DaiSupervisorError('TTS_SESSION','voice session unavailable',{retryable:false});
 
+    // Fast path: stream PCM audio and start playback as soon as the first
+    // provider chunk arrives. This avoids waiting for a full WAV generation.
+    const tryStreamingSpeech=async()=>{
+      const controller=new AbortController();
+      const timeout=window.setTimeout(()=>controller.abort(),45000);
+      let started=false;
+      let streamDone=false;
+      let finished=false;
+      let nextStart=0;
+      let analyser:AnalyserNode|null=null;
+
+      const finish=()=>{
+        if(finished||runId!==speechRunRef.current)return;
+        if(!streamDone||speechStreamSourcesRef.current.size>0)return;
+        finished=true;
+        if(analyser){
+          try{analyser.disconnect();}catch{}
+          if(speechAnalyserRef.current===analyser)speechAnalyserRef.current=null;
+        }
+        stopVoiceMotionTracking(speechMotionRafRef);
+        window.dispatchEvent(new CustomEvent('dai:speech-mood',{detail:{mood:'neutral'}}));
+        onEnd?.();
+      };
+
+      try{
+        const response=await fetch(
+          supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-stream',
+          {
+            method:'POST',
+            signal:controller.signal,
+            headers:{
+              Authorization:'Bearer '+token,
+              apikey:supabasePublishableKey,
+              'Content-Type':'application/json'
+            },
+            body:JSON.stringify({text:spoken})
+          }
+        );
+        if(!response.ok||!response.body)throw new Error('tts-stream-unavailable');
+
+        analyser=ctx.createAnalyser();
+        analyser.fftSize=256;
+        analyser.smoothingTimeConstant=.38;
+        analyser.connect(ctx.destination);
+        speechAnalyserRef.current=analyser;
+        emitSpeechMood(spoken);
+        startVoiceMotionTracking(
+          analyser,
+          speechMotionRafRef,
+          ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.size>0
+        );
+
+        const reader=response.body.getReader();
+        const decoder=new TextDecoder();
+        let pending='';
+
+        const handleFrame=(frame:string)=>{
+          if(runId!==speechRunRef.current){
+            controller.abort();
+            return;
+          }
+          const eventLine=frame.split(/\r?\n/).find(line=>line.startsWith('event:'));
+          const eventName=String(eventLine||'').slice(6).trim();
+          const raw=frame
+            .split(/\r?\n/)
+            .filter(line=>line.startsWith('data:'))
+            .map(line=>line.slice(5).trim())
+            .join('\n');
+          if(!raw)return;
+          const payload=JSON.parse(raw);
+
+          if(eventName==='audio'&&payload?.data){
+            const samples=base64PcmToFloat32(String(payload.data));
+            if(!samples.length)return;
+            const rate=Number(payload.sampleRate||liveOutputRate(String(payload.mimeType||'')))||24000;
+            const buffer=ctx.createBuffer(1,samples.length,rate);
+            buffer.copyToChannel(samples,0);
+
+            const source=ctx.createBufferSource();
+            source.buffer=buffer;
+            source.playbackRate.value=voiceRate;
+            source.connect(analyser!);
+            speechStreamSourcesRef.current.add(source);
+
+            const startAt=Math.max(ctx.currentTime+.008,nextStart||0);
+            source.start(startAt);
+            nextStart=startAt+(buffer.duration/Math.max(.01,voiceRate));
+
+            if(!started){
+              started=true;
+              onStart?.();
+            }
+
+            source.onended=()=>{
+              speechStreamSourcesRef.current.delete(source);
+              finish();
+            };
+          }else if(eventName==='done'){
+            streamDone=true;
+            finish();
+          }else if(eventName==='error'){
+            throw new Error(String(payload?.code||'tts-stream-read'));
+          }
+        };
+
+        while(true){
+          const {value,done}=await reader.read();
+          if(done)break;
+          pending+=decoder.decode(value,{stream:true});
+          const frames=pending.split(/\r?\n\r?\n/);
+          pending=frames.pop()||'';
+          for(const frame of frames)handleFrame(frame);
+        }
+        pending+=decoder.decode();
+        if(pending.trim())handleFrame(pending);
+        streamDone=true;
+        finish();
+
+        if(!started)throw new Error('tts-stream-empty');
+        return true;
+      }catch(error){
+        if(started){
+          console.error('DAI streaming TTS ended early',error);
+          streamDone=true;
+          finish();
+          return true;
+        }
+        if((error as Error)?.name!=='AbortError'){
+          console.debug('DAI streaming TTS fast path unavailable, falling back');
+        }
+        return false;
+      }finally{
+        window.clearTimeout(timeout);
+      }
+    };
+
+    if(await tryStreamingSpeech())return true;
+
     let speechParts:string[]=[];
     if(spoken.length<=520){
       speechParts=[spoken];
@@ -3484,7 +3622,7 @@ export default function GithubApp(){
     }
     source.connect(analyser);
 
-    const startAt=Math.max(ctx.currentTime+.02,liveNextPlayTimeRef.current||0);
+    const startAt=Math.max(ctx.currentTime+.006,liveNextPlayTimeRef.current||0);
     source.start(startAt);
     liveNextPlayTimeRef.current=startAt+buffer.duration;
     liveOutputSourcesRef.current.add(source);
@@ -3531,7 +3669,7 @@ export default function GithubApp(){
     const ctx=new AudioContextCtor();
     await ctx.resume();
     const source=ctx.createMediaStreamSource(stream);
-    const processor=ctx.createScriptProcessor(2048,1,1);
+    const processor=ctx.createScriptProcessor(1024,1,1);
     const silent=ctx.createGain();
     silent.gain.value=0;
 
@@ -3601,8 +3739,8 @@ export default function GithubApp(){
       combined.set(resampled,previous.length);
 
       // Smaller packets reduce microphone-to-model latency without flooding the socket.
-      // 1280 samples at 16 kHz = 80 ms.
-      const chunkSamples=1280;
+      // 640 samples at 16 kHz = 40 ms for faster turn streaming.
+      const chunkSamples=640;
       let offset=0;
       while(offset+chunkSamples<=combined.length){
         const packet=combined.slice(offset,offset+chunkSamples);
@@ -4169,8 +4307,8 @@ export default function GithubApp(){
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-                prefixPaddingMs:120,
-                silenceDurationMs:520
+                prefixPaddingMs:80,
+                silenceDurationMs:320
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
