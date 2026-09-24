@@ -564,33 +564,48 @@ function light(c,x,y,r,color,rx=r,ry=r) {
 }
 function drawBonneyNikaBase(c,m,isLight){
   const t=m.reduced?0:m.elapsed;
-  const sway=m.reduced?0:Math.sin(t*.78)*2.2;
-  const cloud=isLight?'rgba(124,101,145,.54)':'rgba(248,240,255,.72)';
+  const cloud=isLight?'rgba(124,101,145,.58)':'rgba(250,244,255,.78)';
   const glow=isLight?'rgba(216,171,219,.10)':'rgba(255,214,244,.14)';
-  const gold=isLight?'rgba(180,129,42,.72)':'rgba(255,214,103,.76)';
+  const gold=isLight?'rgba(180,129,42,.66)':'rgba(255,214,103,.72)';
 
   c.save();
-  light(c,0,-24,132,glow,132,105);
+  light(c,0,-38,138,glow,132,112);
 
-  // Same minimalist DAI visual language: no face silhouette, only symbolic Nika curls.
+  // Gear-5/Joy-Boy-inspired upward hair, kept in DAI's minimalist line-art language.
   c.save();
-  c.shadowColor=isLight?'rgba(170,129,181,.12)':'rgba(255,224,247,.18)';
+  c.shadowColor=isLight?'rgba(170,129,181,.12)':'rgba(255,224,247,.20)';
   c.shadowBlur=8;
-  path(c,`M-88 -78 C-72 -105 -43 -108 -24 -88 C-8 -72 -22 -60 -37 -68`,null,cloud,2.6);
-  path(c,`M-49 -96 C-23 -122 14 -117 28 -92 C38 -74 22 -61 8 -69`,null,cloud,2.8);
-  path(c,`M8 -96 C35 -120 68 -108 74 -83 C79 -64 61 -55 49 -67`,null,cloud,2.6);
-  path(c,`M-94 -53 C-119 -54 -124 -28 -106 -19 C-91 -12 -80 -23 -85 -35`,null,cloud,2.2);
-  path(c,`M94 -53 C119 -54 124 -28 106 -19 C91 -12 80 -23 85 -35`,null,cloud,2.2);
 
-  // Small lower wisps hint at the floating cloud-hair shape without becoming a full head.
-  path(c,`M-97 33 C-116 42 -111 62 -96 65 C-83 67 -76 55 -82 46`,null,cloud,1.9);
-  path(c,`M97 33 C116 42 111 62 96 65 C83 67 76 55 82 46`,null,cloud,1.9);
+  const locks=[
+    {x:-58,y:-84,w:2.4,p:.0,d:'M0 18 C-15 -8 -10 -39 9 -55 C22 -66 33 -56 26 -42 C18 -27 2 -30 3 -14'},
+    {x:-28,y:-96,w:2.8,p:.9,d:'M0 18 C-16 -17 -3 -55 20 -70 C36 -80 47 -64 35 -50 C23 -35 6 -39 8 -20'},
+    {x:0,y:-103,w:3.0,p:1.7,d:'M0 20 C-9 -20 8 -62 31 -78 C47 -89 58 -73 45 -56 C34 -42 18 -47 20 -27'},
+    {x:30,y:-96,w:2.8,p:2.5,d:'M0 18 C13 -18 3 -53 -18 -69 C-33 -81 -45 -66 -35 -51 C-24 -35 -7 -39 -8 -20'},
+    {x:60,y:-84,w:2.4,p:3.3,d:'M0 18 C15 -9 11 -38 -8 -55 C-21 -67 -33 -57 -26 -42 C-18 -27 -2 -30 -3 -14'},
+    {x:-91,y:-55,w:2.1,p:4.1,d:'M7 13 C-17 7 -28 -15 -17 -30 C-7 -43 9 -37 10 -24 C11 -12 -1 -7 -8 -13'},
+    {x:91,y:-55,w:2.1,p:4.9,d:'M-7 13 C17 7 28 -15 17 -30 C7 -43 -9 -37 -10 -24 C-11 -12 1 -7 8 -13'}
+  ];
+
+  for(const lock of locks){
+    const lift=m.reduced?0:(Math.sin(t*1.15+lock.p)*4.2 + Math.sin(t*.53+lock.p)*2.1);
+    const lean=m.reduced?0:Math.sin(t*.82+lock.p)*.055;
+    c.save();
+    c.translate(lock.x,lock.y+lift);
+    c.rotate(lean);
+    path(c,lock.d,null,cloud,lock.w);
+    c.restore();
+  }
+
+  // Small cloud-ring arc above the face, similar to Nika's floating white steam.
+  const ringY=-74+(m.reduced?0:Math.sin(t*.9)*2);
+  path(c,`M-72 ${ringY} Q-36 ${ringY-14} 0 ${ringY-4} T72 ${ringY}`,null,cloud,1.8);
   c.restore();
 
-  star(c,-111+sway,-49,2.4,gold,-8);
-  star(c,111-sway,-45,2.1,gold,10);
-  star(c,-94,67+sway*.3,1.5,gold,0);
-  star(c,94,69-sway*.3,1.5,gold,0);
+  const sparkleSway=m.reduced?0:Math.sin(t*.78)*2.2;
+  star(c,-111+sparkleSway,-49,2.2,gold,-8);
+  star(c,111-sparkleSway,-45,2.0,gold,10);
+  star(c,-94,67+sparkleSway*.3,1.4,gold,0);
+  star(c,94,69-sparkleSway*.3,1.4,gold,0);
   c.restore();
 }
 
