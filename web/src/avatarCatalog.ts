@@ -14,7 +14,7 @@ export type DaiAvatarOption = {
 };
 
 export const DAI_AVATAR_OPTIONS: readonly DaiAvatarOption[] = [
-  {id:'classic',label:'DAI Classic · الوجه الأساسي',desc:'وجه ضي الأصلي الأساسي بحلقة الوجه والملامح الكلاسيكية',previewMark:'classic-face-ring'},
+  {id:'classic',label:'DAI Classic · الوجه الأساسي',desc:'وجه ضي الأصلي الأساسي بملامحه الكلاسيكية'},
   {id:'minimal',label:'Minimal',desc:'أنظف وأهدأ بألوان محايدة'},
   {id:'cute',label:'Cute',desc:'عيون أكبر ولمسات ألطف ووردية',previewMark:'cute-spark',previewGlyph:'✦'},
   {id:'cyber',label:'Cyber',desc:'ستايل مستقبلي بألوان سيان وبنفسجي',previewMark:'cyber-mark'},
