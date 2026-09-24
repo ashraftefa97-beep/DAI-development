@@ -838,7 +838,7 @@ export class DaiMotion {
     if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*2.2);
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
-    const speechFace=this.voiceDriven&&(this.gesture==='talk'||this.state==='talking');
+    const speechFace=this.gesture==='talk'||this.state==='talking';
     const restingHands=handsShouldRest({
       mode:animationModeForGesture(this.requestedGesture),
       requestedGesture:this.requestedGesture,
