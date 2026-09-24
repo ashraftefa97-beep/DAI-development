@@ -88,7 +88,9 @@ test('avatar system keeps all styles on the same motion engine',()=>{
   assert.match(draw,/AVATAR_FACE_SHAPES/);
   assert.match(draw,/avatarFaceShape\(avatar\)/);
   assert.match(draw,/applyAvatarMotion\(c,m,avatar\)/);
-  assert.match(draw,/hand\(c,q\.lx[^\n]*avatar\)/);
+  assert.match(draw,/stabilizeRenderedHands/);
+  assert.match(draw,/hand\(c,renderedHands\.left\.x[^\n]*avatar\)/);
+  assert.match(draw,/hand\(c,renderedHands\.right\.x[^\n]*avatar\)/);
   assert.match(draw,/export function drawDai\(c,m,w,h,avatar='classic'\)/);
 });
 
