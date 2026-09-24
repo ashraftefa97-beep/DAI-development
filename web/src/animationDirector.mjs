@@ -125,6 +125,8 @@ export function createAnimationPlan(m,context={}){
   if(emotion.fx<.72)budget=Math.max(0,budget-1);
   if(compact&&quality!=='high')budget=Math.max(0,budget-1);
 
+  const stateFxActive=['thinking','searching','working','success','error'].includes(mode);
+  if(stateFxActive)budget=Math.max(0,budget-1);
   const enabledFx=new Set(fxOrderForMode(mode).slice(0,budget));
   const semantic=String(m?.requestedGesture||m?.gesture||'idle');
   const isBusy=mode!=='idle';
@@ -145,8 +147,8 @@ export function createAnimationPlan(m,context={}){
 
   const particles=
     !reduced&&
-    quality!=='low'&&
-    mode!=='speaking'&&
+    quality==='high'&&
+    mode==='success'&&
     !accessory;
 
   return Object.freeze({
@@ -166,7 +168,7 @@ export function createAnimationPlan(m,context={}){
       body:true,
       hands:true,
       accessory:Boolean(accessory),
-      stateFx:mode==='listening'||mode==='thinking'||mode==='searching'||mode==='working'||mode==='success'||mode==='error',
+      stateFx:stateFxActive,
       signatureFx:enabledFx.has('signatureFx'),
       avatarFx:enabledFx.has('avatarFx'),
       libraryFx:enabledFx.has('libraryFx'),
@@ -186,8 +188,9 @@ export function validateAnimationPlan(plan){
   const errors=[];
   if(!plan||typeof plan!=='object')return ['plan missing'];
   const activeFx=['signatureFx','avatarFx','libraryFx'].filter(key=>plan.channels?.[key]);
+  const stateCost=plan.channels?.stateFx?1:0;
   const max=plan.reduced?0:plan.quality==='high'?3:plan.quality==='medium'?2:1;
-  if(activeFx.length>max)errors.push('fx budget exceeded');
+  if(activeFx.length+stateCost>max)errors.push('fx budget exceeded');
   if(plan.mode==='speaking'&&activeFx.length>1)errors.push('speaking fx overload');
   if(plan.reduced&&plan.channels?.particles)errors.push('reduced motion cannot render particles');
   if(plan.accessory&&!['hat','wand','fishing'].includes(plan.accessory))errors.push('invalid accessory');
