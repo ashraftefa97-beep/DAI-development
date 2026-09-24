@@ -53,10 +53,15 @@ test('audio lifecycle pauses and resumes cleanly across page visibility',()=>{
   assert.match(sfx,/MAX_SIMULTANEOUS_VOICES/);
 });
 
-test('core phase priority manager prevents competing animations',()=>{
-  assert.match(app,/DAI_PHASE_PRIORITY/);
-  assert.match(app,/DAI_PHASE_MIN_HOLD_MS/);
-  assert.match(app,/corePhaseStartedAtRef/);
+test('core phase never delays the real DAI state behind animation locks',()=>{
+  const start=app.indexOf('function transitionCorePhase');
+  const end=app.indexOf('function animationSpecById',start);
+  const block=app.slice(start,end);
+  assert.doesNotMatch(app,/DAI_PHASE_PRIORITY/);
+  assert.doesNotMatch(app,/DAI_PHASE_MIN_HOLD_MS/);
+  assert.doesNotMatch(block,/animationLockUntilRef/);
+  assert.match(block,/corePhaseRef\.current=phase/);
+  assert.match(block,/setDaiState\(state\)/);
   assert.match(app,/workPhaseStartedAtRef/);
   assert.match(app,/fastTurn/);
 });
