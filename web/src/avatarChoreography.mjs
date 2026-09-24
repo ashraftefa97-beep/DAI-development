@@ -141,9 +141,21 @@ export function applyAvatarChoreography(p,m){
 
   switch(avatar){
     case 'minimal':{
-      faceOnly(p,a*.65*k,b*.8*k,-1.5*k,0);
-      if(s==='thinking'||s==='searching')showRight(p,.28,-0+118,58+b*3,-4+a*3);
-      p.sx=1+(c>0?.002:0);p.sy=1;
+      // Minimal is intentionally still, but visibly different from Classic:
+      // low-amplitude motion, focused downward gaze, narrower expression and
+      // almost no breathing/bob.
+      faceOnly(p,a*.30*k,b*.36*k,1.8*k,0);
+      p.bob=(p.bob||0)*.10;
+      p.smile=clamp((p.smile||0)-.16*k,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)-.08*k,0,1.2);
+      p.brow=clamp((p.brow||0)+.16*k,0,1.2);
+      p.sx=1-.010*k;
+      p.sy=1+.007*k;
+      if(s==='thinking'||s==='searching'){
+        showRight(p,.34,120,56+b*3,-3+a*2);
+      }else if(s==='listening'){
+        showRight(p,.22,122,64,-4);
+      }
       break;
     }
     case 'cute':{
