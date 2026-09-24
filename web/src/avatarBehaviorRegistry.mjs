@@ -53,7 +53,7 @@ export function applyAvatarBehaviorToPose(p,m){
   if(!p||!m)return p;
   const profile=getAvatarBehaviorProfile(m.avatarStyle);
   const gesture=String(m.requestedGesture||m.gesture||'idle');
-  const searchLike=['search','scan','detect','scout','found'].includes(gesture);
+  const searchLike=['search','scan','detect','scout'].includes(gesture);
   const t=Number(m.gestureTime||0);
   const reduced=Boolean(m.reduced);
   const wave=reduced?0:Math.sin(t*profile.tempo+profile.phase);
@@ -74,7 +74,7 @@ export function applyAvatarBehaviorToPose(p,m){
     p.sx=(Number(p.sx)||1)+Math.abs(wave)*profile.scaleAmp;
     p.sy=(Number(p.sy)||1)-Math.abs(wave)*profile.scaleAmp*.65;
 
-    const magicSearch=profile.legacySearchProps&&['search','found'].includes(gesture);
+    const magicSearch=profile.legacySearchProps&&gesture==='search';
     if(magicSearch){
       const wandPhase=clamp(1-Math.max(0,t-2.0)/.34,0,1);
       p.hat=1;
@@ -99,16 +99,15 @@ export function applyAvatarBehaviorToPose(p,m){
 export function avatarAllowsLegacyAccessory(id,kind,gesture=''){
   const profile=getAvatarBehaviorProfile(id);
   if(kind==='fishing')return String(gesture)==='fishing';
-  if(kind==='hat'||kind==='wand')return profile.legacySearchProps&&['search','found'].includes(String(gesture));
+  if(kind==='hat'||kind==='wand')return profile.legacySearchProps&&String(gesture)==='search';
   return false;
 }
 
 export function avatarAllowsHandGesture(id,gesture=''){
   const value=String(gesture||'idle');
   const profile=getAvatarBehaviorProfile(id);
-  if(['search','scan','detect','scout','found'].includes(value)){
-    return Boolean(profile.searchHand)&&['search','found'].includes(value);
-  }
+  if(value==='search')return Boolean(profile.searchHand);
+  if(['scan','detect','scout','found'].includes(value))return false;
   return true;
 }
 
