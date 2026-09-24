@@ -1,3 +1,4 @@
+// DAI watchdog probe v1
 const PAGE_URL=(process.env.DAI_PAGE_URL||'https://ashraftefa97-beep.github.io/DAI-development/').replace(/\/+$/,'/') ;
 const SUPABASE_URL=(process.env.DAI_SUPABASE_URL||'https://buenonmbyudjhpedmoqk.supabase.co').replace(/\/$/,'');
 const TIMEOUT_MS=Number(process.env.DAI_WATCHDOG_TIMEOUT_MS||12000);
