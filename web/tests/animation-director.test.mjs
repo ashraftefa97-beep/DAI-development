@@ -67,22 +67,24 @@ test('error can interrupt any lower-priority animation',()=>{
   assert.ok(result.lockMs>=600);
 });
 
-test('lower-priority animation waits during a lock',()=>{
+test('core state changes are never delayed by an older animation lock',()=>{
   const result=requestAnimationTransition('success','idle',{
     now:1,
     lockedUntil:1.4,
     voiceActive:false
   });
-  assert.equal(result.accept,false);
+  assert.equal(result.accept,true);
+  assert.equal(result.mode,'idle');
 });
 
-test('lower-priority animation resumes after a lock',()=>{
-  const result=requestAnimationTransition('success','idle',{
-    now:1.5,
-    lockedUntil:1.4,
-    voiceActive:false
+test('listening can immediately interrupt speaking when DAI changes state',()=>{
+  const result=requestAnimationTransition('talk','listen',{
+    now:1,
+    lockedUntil:5,
+    voiceActive:true
   });
   assert.equal(result.accept,true);
+  assert.equal(result.mode,'listening');
 });
 
 
