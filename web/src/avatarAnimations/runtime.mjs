@@ -21,7 +21,7 @@ const GESTURE_SLOT_MAP=Object.freeze({
 
   listen:'listening',nod_yes:'listening',salute:'listening',peace:'listening',curious:'listening',
 
-  typing:'thinking',thinking_deep:'thinking',brainstorm:'thinking',focus:'thinking',
+  typing:'thinking',type_fast:'thinking',thinking_deep:'thinking',brainstorm:'thinking',focus:'thinking',
   code_focus:'thinking',read:'thinking',write:'thinking',idea:'thinking',
   lightbulb_pop:'thinking',question:'thinking',thought_orbit:'thinking',working:'thinking',
   response_ready:'thinking',
