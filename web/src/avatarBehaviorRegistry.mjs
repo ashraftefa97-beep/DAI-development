@@ -2,6 +2,7 @@ const profile=(id,motionFamily,searchVisual,thinkingVisual,successVisual,errorVi
   id,
   motionFamily,
   searchVisual,
+  listeningVisual:opts.listeningVisual||`${searchVisual}Listen`,
   thinkingVisual,
   successVisual,
   errorVisual,
@@ -107,6 +108,7 @@ export function validateAvatarBehaviorProfiles(ids=[]){
   const errors=[];
   const visualSets={
     searchVisual:new Set(),
+    listeningVisual:new Set(),
     thinkingVisual:new Set(),
     successVisual:new Set(),
     errorVisual:new Set()
