@@ -50,7 +50,9 @@ test('reduced motion disables decorative FX and particles',()=>{
   assert.equal(plan.channels.signatureFx,false);
   assert.equal(plan.channels.avatarFx,false);
   assert.equal(plan.channels.libraryFx,false);
+  assert.equal(plan.channels.stateFx,false);
   assert.equal(plan.channels.particles,false);
+  assert.equal(plan.channels.hands,false);
   assert.deepEqual(validateAnimationPlan(plan),[]);
 });
 
