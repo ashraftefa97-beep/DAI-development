@@ -247,12 +247,18 @@ export function semanticPhaseScene(phase,semantic,baseScene){
   }
   if(!gestures?.length)return fallback;
 
-  const delays=PHASE_DELAYS[phase]||[];
-  const steps=gestures.map((state,index)=>({
-    state,
-    after:Number.isFinite(delays[index])?delays[index]:index*320
-  }));
-  return {...fallback,steps};
+  const primary=
+    phase==='responding'
+      ? gestures[gestures.length-1]
+      : phase==='complete'
+        ? gestures[0]
+        : phase==='working'
+          ? gestures[0]
+          : phase==='searching'
+            ? gestures[gestures.length-1]
+            : gestures[gestures.length-1];
+
+  return {...fallback,steps:[{state:primary,after:0}]};
 }
 
 function speechTone(text=''){
