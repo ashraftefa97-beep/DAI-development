@@ -33,11 +33,60 @@ function dampTwoHandCrowding(p){
   }
 }
 
+const PASSIVE_HAND_GESTURES=new Set([
+  'idle','relax','breathe','sleep','dream','yawn','meditate','sway','cozy_sway',
+  'wait_patient','voicewait','recharge'
+]);
+const SPEAKING_HAND_GESTURES=new Set(['talk','reply']);
+
+export function handsShouldRest(context={}){
+  const requested=String(context.requestedGesture||'idle');
+  const active=String(context.activeGesture||requested);
+  const mode=String(context.mode||'idle');
+  return mode==='speaking'||
+    requested==='idle'||
+    PASSIVE_HAND_GESTURES.has(requested)||
+    SPEAKING_HAND_GESTURES.has(requested)||
+    (PASSIVE_HAND_GESTURES.has(active)&&mode==='idle');
+}
+
+export function applyNaturalHandPolicy(p,context={}){
+  if(!p)return p;
+
+  const requested=String(context.requestedGesture||'idle');
+  const active=String(context.activeGesture||requested);
+  const mode=String(context.mode||'idle');
+
+  if(handsShouldRest({requestedGesture:requested,activeGesture:active,mode})){
+    p.la=0;
+    p.ra=0;
+    p.lx=-118;p.ly=72;p.lr=-10;
+    p.rx=118;p.ry=72;p.rr=10;
+    return p;
+  }
+
+  // Listening should read as attentive, not as two-handed gesturing.
+  if(mode==='listening'){
+    const la=Number(p.la)||0;
+    const ra=Number(p.ra)||0;
+    if(la>.08&&ra>.08){
+      if(ra>=la)p.la=Math.min(la,.08);
+      else p.ra=Math.min(ra,.08);
+    }
+    p.la=Math.min(Number(p.la)||0,.78);
+    p.ra=Math.min(Number(p.ra)||0,.78);
+  }
+
+  return p;
+}
+
 export function guardPose(p,context={}){
   if(!p)return p;
   const mode=context.mode||'idle';
   const accessory=context.accessory||null;
   const reduced=Boolean(context.reduced);
+
+  applyNaturalHandPolicy(p,context);
 
   if((p.la||0)>.05){
     const safe=safeHandPoint(Number(p.lx)||-118,Number(p.ly)||72,-1);
