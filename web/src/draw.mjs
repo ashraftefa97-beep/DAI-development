@@ -564,59 +564,43 @@ function light(c,x,y,r,color,rx=r,ry=r) {
 }
 function drawBonneyNikaBase(c,m,isLight){
   const t=m.reduced?0:m.elapsed;
-  const drift=Math.sin(t*.72)*2.2;
-  c.save();
-  light(c,0,-8,154,isLight?'rgba(235,154,214,.10)':'rgba(245,166,226,.14)',148,126);
-  light(c,0,-24,118,isLight?'rgba(255,218,118,.045)':'rgba(255,218,118,.07)',118,102);
+  const sway=m.reduced?0:Math.sin(t*.78)*2.2;
+  const cloud=isLight?'rgba(124,101,145,.54)':'rgba(248,240,255,.72)';
+  const glow=isLight?'rgba(216,171,219,.10)':'rgba(255,214,244,.14)';
+  const gold=isLight?'rgba(180,129,42,.72)':'rgba(255,214,103,.76)';
 
   c.save();
-  c.shadowColor=isLight?'rgba(179,121,180,.16)':'rgba(255,196,239,.22)';
-  c.shadowBlur=14;
-  const hairFill=isLight?'#F8F3FA':'#FFF9FF';
-  const hairShade=isLight?'#D8C8E4':'#E8D7F1';
-  const backCurls=[[-82,-58,32,27],[-57,-86,36,30],[-20,-103,40,31],[18,-105,41,32],[57,-88,37,30],[84,-59,32,27],[-100,-24,27,25],[101,-21,28,25],[-99,19,24,23],[99,21,24,23],[-76,53,27,22],[77,54,27,22]];
-  for(const [x,y,rx,ry] of backCurls){ellipse(c,x+drift*(x/110),y,rx,ry,hairFill,hairShade,1.5);}
+  light(c,0,-24,132,glow,132,105);
+
+  // Same minimalist DAI visual language: no face silhouette, only symbolic Nika curls.
+  c.save();
+  c.shadowColor=isLight?'rgba(170,129,181,.12)':'rgba(255,224,247,.18)';
+  c.shadowBlur=8;
+  path(c,`M-88 -78 C-72 -105 -43 -108 -24 -88 C-8 -72 -22 -60 -37 -68`,null,cloud,2.6);
+  path(c,`M-49 -96 C-23 -122 14 -117 28 -92 C38 -74 22 -61 8 -69`,null,cloud,2.8);
+  path(c,`M8 -96 C35 -120 68 -108 74 -83 C79 -64 61 -55 49 -67`,null,cloud,2.6);
+  path(c,`M-94 -53 C-119 -54 -124 -28 -106 -19 C-91 -12 -80 -23 -85 -35`,null,cloud,2.2);
+  path(c,`M94 -53 C119 -54 124 -28 106 -19 C91 -12 80 -23 85 -35`,null,cloud,2.2);
+
+  // Small lower wisps hint at the floating cloud-hair shape without becoming a full head.
+  path(c,`M-97 33 C-116 42 -111 62 -96 65 C-83 67 -76 55 -82 46`,null,cloud,1.9);
+  path(c,`M97 33 C116 42 111 62 96 65 C83 67 76 55 82 46`,null,cloud,1.9);
   c.restore();
 
-  const skin=c.createLinearGradient(0,-88,0,92);
-  skin.addColorStop(0,isLight?'#F4C6B5':'#F6C4B3');
-  skin.addColorStop(.54,isLight?'#F0B8A8':'#F2B8A7');
-  skin.addColorStop(1,isLight?'#EBAE9F':'#EDAE9E');
-  path(c,'M-73 -66 C-88 -36 -88 18 -72 48 C-58 74 -31 91 0 94 C31 91 58 74 72 48 C88 18 88 -36 73 -66 C52 -84 28 -91 0 -91 C-28 -91 -52 -84 -73 -66 Z',skin,isLight?'rgba(164,103,118,.16)':'rgba(255,218,229,.10)',1.2);
-
-  ellipse(c,-78,7,12,19,isLight?'#EAB09F':'#ECB3A1',isLight?'rgba(154,96,111,.18)':'rgba(255,220,230,.11)',1);
-  ellipse(c,78,7,12,19,isLight?'#EAB09F':'#ECB3A1',isLight?'rgba(154,96,111,.18)':'rgba(255,220,230,.11)',1);
-  c.save();
-  c.shadowColor='rgba(255,202,84,.28)';c.shadowBlur=7;
-  ellipse(c,-86,29,13,18,null,isLight?'#C9932D':'#F0BE55',4);
-  ellipse(c,86,29,13,18,null,isLight?'#C9932D':'#F0BE55',4);
-  c.restore();
-
-  const lock=isLight?'rgba(248,243,250,.98)':'rgba(255,250,255,.98)';
-  const lockEdge=isLight?'rgba(191,165,207,.62)':'rgba(230,205,239,.72)';
-  const drawLock=(d,w=16)=>{
-    c.save();c.shadowColor=isLight?'rgba(202,153,202,.10)':'rgba(255,199,238,.18)';c.shadowBlur=8;
-    path(c,d,null,lockEdge,w+3);path(c,d,null,lock,w);c.restore();
-  };
-  drawLock('M-59 -75 C-48 -111 -8 -118 12 -91 C25 -73 8 -57 -7 -72',18);
-  drawLock('M8 -84 C26 -113 62 -103 66 -72 C68 -52 49 -44 39 -63',16);
-  drawLock('M-72 -49 C-107 -52 -116 -22 -96 -7 C-79 6 -65 -6 -71 -22',14);
-  drawLock('M73 -48 C108 -50 116 -18 95 -5 C79 5 66 -7 72 -22',14);
-  drawLock('M-78 50 C-106 56 -106 82 -86 88 C-69 92 -58 74 -68 62',11);
-  drawLock('M78 51 C106 57 106 83 86 89 C69 93 58 75 68 63',11);
+  star(c,-111+sway,-49,2.4,gold,-8);
+  star(c,111-sway,-45,2.1,gold,10);
+  star(c,-94,67+sway*.3,1.5,gold,0);
+  star(c,94,69-sway*.3,1.5,gold,0);
   c.restore();
 }
 
 function drawBonneyNikaDetails(c,m,isLight){
+  // Kept intentionally minimal so the avatar matches the rest of DAI's floating-face system.
+  const gold=isLight?'rgba(180,129,42,.58)':'rgba(255,214,103,.62)';
   c.save();
-  path(c,'M-3 23 Q0 27 4 23',null,isLight?'rgba(168,101,118,.34)':'rgba(255,219,230,.38)',1.25);
-  ellipse(c,2,21,1.7,1.2,isLight?'rgba(255,245,239,.68)':'rgba(255,246,242,.70)');
-  c.save();c.translate(-69,5);
-  path(c,'M8 -11 C-7 -7 -10 9 4 15 C-2 7 0 -3 8 -11 Z',isLight?'#C9932D':'#F1C45E');
-  c.restore();
-  const gold=isLight?'#C99534':'#F4C65C';
-  star(c,-116,-45,2.5,gold,-8);star(c,116,-42,2.2,gold,10);
-  star(c,-106,63,1.7,gold,0);star(c,105,67,1.7,gold,0);
+  c.globalAlpha=.55;
+  star(c,-74,14,1.6,gold,-10);
+  star(c,74,14,1.6,gold,10);
   c.restore();
 }
 function handTheme(c,avatar='classic') {
@@ -746,7 +730,7 @@ function buildEyePath(shape,w,h,r){
   const poly=pts=>{p.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)p.lineTo(pts[i][0],pts[i][1]);p.closePath();};
   if(shape==='dot'){const rr=Math.min(w,h)*.30;p.ellipse(0,0,rr,rr,0,0,Math.PI*2);return p;}
   if(shape==='round'||shape==='pearl'||shape==='sun'){const rr=Math.min(w,h)*.49;p.ellipse(0,0,rr,rr,0,0,Math.PI*2);return p;}
-  if(shape==='nikaSpark'){p.moveTo(-w*.54,1);p.bezierCurveTo(-w*.30,-h*.52,w*.20,-h*.56,w*.54,-2);p.bezierCurveTo(w*.22,h*.48,-w*.22,h*.48,-w*.54,1);p.closePath();return p;}
+  if(shape==='nikaSpark'){p.roundRect(-w*.50,-h*.46,w,h*.92,Math.min(r,h*.42));return p;}
   if(shape==='slim'){p.roundRect(-w*.52,-h*.31,w*1.04,h*.62,Math.min(r,h*.28));return p;}
   if(shape==='hex'||shape==='gem')return poly([[-w*.43,-h*.48],[w*.33,-h*.48],[w*.53,0],[w*.33,h*.48],[-w*.43,h*.48],[-w*.55,0]]),p;
   if(shape==='square'){p.roundRect(-w*.46,-h*.46,w*.92,h*.92,Math.min(5,r));return p;}
@@ -773,36 +757,6 @@ function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   const gazeY=(Number(variant.gazeY)||0)*3.4;
   c.save();c.translate(x+q.gaze_x+gazeX,-17+q.gaze_y+gazeY);c.rotate(rad(tilt));
   const blink=m.blinkTime<.19?1-.97*Math.sin(Math.PI*m.blinkTime/.19):1;
-  if(avatar==='bonney_nika'){
-    const open=clamp(openness*blink,0,1);
-    const w=44*width,h=Math.max(5,48*open);
-    if(happy>.64||open<.18){
-      c.globalAlpha=Math.max(.25,happy||1);
-      path(c,'M-24 4 C-16 -12 15 -12 24 4',null,'#4A2947',4.6);
-      line(c,21,1,28,-3,'#4A2947',1.7);
-      c.restore();
-      return;
-    }
-    const eyePath=buildEyePath('nikaSpark',w,h,Math.min(w*.5,h*.5));
-    c.save();
-    c.shadowColor='rgba(238,115,211,.24)';c.shadowBlur=8;
-    c.fillStyle='#FFF9FF';c.fill(eyePath);
-    c.strokeStyle=isLight?'#6A3D61':'#5A3154';c.lineWidth=3.3;c.stroke(eyePath);
-    c.restore();
-    const irisY=2;
-    const irisR=Math.max(7,Math.min(13,h*.34));
-    const iris=c.createRadialGradient(-2,irisY-2,1,0,irisY,irisR);
-    iris.addColorStop(0,'#FFF5FF');iris.addColorStop(.18,'#FF91DD');iris.addColorStop(.58,'#D73AB8');iris.addColorStop(1,'#7D2A8F');
-    ellipse(c,0,irisY,irisR,irisR*.98,iris);
-    ellipse(c,0,irisY,irisR*.34,irisR*.42,'#3B173F');
-    star(c,irisR*.30,irisY-irisR*.34,2.4,'rgba(255,255,255,.98)',10);
-    ellipse(c,-irisR*.36,irisY-irisR*.18,2.1,2.8,'rgba(255,255,255,.92)');
-    path(c,'M'+(-w*.50)+' 0 C'+(-w*.27)+' '+(-h*.55)+' '+(w*.22)+' '+(-h*.58)+' '+(w*.52)+' -2',null,isLight?'#513047':'#43243D',3.7);
-    line(c,w*.45,-h*.18,w*.62,-h*.29,isLight?'#513047':'#43243D',1.8);
-    line(c,w*.48,-h*.08,w*.66,-h*.13,isLight?'#513047':'#43243D',1.5);
-    c.restore();
-    return;
-  }
   let w=35*width*theme.eyeW,h=Math.max(4,75*openness*blink*theme.eyeH);
   if(dna.eye==='dot'){w*=.75;h*=.72;}
   if(dna.eye==='slim'){w*=1.08;h*=.78;}
@@ -968,11 +922,8 @@ function drawRestMouth(c,m,avatar,theme,faceShape,q){
   if(style==='cosmic'){ path(c,'M-18 55 Q0 66 18 54',null,theme.mouth,2.7);star(c,22,52,1.7,theme.mouth,0);return; }
   if(style==='lavenderArc'){ path(c,'M-17 55 Q-5 65 5 58 Q12 54 18 52',null,theme.mouth,2.7);return; }
   if(style==='nikaGrin'){
-    const grin=path(c,'M-26 51 Q0 67 26 51 C23 73 11 82 0 82 C-12 82 -23 73 -26 51 Z','#632A4B',theme.mouth,2.4);
-    c.save();c.clip(grin);
-    path(c,'M-24 52 Q0 65 24 52 L21 60 Q0 68 -21 60 Z','#FFF8F7');
-    ellipse(c,0,78,17,7,'#E985A9');
-    c.restore();
+    path(c,'M-25 52 Q0 73 25 52',null,theme.mouth,3.8);
+    path(c,'M-17 57 Q0 66 17 57',null,theme.mouth,1.4);
     return;
   }
   path(c,`M${-w} 55 C-8 ${55+smile} 8 ${55+smile} ${w} 55`,null,theme.mouth,stroke);
