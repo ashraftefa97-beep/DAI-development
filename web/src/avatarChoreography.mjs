@@ -25,7 +25,8 @@ export const AVATAR_CHOREOGRAPHY_DNA=Object.freeze({
   galaxy:{motif:'counter-orbit',speech:'cosmic'},
   desert:{motif:'dune-sway',speech:'dune'},
   lavender:{motif:'butterfly-flutter',speech:'flutter'},
-  matrix:{motif:'quantized-code',speech:'code'}
+  matrix:{motif:'quantized-code',speech:'code'},
+  bonney_nika:{motif:'freedom-cloud',speech:'nika'}
 });
 
 function variantIndex(m){
@@ -62,7 +63,8 @@ const SPEECH_STANCES=Object.freeze({
   orbit:{gazeY:.42,smile:.040,cheek:.055,brow:.035},
   heartbeat:{gazeY:-.42,smile:-.040,cheek:.025,brow:.060},
   cosmic:{gazeY:.44,cheek:.045,smile:.035,brow:.025},
-  code:{gazeY:-.40,smile:-.035,brow:.070}
+  code:{gazeY:-.40,smile:-.035,brow:.070},
+  nika:{gazeY:-.18,smile:.090,cheek:.080,brow:.035}
 });
 
 function applySpeechStance(p,style){
@@ -182,6 +184,11 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
     case 'code':{
       const q=Math.round(sin(t*2.45+phase)*5)/5;faceOnly(p,q*.50,q*.80,-.18,0);p.gaze_y=Math.round((p.gaze_y||0)*4)/4;break;
     }
+    case 'nika':
+      faceOnly(p,a*.92,b*1.25,-.35,Math.max(0,c)*.34);
+      p.smile=clamp((p.smile||0)+.14,0,1.2);
+      p.cheek=clamp((p.cheek||0)+.10,0,1.2);
+      break;
     default:
       subtleSpeaking(p,v,t,phase);
   }
@@ -384,6 +391,19 @@ export function applyAvatarChoreography(p,m){
       faceOnly(p,flap*2.1*k,b*1.8*k,-1.8*k,-Math.abs(flap)*1.2*k);
       showLeft(p,.58*k,-106,46-flap*24,-38+flap*18);
       showRight(p,.58*k,106,46+flap*24,38+flap*18);
+      break;
+    }
+    case 'bonney_nika':{
+      const freedom=sin(t*1.55+phase);
+      const bounce=Math.max(0,sin(t*2.7+phase));
+      faceOnly(p,freedom*3.4*k,cos(t*1.05+phase)*3.1*k,-2.4*k,-bounce*2.5*k);
+      showLeft(p,.66*k,-112-freedom*14,48-bounce*30,-34+freedom*18);
+      showRight(p,.66*k,112+freedom*14,48-(1-bounce)*22,34-freedom*18);
+      p.smile=clamp((p.smile||0)+.20*k,0,1.2);
+      p.cheek=clamp((p.cheek||0)+.17*k,0,1.2);
+      p.brow=clamp((p.brow||0)+.06*k,0,1.2);
+      p.sx+=Math.abs(freedom)*.007*k;
+      p.sy-=Math.abs(freedom)*.004*k;
       break;
     }
     case 'matrix':{
