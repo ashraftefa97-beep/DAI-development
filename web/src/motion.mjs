@@ -45,6 +45,8 @@ export class DaiMotion {
     this.avatarVariantUntil = 0;
     this.avatarVariantLastBySlot = Object.create(null);
     this.avatarVariantRecentIds = [];
+    this.avatarSwapStartedAt = 0;
+    this.avatarSwapUntil = 0;
     this.animationLockUntil = 0;
     this.pendingGesture = null;
     this.voiceDriven = false;
@@ -64,6 +66,8 @@ export class DaiMotion {
     this.avatarStyle=next;
     this.avatarVariantLastBySlot=Object.create(null);
     this.avatarVariantRecentIds=[];
+    this.avatarSwapStartedAt=this.elapsed;
+    this.avatarSwapUntil=this.elapsed+(this.reduced?.12:.26);
     this.avatarVariantStartedAt=this.elapsed;
     this.avatarVariantUntil=0;
     this._applyAvatarVariant(this.requestedGesture,true);
