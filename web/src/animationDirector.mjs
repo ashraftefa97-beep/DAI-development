@@ -1,5 +1,6 @@
 import { resolveEmotion } from './emotionDirector.mjs';
 import { handsShouldRest } from './poseGuard.mjs';
+import { avatarAllowsHandGesture } from './avatarBehaviorRegistry.mjs';
 
 export const DAI_ANIMATION_CHANNELS=Object.freeze([
   'face','mouth','body','hands','accessory','stateFx','signatureFx','avatarFx','libraryFx','particles'
@@ -127,10 +128,14 @@ export function createAnimationPlan(m,context={}){
   const enabledFx=new Set(fxOrderForMode(mode).slice(0,budget));
   const semantic=String(m?.requestedGesture||m?.gesture||'idle');
   const isBusy=mode!=='idle';
+  const requestedGesture=m?.requestedGesture||'idle';
+  const allowHands=avatarAllowsHandGesture(m?.avatarStyle||'classic',requestedGesture);
   const restHands=handsShouldRest({
     mode,
-    requestedGesture:m?.requestedGesture||'idle',
-    activeGesture:m?.gesture||m?.requestedGesture||'idle'
+    requestedGesture,
+    activeGesture:m?.gesture||requestedGesture,
+    gestureTime:m?.gestureTime||0,
+    allowHands
   });
   const handScale=restHands
     ?0
