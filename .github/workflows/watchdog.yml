@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/watchdog.yml'
+      - 'web/scripts/watchdog-health.mjs'
 
 permissions:
   contents: read
