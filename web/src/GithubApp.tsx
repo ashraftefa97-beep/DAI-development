@@ -7,6 +7,7 @@ import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient'
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
 import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
+import { analyzeSemanticMotion, semanticPhaseScene, semanticSpeechMood } from './semanticMotionDirector.mjs';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -478,6 +479,7 @@ export default function GithubApp(){
   const workPhaseStartedAtRef=useRef(0);
   const corePhaseTimerRef=useRef<number|undefined>(undefined);
   const phaseChoreographyTimersRef=useRef<number[]>([]);
+  const semanticMotionRef=useRef<any>(analyzeSemanticMotion());
   const speechAudioContextRef=useRef<AudioContext|null>(null);
   const speechStreamSourcesRef=useRef<Set<AudioBufferSourceNode>>(new Set());
   const speechAnalyserRef=useRef<AnalyserNode|null>(null);
@@ -984,7 +986,8 @@ export default function GithubApp(){
 
     corePhaseRef.current=phase;
     corePhaseStartedAtRef.current=now;
-    const scene=DAI_PHASE_SCENES[phase];
+    const baseScene=DAI_PHASE_SCENES[phase];
+    const scene=semanticPhaseScene(phase,semanticMotionRef.current,baseScene) as DaiPhaseScene;
 
     // One priority manager owns both soundtrack and animation. A fast response
     // compresses intermediate beats instead of flashing several states at once.
@@ -1302,19 +1305,13 @@ export default function GithubApp(){
     return chunks;
   }
 
-  function speechMoodForText(text:string){
-    const value=String(text||'');
-    if(/(?:مبروك|نجح|نجاح|رائع|ممتاز|فرح|سعيد|جميل جدًا|حلو جدًا|ههه|😂|🎉)/i.test(value))return 'happy';
-    if(/(?:شكرا|شكرًا|تسلم|أهلًا|اهلا|صباح|مساء|منور|يسعد)/i.test(value))return 'warm';
-    if(/(?:للأسف|خطأ|مشكلة|فشل|تحذير|مش قادر|مقدرش|تعذر)/i.test(value))return 'serious';
-    if(/(?:حدوتة|حكاية|قبل النوم|هادئ|بهدوء|استرخ)/i.test(value))return 'calm';
-    if(/[؟?]|(?:ليه|إزاي|ازاي|هل|فين|إمتى|امتى|ممكن)/i.test(value))return 'curious';
-    return 'neutral';
-  }
-
   function emitSpeechMood(text:string){
+    const semantic=semanticSpeechMood(text,{
+      route:semanticMotionRef.current?.route||'chat',
+      source:semanticMotionRef.current?.source||'voice'
+    });
     window.dispatchEvent(new CustomEvent('dai:speech-mood',{
-      detail:{mood:speechMoodForText(text)}
+      detail:{mood:semantic.mood,intensity:semantic.intensity}
     }));
   }
 
@@ -2630,7 +2627,6 @@ export default function GithubApp(){
       if(eventName==='done'){
         doneReceived=true;
         sonicRequestRef.current++;
-        if(!shouldSpeak)transitionCorePhase('complete');
         const row=payload?.assistantMessage;
         if(!row||!conversationId)return;
 
@@ -2641,6 +2637,20 @@ export default function GithubApp(){
           createdAt:new Date(row.created_at).getTime(),
           sources:normalizeSearchSources(payload?.sources?.length?payload.sources:latestSearchSources)
         };
+
+        semanticMotionRef.current=analyzeSemanticMotion({
+          userText:text,
+          assistantText:assistantMessage.content,
+          route:routeHint||'chat',
+          source:clientSource
+        });
+        window.dispatchEvent(new CustomEvent('dai:speech-mood',{
+          detail:{
+            mood:semanticMotionRef.current.mood,
+            intensity:semanticMotionRef.current.intensity
+          }
+        }));
+        if(!shouldSpeak)transitionCorePhase('complete');
 
         const perf=payload?.performance;
         if(perf&&typeof perf==='object'){
@@ -3239,6 +3249,17 @@ export default function GithubApp(){
     stopSpeechAudio();
     if('speechSynthesis' in window)window.speechSynthesis.cancel();
     const routeDecision=gatewayRequest.decision;
+    semanticMotionRef.current=analyzeSemanticMotion({
+      userText:text,
+      route:routeDecision.route,
+      source:fromVoice?'voice':desktopMode?'desktop':'text'
+    });
+    window.dispatchEvent(new CustomEvent('dai:speech-mood',{
+      detail:{
+        mood:semanticMotionRef.current.mood,
+        intensity:semanticMotionRef.current.intensity
+      }
+    }));
     const predictedCommand=routeDecision.route==='command';
     const predictedResearch=routeDecision.route==='research';
     const predictedCode=routeDecision.route==='code';
@@ -3755,6 +3776,14 @@ export default function GithubApp(){
     const daiText=liveOutputTranscriptRef.current.trim();
     if(userText)voiceSessionTurnsRef.current.push({role:'user',content:userText});
     if(daiText)voiceSessionTurnsRef.current.push({role:'assistant',content:daiText});
+    if(userText||daiText){
+      semanticMotionRef.current=analyzeSemanticMotion({
+        userText,
+        assistantText:daiText,
+        route:'chat',
+        source:'voice'
+      });
+    }
     if(userText&&looksLikeAnimationRequest(userText)){
       void handleExplicitAnimationRequest(userText);
     }else if(userText&&daiText){
