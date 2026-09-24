@@ -170,3 +170,17 @@ test('Classic scan detect and scout stay hand-free',()=>{
     assert.ok((motion.pose.ra||0)<=.01,`${gesture}: right hand should stay hidden`);
   }
 });
+
+
+test('found is a success state without search props',()=>{
+  for(const avatar of avatarIds){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar(avatar);
+    motion.setGesture('found');
+    motion.advance(.35);
+    assert.ok((motion.pose.hat||0)<=.01,`${avatar}: found inherited hat`);
+    assert.ok((motion.pose.wand||0)<=.01,`${avatar}: found inherited wand`);
+    assert.ok((motion.pose.la||0)<=.01,`${avatar}: found inherited left search hand`);
+    assert.ok((motion.pose.ra||0)<=.01,`${avatar}: found inherited right search hand`);
+  }
+});
