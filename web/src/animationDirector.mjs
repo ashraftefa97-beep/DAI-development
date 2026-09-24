@@ -1,3 +1,5 @@
+import { resolveEmotion } from './emotionDirector.mjs';
+
 export const DAI_ANIMATION_CHANNELS=Object.freeze([
   'face','mouth','body','hands','accessory','stateFx','signatureFx','avatarFx','libraryFx','particles'
 ]);
@@ -95,25 +97,41 @@ function fxOrderForMode(mode){
   return ['signatureFx','avatarFx','libraryFx'];
 }
 
-export function createAnimationPlan(m){
+export function createAnimationPlan(m,context={}){
   const mode=animationModeForMotion(m);
   const reduced=Boolean(m?.reduced);
   const quality=['high','medium','low'].includes(m?.quality)?m.quality:'high';
   const accessory=pickAccessory(m?.pose);
+  const emotion=resolveEmotion(m);
+  const width=Math.max(0,Number(context?.width)||0);
+  const compact=width>0&&width<=640;
+  const modeDensity=
+    mode==='speaking'?.58:
+    mode==='listening'?.70:
+    mode==='thinking'||mode==='searching'||mode==='working'?.76:
+    mode==='success'?1.06:
+    mode==='error'?.82:
+    1;
+  const qualityDensity=quality==='high'?1:quality==='medium'?.82:.62;
+  const compactDensity=compact?.82:1;
+  const motionDensity=Math.max(.34,Math.min(1.08,qualityDensity*compactDensity*modeDensity*emotion.energy));
   let budget=qualityBudget(quality);
   if(reduced)budget=0;
   if(accessory)budget=Math.max(0,budget-1);
   if(mode==='speaking')budget=Math.min(budget,quality==='high'?1:0);
   if(mode==='listening')budget=Math.min(budget,1);
+  if(emotion.fx<.72)budget=Math.max(0,budget-1);
+  if(compact&&quality!=='high')budget=Math.max(0,budget-1);
 
   const enabledFx=new Set(fxOrderForMode(mode).slice(0,budget));
   const semantic=String(m?.requestedGesture||m?.gesture||'idle');
   const isBusy=mode!=='idle';
-  const handScale=
+  const handScale=(
     mode==='speaking'?.42:
     mode==='listening'?.70:
     mode==='thinking'||mode==='searching'||mode==='working'?.78:
-    1;
+    1
+  )*emotion.hand*motionDensity;
 
   const particles=
     !reduced&&
@@ -126,8 +144,12 @@ export function createAnimationPlan(m){
     priority:DAI_ANIMATION_PRIORITIES[mode]||0,
     quality,
     reduced,
+    compact,
     accessory,
     handScale,
+    motionDensity,
+    fxAlpha:Math.max(.28,Math.min(1.08,emotion.fx*motionDensity)),
+    emotion,
     channels:Object.freeze({
       face:true,
       mouth:true,
@@ -159,5 +181,7 @@ export function validateAnimationPlan(plan){
   if(plan.mode==='speaking'&&activeFx.length>1)errors.push('speaking fx overload');
   if(plan.reduced&&plan.channels?.particles)errors.push('reduced motion cannot render particles');
   if(plan.accessory&&!['hat','wand','fishing'].includes(plan.accessory))errors.push('invalid accessory');
+  if(!Number.isFinite(plan.motionDensity)||plan.motionDensity<.3||plan.motionDensity>1.1)errors.push('invalid motion density');
+  if(!Number.isFinite(plan.fxAlpha)||plan.fxAlpha<.2||plan.fxAlpha>1.1)errors.push('invalid fx alpha');
   return errors;
 }
