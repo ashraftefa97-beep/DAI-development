@@ -2,7 +2,7 @@ import { product } from './product.mjs';
 import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
 import { requestAnimationTransition, animationModeForGesture } from './animationDirector.mjs';
 import { applyEmotionToPose } from './emotionDirector.mjs';
-import { guardPose } from './poseGuard.mjs';
+import { guardPose, guardInterpolatedPose } from './poseGuard.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -824,6 +824,13 @@ export class DaiMotion {
               : 6.2;
       this.pose[key]=mix(this.pose[key],target[key],rate);
     }
+
+    const liveAccessory=this.pose.rod>.03?'fishing':this.pose.wand>.03?'wand':this.pose.hat>.03?'hat':null;
+    guardInterpolatedPose(this.pose,{
+      mode:animationModeForGesture(this.requestedGesture),
+      accessory:liveAccessory,
+      reduced:this.reduced
+    });
     for(const axis of ['x','y']) {
       if(!this.dragging) this.offsetTarget[axis]*=Math.exp(-dt*2.3);
       this.offset[axis]=mix(this.offset[axis],this.offsetTarget[axis],9);
