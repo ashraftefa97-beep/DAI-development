@@ -32,6 +32,7 @@ function detectIntent(userText='',route='chat'){
   if(normalizedRoute==='image')return 'creative';
   if(normalizedRoute==='command')return 'command';
   if(normalizedRoute==='complex')return 'analysis';
+  if(REASSURING.test(value)||RESOLVED.test(value))return 'agreement';
   for(const [intent,pattern] of INTENT_RULES){
     if(pattern.test(value))return intent;
   }
