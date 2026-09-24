@@ -8,6 +8,7 @@ import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
 import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 import { analyzeSemanticMotion, semanticPhaseScene, semanticSpeechMood } from './semanticMotionDirector.mjs';
+import { DaiSupervisorError, getSupervisorHealth, runSupervised, supervisorHttpError } from './requestSupervisor';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -2309,33 +2310,66 @@ export default function GithubApp(){
       const refreshed=await supabase.auth.refreshSession();
       session=refreshed.data.session;
     }
-    const token=session?.access_token||'';
-    if(!token)throw new Error('session');
+    let token=session?.access_token||'';
+    if(!token)throw new DaiSupervisorError('SESSION_REQUIRED','session',{retryable:false});
 
-    const response=await fetch(supabaseUrl.replace(/\/$/,'')+'/functions/v1/chat-stream',{
-      method:'POST',
-      signal:controller.signal,
-      headers:{
-        Authorization:'Bearer '+token,
-        apikey:supabasePublishableKey,
-        'Content-Type':'application/json'
-      },
-      body:JSON.stringify({
-        conversationId:activeIdRef.current||null,
-        message:text,
-        desktopActionResult:desktopActionResult||null,
-        regenerateAssistantId:regenerateAssistantId||null,
-        routeHint,
-        requestId:requestId||null,
-        routeConfidence,
-        clientSource
-      })
+    const response=await runSupervised('chat-connect',async({attempt})=>{
+      if(controller.signal.aborted){
+        const aborted=new Error('user-abort');
+        aborted.name='AbortError';
+        throw aborted;
+      }
+
+      if(attempt>1){
+        const refreshed=await supabase.auth.refreshSession();
+        token=refreshed.data.session?.access_token||token;
+      }
+
+      let response:Response;
+      try{
+        response=await fetch(supabaseUrl.replace(/\/$/,'')+'/functions/v1/chat-stream',{
+          method:'POST',
+          signal:controller.signal,
+          headers:{
+            Authorization:'Bearer '+token,
+            apikey:supabasePublishableKey,
+            'Content-Type':'application/json'
+          },
+          body:JSON.stringify({
+            conversationId:activeIdRef.current||null,
+            message:text,
+            desktopActionResult:desktopActionResult||null,
+            regenerateAssistantId:regenerateAssistantId||null,
+            routeHint,
+            requestId:requestId||null,
+            routeConfidence,
+            clientSource
+          })
+        });
+      }catch(error){
+        if((error as Error)?.name==='AbortError')throw error;
+        throw new DaiSupervisorError('CHAT_NETWORK','chat connection failed',{retryable:true,cause:error});
+      }
+
+      if(!response.ok||!response.body){
+        const payload=await response.json().catch(()=>null);
+        const code=String(payload?.code||payload?.error||'CHAT_HTTP_'+response.status);
+        throw supervisorHttpError(
+          response.status,
+          code,
+          String(payload?.message||payload?.error||'chat stream failed')
+        );
+      }
+      return response;
+    },{
+      onRetry:(_failure,context)=>{
+        console.debug('DAI request supervisor retry',{
+          channel:'chat-connect',
+          attempt:context.attempt+1,
+          requestId:requestId||''
+        });
+      }
     });
-
-    if(!response.ok||!response.body){
-      const payload=await response.json().catch(()=>null);
-      throw new Error(String(payload?.message||payload?.error||'stream-failed'));
-    }
 
     const reader=response.body.getReader();
     const decoder=new TextDecoder();
