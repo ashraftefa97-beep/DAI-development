@@ -340,7 +340,8 @@ function avatarLibraryAccent(c,m,theme){
   const variant=Math.max(1,Number(accent.match(/-(\d+)$/)?.[1]||1));
   const family=accent.replace(/-\d+$/,'');
   const reduced=m.reduced?.24:1;
-  const alpha=(.10+.025*((variant-1)%3))*reduced;
+  const fxAlpha=Number(m.animationPlan?.fxAlpha)||1;
+  const alpha=(.10+.025*((variant-1)%3))*reduced*fxAlpha;
   const primary=theme.particles?.[(variant-1)%Math.max(1,theme.particles?.length||1)]||theme.happy;
   const t=m.elapsed*(.7+variant*.18);
   c.save();c.globalAlpha=alpha;
@@ -826,7 +827,8 @@ function avatarSignatureVisual(c,m,avatar,isLight,theme){
   const variant=Math.max(1,Number(String(m.avatarVariantId||'').match(/-(\d+)$/)?.[1]||1));
   const primary=theme.particles?.[0]||theme.happy;
   const secondary=theme.particles?.[1]||theme.mouth;
-  const alpha=m.reduced?.24:(.28+.05*Math.sin(t*(.8+(variant%4)*.13)));
+  const fxAlpha=Number(m.animationPlan?.fxAlpha)||1;
+  const alpha=(m.reduced?.24:(.28+.05*Math.sin(t*(.8+(variant%4)*.13))))*fxAlpha;
   c.save();c.globalAlpha=alpha;
 
   if(signature==='orbit'){
@@ -912,8 +914,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
-  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la*plan.handScale,true,q.wand>.3,avatar);
-  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra*plan.handScale,false,q.rod>.3,avatar);
+  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la*plan.handScale,true,plan.accessory==='wand'&&q.wand>.3,avatar);
+  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra*plan.handScale,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
   if(plan.overlays.listen)listen(c,m);
   if(plan.overlays.personality)personality(c,m);
 
