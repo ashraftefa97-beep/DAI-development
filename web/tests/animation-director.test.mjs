@@ -82,3 +82,29 @@ test('lower-priority animation resumes after a lock',()=>{
   });
   assert.equal(result.accept,true);
 });
+
+
+test('state FX consumes the visual effect budget',()=>{
+  for(const quality of ['high','medium','low']){
+    const plan=createAnimationPlan(motion({
+      quality,
+      requestedGesture:'search',
+      gesture:'search',
+      state:'thinking'
+    }));
+    const decorative=['signatureFx','avatarFx','libraryFx'].filter(key=>plan.channels[key]).length;
+    const total=decorative+(plan.channels.stateFx?1:0);
+    const max=quality==='high'?3:quality==='medium'?2:1;
+    assert.ok(total<=max,`${quality}: state FX exceeded total budget`);
+    assert.deepEqual(validateAnimationPlan(plan),[]);
+  }
+});
+
+test('particles are reserved for high-quality success moments',()=>{
+  const search=createAnimationPlan(motion({quality:'high',requestedGesture:'search',gesture:'search'}));
+  const mediumSuccess=createAnimationPlan(motion({quality:'medium',requestedGesture:'success',gesture:'success',state:'happy'}));
+  const highSuccess=createAnimationPlan(motion({quality:'high',requestedGesture:'success',gesture:'success',state:'happy'}));
+  assert.equal(search.channels.particles,false);
+  assert.equal(mediumSuccess.channels.particles,false);
+  assert.equal(highSuccess.channels.particles,true);
+});
