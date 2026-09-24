@@ -10,7 +10,7 @@ export type { DaiAvatarStyle } from './avatarCatalog';
 export default function DaiFace({state='idle', reduced=false, quality='high', avatar='classic'}: {state?:DaiState; reduced?:boolean; quality?:DaiRenderQuality; avatar?:DaiAvatarStyle}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const motion=useRef(new DaiMotion());
-  useEffect(()=>{ motion.current.setGesture(state); },[state]);
+  useEffect(()=>{ motion.current.setAvatar(avatar); motion.current.setGesture(state); },[state,avatar]);
   useEffect(()=>{ motion.current.setQuality(quality); },[quality]);
   useEffect(()=>{
     const onVoice=(event:Event)=>{
