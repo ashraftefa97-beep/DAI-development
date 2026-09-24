@@ -199,3 +199,18 @@ test('every semantic scene gesture has an avatar animation slot',()=>{
     }
   }
 });
+
+
+test('reassuring user wording is not classified as a problem',()=>{
+  const noProblem=analyzeSemanticMotion({
+    userText:'مفيش مشكلة خلاص كله تمام',
+    route:'chat'
+  });
+  const resolved=analyzeSemanticMotion({
+    userText:'اتحل الموضوع وتم الحل',
+    route:'chat'
+  });
+  assert.equal(noProblem.intent,'agreement');
+  assert.equal(resolved.intent,'agreement');
+  assert.notEqual(noProblem.mood,'serious');
+});
