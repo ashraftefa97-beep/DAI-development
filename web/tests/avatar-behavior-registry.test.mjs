@@ -22,6 +22,7 @@ test('all 24 avatars own independent behavior profiles',()=>{
   const motionFamilies=new Set();
   const visualSets={
     searchVisual:new Set(),
+    listeningVisual:new Set(),
     thinkingVisual:new Set(),
     successVisual:new Set(),
     errorVisual:new Set()
@@ -141,4 +142,17 @@ test('avatar variant motion crossfades instead of snapping',()=>{
   assert.match(drawSource,/function avatarVariantBlend\(/);
   assert.match(drawSource,/previous\.dx\+\(current\.dx-previous\.dx\)\*blend/);
   assert.match(drawSource,/previous\.tilt\+\(current\.tilt-previous\.tilt\)\*blend/);
+});
+
+
+test('Classic search wand fades before the hand-intent window ends',()=>{
+  const motion=new DaiMotion(()=>.37);
+  motion.setAvatar('classic');
+  motion.setGesture('search');
+  motion.advance(.35);
+  assert.ok((motion.pose.wand||0)>.1);
+  motion.advance(2.35);
+  assert.ok((motion.pose.wand||0)<.08,`wand stayed visible at ${motion.pose.wand}`);
+  assert.ok((motion.pose.la||0)<.08,`search hand stayed visible at ${motion.pose.la}`);
+  assert.ok((motion.pose.hat||0)>.1,'Classic should retain its search hat identity');
 });
