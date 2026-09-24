@@ -37,6 +37,7 @@ export class DaiMotion {
     this.avatarVariantMotion = null;
     this.avatarVariantAccent = 'pulse';
     this.avatarVariantPersonality = 'balanced';
+    this.avatarVariantReducedIntensity = .22;
     this.avatarVariantUntil = 0;
     this.avatarVariantLastBySlot = Object.create(null);
     this.voiceDriven = false;
@@ -73,6 +74,7 @@ export class DaiMotion {
       this.avatarVariantMotion=selection.motion||null;
       this.avatarVariantAccent=selection.accent||'pulse';
       this.avatarVariantPersonality=selection.personality||this.avatarStyle;
+      this.avatarVariantReducedIntensity=Number(selection.reducedIntensity)||.22;
       this.avatarVariantLastBySlot[selection.slot]=selection.id;
       const cooldown=Math.max(0,Number(selection.cooldownMs)||0);
       this.avatarVariantUntil=this.elapsed+Math.max(selection.durationMs||2200,cooldown)/1000;
@@ -82,6 +84,7 @@ export class DaiMotion {
       this.avatarVariantMotion=null;
       this.avatarVariantAccent='pulse';
       this.avatarVariantPersonality=this.avatarStyle;
+      this.avatarVariantReducedIntensity=.22;
       this.avatarVariantUntil=0;
     }
     if(changed){
