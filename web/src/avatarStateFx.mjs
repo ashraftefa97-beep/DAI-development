@@ -105,15 +105,6 @@ function drawSearch(c,visual,t,a,b,alpha){
       for(let i=0;i<6;i++){const q=t*.5+i*.9;butterfly(c,-52+i*21,-12+Math.sin(q)*28,.75+(i%2)*.15,i%2?a:b,alpha*.8);}break;
     case 'codeGrid':
       for(let i=0;i<7;i++){const x=-54+i*18;const y=-42+((t*(18+i*2)+i*17)%76);line(c,x,y,x,y+12,i%2?a:b,1,alpha*.7);line(c,x+4,y+4,x+10,y+4,a,.8,alpha*.5);}break;
-    case 'nikaCloudSearch':
-      for(let i=0;i<5;i++){
-        const q=t*.38+i*TAU/5;
-        const r=38+(i%2)*10;
-        circle(c,Math.cos(q)*r,-5+Math.sin(q)*r*.55,7+(i%3)*2,i%2?a:b,1.1,alpha*.58);
-      }
-      star(c,0,-7,5,b,alpha*.9);
-      arc(c,0,-5,55,t*.32,t*.32+Math.PI*1.5,a,1.2,alpha*.7);
-      break;
   }
 }
 
