@@ -195,7 +195,43 @@ function drawError(c,visual,t,a,b,alpha){
   line(c,-26,-22,26,18,b,1.2,alpha*.55);
 }
 
-function drawStateVisual(c,mode,visual,t,a,b,alpha){
+function drawListening(c,visual,t,a,b,alpha,level=0){
+  const seed=visualSeed(visual);
+  const style=seed%3;
+  const energy=.35+Math.min(1,Math.max(0,level))*.65;
+
+  if(style===0){
+    const count=2+(seed%3);
+    for(let i=0;i<count;i++){
+      const r=22+i*(10+(seed%5));
+      arc(c,-34,-3,r,-.72,.72,i%2?a:b,1.2,alpha*energy*(1-i*.12));
+      arc(c,34,-3,r,Math.PI-.72,Math.PI+.72,i%2?b:a,1.2,alpha*energy*(1-i*.12));
+    }
+    return;
+  }
+
+  if(style===1){
+    const bars=5+(seed%4);
+    for(let i=0;i<bars;i++){
+      const x=(i-(bars-1)/2)*12;
+      const phase=t*(1.4+(seed%5)*.08)+i*.72;
+      const h=7+(8+(seed%7))*energy*(.35+.65*Math.sin(phase)**2);
+      line(c,x,42-h/2,x,42+h/2,i%2?a:b,2,alpha*.78);
+    }
+    return;
+  }
+
+  const rings=2+(seed%3);
+  for(let i=0;i<rings;i++){
+    const r=18+i*(13+(seed%4))+Math.sin(t*.8+i)*2;
+    circle(c,0,-4,r,i%2?a:b,1.1,alpha*energy*(.8-i*.12));
+  }
+  const q=t*.55+(seed%11)*.13;
+  circle(c,Math.cos(q)*44,-4+Math.sin(q)*24,2.8,a,1,alpha,true);
+}
+
+function drawStateVisual(c,mode,visual,t,a,b,alpha,level=0){
+  if(mode==='listening')return drawListening(c,visual,t,a,b,alpha,level);
   if(mode==='searching')return drawSearch(c,visual,t,a,b,alpha);
   if(mode==='thinking'||mode==='working')return drawThinking(c,visual,t,a,b,alpha);
   if(mode==='success')return drawSuccess(c,visual,t,a,b,alpha);
@@ -205,22 +241,28 @@ function drawStateVisual(c,mode,visual,t,a,b,alpha){
 export function renderAvatarStateFx(c,m,avatar='classic',theme={},plan={}){
   if(!plan?.channels?.stateFx)return;
   const mode=String(plan.mode||'idle');
-  if(!['searching','thinking','working','success','error'].includes(mode))return;
+  if(!['listening','searching','thinking','working','success','error'].includes(mode))return;
 
   const profile=getAvatarBehaviorProfile(avatar);
   const primary=theme.eyeA||theme.mouth||'#dffcff';
   const secondary=theme.eyeB||theme.brow||primary;
   const t=Number(m?.gestureTime||m?.elapsed||0);
   const baseAlpha=clamp(Number(plan.fxAlpha)||.7,.2,1);
-  const intensity=mode==='searching'?1:mode==='thinking'||mode==='working'?.46:mode==='success'?.58:.48;
+  const intensity=
+    mode==='searching'?1:
+    mode==='listening'?.55:
+    mode==='thinking'||mode==='working'?.46:
+    mode==='success'?.58:
+    .48;
   const visual=
     mode==='searching'?profile.searchVisual:
+    mode==='listening'?profile.listeningVisual:
     mode==='thinking'||mode==='working'?profile.thinkingVisual:
     mode==='success'?profile.successVisual:
     profile.errorVisual;
 
   c.save();
   c.globalAlpha*=baseAlpha*intensity;
-  drawStateVisual(c,mode,visual,t,primary,secondary,1);
+  drawStateVisual(c,mode,visual,t,primary,secondary,1,Number(m?.audio)||0);
   c.restore();
 }
