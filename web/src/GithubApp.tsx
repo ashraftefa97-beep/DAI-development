@@ -137,10 +137,10 @@ const DAI_PHASE_SCENES:Record<DaiCorePhase,DaiPhaseScene>={
   complete:{
     sonic:'complete',
     steps:[
-      {after:0,state:'success'},
-      {after:920,state:'idle'}
+      {after:0,state:'nod_yes'},
+      {after:620,state:'idle'}
     ],
-    settleMs:980
+    settleMs:760
   },
   error:{
     sonic:'error',
@@ -1308,7 +1308,8 @@ export default function GithubApp(){
   function emitSpeechMood(text:string){
     const semantic=semanticSpeechMood(text,{
       route:semanticMotionRef.current?.route||'chat',
-      source:semanticMotionRef.current?.source||'voice'
+      source:semanticMotionRef.current?.source||'voice',
+      intent:semanticMotionRef.current?.intent||'conversation'
     });
     window.dispatchEvent(new CustomEvent('dai:speech-mood',{
       detail:{mood:semantic.mood,intensity:semantic.intensity}
