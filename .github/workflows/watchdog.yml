@@ -1,0 +1,130 @@
+name: DAI 5-Minute Watchdog
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  issues: write
+
+concurrency:
+  group: dai-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DAI_PAGE_URL: https://ashraftefa97-beep.github.io/DAI-development/
+      DAI_SUPABASE_URL: https://buenonmbyudjhpedmoqk.supabase.co
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Initial full-system probe
+        id: initial
+        continue-on-error: true
+        working-directory: web
+        run: node scripts/watchdog-health.mjs 2>&1 | tee /tmp/dai-watchdog-initial.log
+
+      - name: Attempt automatic recovery
+        id: recovery
+        if: steps.initial.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "DAI watchdog detected a fault. Starting automatic recovery."
+
+          running="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml --status in_progress --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -n "$running" ]; then
+            echo "A Pages deployment is already running: $running"
+            deploy_run="$running"
+          else
+            before="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+            gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+
+            deploy_run=""
+            for _ in {1..18}; do
+              sleep 5
+              latest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow pages.yml --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+              if [ -n "$latest" ] && [ "$latest" != "$before" ]; then
+                deploy_run="$latest"
+                break
+              fi
+            done
+          fi
+
+          if [ -n "${deploy_run:-}" ]; then
+            echo "Watching recovery deployment: $deploy_run"
+            gh run watch "$deploy_run" --repo "$GITHUB_REPOSITORY" --exit-status || true
+          else
+            echo "Recovery deployment could not be identified; watchdog will re-probe anyway."
+          fi
+
+      - name: Re-probe after recovery
+        id: reprobe
+        if: steps.initial.outcome == 'failure'
+        continue-on-error: true
+        working-directory: web
+        run: |
+          sleep 8
+          node scripts/watchdog-health.mjs 2>&1 | tee /tmp/dai-watchdog-reprobe.log
+
+      - name: Record persistent incident
+        if: steps.initial.outcome == 'failure' && steps.reprobe.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="[Watchdog] DAI system health check failing"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title --jq '.[] | select(.title == "'"$title"'") | .number' | head -n1)"
+
+          body_file="/tmp/dai-watchdog-incident.md"
+          {
+            echo "DAI watchdog detected a persistent failure after automatic recovery."
+            echo
+            echo "- Time: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "- Watchdog run: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- Automatic Pages recovery: attempted"
+            echo
+            echo "### Initial probe"
+            echo '~~~text'
+            tail -n 100 /tmp/dai-watchdog-initial.log || true
+            echo '~~~'
+            echo
+            echo "### Re-probe"
+            echo '~~~text'
+            tail -n 100 /tmp/dai-watchdog-reprobe.log || true
+            echo '~~~'
+          } > "$body_file"
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file "$body_file"
+          fi
+
+          echo "Persistent DAI health failure recorded."
+          exit 1
+
+      - name: Close recovered incident
+        if: always() && (steps.initial.outcome == 'success' || steps.reprobe.outcome == 'success')
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="[Watchdog] DAI system health check failing"
+          issue="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title --jq '.[] | select(.title == "'"$title"'") | .number' | head -n1)"
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body "DAI watchdog recovered successfully at $(date -u +'%Y-%m-%dT%H:%M:%SZ'). Closing the incident."
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --reason completed
+          fi
