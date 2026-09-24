@@ -445,8 +445,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
           <section className='auth-card auth-card-premium'>
             <div className='auth-mobile-brand' aria-hidden='true'>
-              <img src='./dai-logo.svg' alt='' />
-              <div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div>
+              <div className='auth-mobile-brand-row'>
+                <img src='./dai-logo.svg' alt='' />
+                <div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div>
+              </div>
+              <div className='auth-mobile-promise'>
+                <span><i/> جاهزة لك</span>
+                <strong>اسأل · ابحث · اتكلم</strong>
+              </div>
             </div>
 
             <div className='auth-form-heading'>
