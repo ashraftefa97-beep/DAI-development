@@ -156,3 +156,17 @@ test('Classic search wand fades before the hand-intent window ends',()=>{
   assert.ok((motion.pose.la||0)<.08,`search hand stayed visible at ${motion.pose.la}`);
   assert.ok((motion.pose.hat||0)>.1,'Classic should retain its search hat identity');
 });
+
+
+test('Classic scan detect and scout stay hand-free',()=>{
+  for(const gesture of ['scan','detect','scout']){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar('classic');
+    motion.setGesture(gesture);
+    motion.advance(.35);
+    assert.ok((motion.pose.hat||0)<=.01,`${gesture}: hat should not appear`);
+    assert.ok((motion.pose.wand||0)<=.01,`${gesture}: wand should not appear`);
+    assert.ok((motion.pose.la||0)<=.01,`${gesture}: left hand should stay hidden`);
+    assert.ok((motion.pose.ra||0)<=.01,`${gesture}: right hand should stay hidden`);
+  }
+});
