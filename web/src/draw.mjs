@@ -564,48 +564,72 @@ function light(c,x,y,r,color,rx=r,ry=r) {
 }
 function drawBonneyNikaBase(c,m,isLight){
   const t=m.reduced?0:m.elapsed;
-  const cloud=isLight?'rgba(124,101,145,.58)':'rgba(250,244,255,.78)';
-  const glow=isLight?'rgba(216,171,219,.10)':'rgba(255,214,244,.14)';
-  const gold=isLight?'rgba(180,129,42,.66)':'rgba(255,214,103,.72)';
+  const hairCore=isLight?'rgba(126,104,148,.72)':'rgba(255,250,255,.91)';
+  const hairEdge=isLight?'rgba(180,154,198,.28)':'rgba(229,208,242,.34)';
+  const hairGlow=isLight?'rgba(205,164,211,.10)':'rgba(255,221,246,.18)';
+  const aura=isLight?'rgba(216,171,219,.08)':'rgba(255,214,244,.12)';
+  const gold=isLight?'rgba(180,129,42,.62)':'rgba(255,214,103,.70)';
 
   c.save();
-  light(c,0,-38,138,glow,132,112);
+  light(c,8,-42,148,aura,142,116);
 
-  // Gear-5/Joy-Boy-inspired upward hair, kept in DAI's minimalist line-art language.
-  c.save();
-  c.shadowColor=isLight?'rgba(170,129,181,.12)':'rgba(255,224,247,.20)';
-  c.shadowBlur=8;
-
+  // Gear-5/Joy-Boy hair language: cloud/flame locks rising upward then streaming backward.
+  // Each lock owns an independent phase so the hair breathes instead of moving as one rigid block.
   const locks=[
-    {x:-58,y:-84,w:2.4,p:.0,d:'M0 18 C-15 -8 -10 -39 9 -55 C22 -66 33 -56 26 -42 C18 -27 2 -30 3 -14'},
-    {x:-28,y:-96,w:2.8,p:.9,d:'M0 18 C-16 -17 -3 -55 20 -70 C36 -80 47 -64 35 -50 C23 -35 6 -39 8 -20'},
-    {x:0,y:-103,w:3.0,p:1.7,d:'M0 20 C-9 -20 8 -62 31 -78 C47 -89 58 -73 45 -56 C34 -42 18 -47 20 -27'},
-    {x:30,y:-96,w:2.8,p:2.5,d:'M0 18 C13 -18 3 -53 -18 -69 C-33 -81 -45 -66 -35 -51 C-24 -35 -7 -39 -8 -20'},
-    {x:60,y:-84,w:2.4,p:3.3,d:'M0 18 C15 -9 11 -38 -8 -55 C-21 -67 -33 -57 -26 -42 C-18 -27 -2 -30 -3 -14'},
-    {x:-91,y:-55,w:2.1,p:4.1,d:'M7 13 C-17 7 -28 -15 -17 -30 C-7 -43 9 -37 10 -24 C11 -12 -1 -7 -8 -13'},
-    {x:91,y:-55,w:2.1,p:4.9,d:'M-7 13 C17 7 28 -15 17 -30 C7 -43 -9 -37 -10 -24 C-11 -12 1 -7 8 -13'}
+    {x:-68,y:-72,s:1.00,p:.15,r:-.10,d:'M0 12 C-18 -7 -17 -34 0 -51 C13 -64 28 -60 30 -47 C31 -36 19 -30 10 -35 C17 -24 12 -12 0 -6'},
+    {x:-43,y:-91,s:1.08,p:.82,r:-.04,d:'M0 15 C-19 -15 -8 -50 15 -67 C31 -79 49 -70 48 -55 C47 -42 31 -36 21 -42 C29 -29 23 -15 8 -8'},
+    {x:-11,y:-101,s:1.15,p:1.49,r:.02,d:'M0 17 C-12 -20 6 -59 32 -77 C49 -89 66 -78 62 -61 C58 -47 40 -41 30 -48 C35 -32 27 -17 10 -9'},
+    {x:23,y:-98,s:1.11,p:2.14,r:.08,d:'M0 16 C7 -21 31 -55 57 -67 C75 -75 87 -61 79 -46 C71 -31 51 -29 43 -39 C44 -23 33 -10 17 -5'},
+    {x:54,y:-86,s:1.05,p:2.83,r:.14,d:'M0 14 C15 -18 41 -43 67 -49 C84 -53 95 -38 86 -25 C77 -13 60 -15 54 -25 C52 -10 39 0 24 1'},
+    {x:80,y:-65,s:.92,p:3.52,r:.18,d:'M0 11 C16 -13 39 -28 59 -28 C74 -27 81 -14 73 -4 C65 6 51 2 47 -7 C43 5 30 11 18 7'},
+    {x:-91,y:-48,s:.82,p:4.22,r:-.18,d:'M0 10 C-18 -9 -20 -28 -7 -40 C4 -50 19 -45 21 -33 C23 -23 13 -16 4 -19 C10 -8 5 2 -5 5'}
   ];
 
   for(const lock of locks){
-    const lift=m.reduced?0:(Math.sin(t*1.15+lock.p)*4.2 + Math.sin(t*.53+lock.p)*2.1);
-    const lean=m.reduced?0:Math.sin(t*.82+lock.p)*.055;
+    const lift=m.reduced?0:(Math.sin(t*.92+lock.p)*4.8 + Math.sin(t*.37+lock.p*1.31)*2.2);
+    const lean=m.reduced?0:(Math.sin(t*.63+lock.p)*.055 + Math.sin(t*1.11+lock.p*.7)*.018);
+    const stretch=m.reduced?1:(1+Math.sin(t*.54+lock.p)*.025);
     c.save();
     c.translate(lock.x,lock.y+lift);
-    c.rotate(lean);
-    path(c,lock.d,null,cloud,lock.w);
+    c.rotate(lock.r+lean);
+    c.scale(lock.s*stretch,lock.s);
+
+    c.save();
+    c.shadowColor=hairGlow;
+    c.shadowBlur=11;
+    path(c,lock.d,null,hairEdge,6.0);
+    c.restore();
+
+    path(c,lock.d,null,hairCore,2.45);
     c.restore();
   }
 
-  // Small cloud-ring arc above the face, similar to Nika's floating white steam.
-  const ringY=-74+(m.reduced?0:Math.sin(t*.9)*2);
-  path(c,`M-72 ${ringY} Q-36 ${ringY-14} 0 ${ringY-4} T72 ${ringY}`,null,cloud,1.8);
+  // Front forehead curl + cloud band keeps it recognisable at small avatar size.
+  const crownBob=m.reduced?0:Math.sin(t*.78)*2.4;
+  c.save();
+  c.translate(0,crownBob);
+  c.shadowColor=hairGlow;c.shadowBlur=8;
+  path(c,'M-58 -73 C-34 -88 -7 -86 9 -73 C21 -63 17 -51 7 -49 C-4 -47 -13 -56 -8 -64',null,hairEdge,5.3);
+  path(c,'M-58 -73 C-34 -88 -7 -86 9 -73 C21 -63 17 -51 7 -49 C-4 -47 -13 -56 -8 -64',null,hairCore,2.2);
+  path(c,'M-80 -61 Q-39 -77 0 -67 T79 -61',null,hairCore,1.55);
+  c.restore();
+
+  // One long trailing wisp sells the "hair blowing backward" silhouette from the reference.
+  const tailWave=m.reduced?0:Math.sin(t*.72)*5;
+  c.save();
+  c.translate(62,-78+tailWave*.25);
+  c.rotate(.11+(m.reduced?0:Math.sin(t*.48)*.025));
+  c.shadowColor=hairGlow;c.shadowBlur=10;
+  path(c,'M0 0 C35 -19 67 -12 84 5 C98 19 91 33 78 31 C67 30 62 19 68 11 C50 17 31 13 19 6',null,hairEdge,5.4);
+  path(c,'M0 0 C35 -19 67 -12 84 5 C98 19 91 33 78 31 C67 30 62 19 68 11 C50 17 31 13 19 6',null,hairCore,2.2);
   c.restore();
 
   const sparkleSway=m.reduced?0:Math.sin(t*.78)*2.2;
-  star(c,-111+sparkleSway,-49,2.2,gold,-8);
-  star(c,111-sparkleSway,-45,2.0,gold,10);
-  star(c,-94,67+sparkleSway*.3,1.4,gold,0);
-  star(c,94,69-sparkleSway*.3,1.4,gold,0);
+  star(c,-111+sparkleSway,-49,2.0,gold,-8);
+  star(c,118-sparkleSway,-51,1.9,gold,10);
+  star(c,-98,66+sparkleSway*.25,1.3,gold,0);
+  star(c,101,68-sparkleSway*.25,1.3,gold,0);
+
   c.restore();
 }
 
