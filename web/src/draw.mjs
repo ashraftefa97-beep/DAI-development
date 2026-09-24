@@ -2,6 +2,7 @@
 import { clamp } from './motion.mjs';
 import { getAvatarVisualDNA } from './avatarVisualDNA.mjs';
 import { createAnimationPlan } from './animationDirector.mjs';
+import { stabilizeRenderedHands, avatarSwapEnvelope, sanitizePoseForRender } from './renderStabilizer.mjs';
 const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
@@ -898,11 +899,13 @@ export function stageScale(w,h) { return Math.max(.35,Math.min(w/600,h/420,1.12)
 export function drawDai(c,m,w,h,avatar='classic') {
   c.clearRect(0,0,w,h);c.save();c.lineCap='round';c.lineJoin='round';
   const isLight=lightTheme(c),theme=avatarTheme(c,avatar),faceShape=avatarFaceShape(avatar);
+  sanitizePoseForRender(m.pose);
   const plan=createAnimationPlan(m,{width:w,height:h});
   m.animationPlan=plan;
   c.filter=isLight?'brightness(.88) saturate(1.18) contrast(1.10)':'none';
   const scale=stageScale(w,h),q=m.pose;
   c.translate(w/2+m.offset.x*scale,h/2+7+m.offset.y*scale);c.scale(scale,scale);
+  c.globalAlpha*=avatarSwapEnvelope(m);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
   if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
@@ -914,8 +917,13 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
-  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la*plan.handScale,true,plan.accessory==='wand'&&q.wand>.3,avatar);
-  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra*plan.handScale,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
+  const renderedHands=stabilizeRenderedHands(
+    {x:q.lx-handBias,y:q.ly-handLift,alpha:q.la*plan.handScale},
+    {x:q.rx+handBias,y:q.ry-handLift,alpha:q.ra*plan.handScale},
+    {mode:plan.mode,reduced:plan.reduced}
+  );
+  hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
+  hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
   if(plan.overlays.listen)listen(c,m);
   if(plan.overlays.personality)personality(c,m);
 
