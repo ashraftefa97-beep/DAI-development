@@ -10,24 +10,10 @@ const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
 }
-export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix','bonney_nika'];
+export const DAI_AVATAR_STYLES=['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix''];
 
 function avatarTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
-  if(avatar==='bonney_nika')return {
-    eyeA:isLight?'#FFF6FF':'#FFF9FF',
-    eyeB:isLight?'#F39AD8':'#FFB6EA',
-    eyeC:isLight?'#9E57C7':'#D98BFF',
-    eyeStroke:isLight?'rgba(161,85,153,.20)':'rgba(255,214,250,.12)',
-    happy:isLight?'#C35B9D':'#FFF4FF',
-    brow:isLight?'rgba(122,73,127,.70)':'rgba(246,205,242,.70)',
-    cheek:isLight?'239,116,177':'255,151,207',
-    mouth:isLight?'#B24E84':'#FFE4F2',
-    tongue:isLight?'#DE7FA9':'#F2A1C2',
-    dots:'255,221,244',
-    particles:['#FFFFFF','#FFD56F','#F2A7E3'],
-    eyeW:1.12,eyeH:1.02,spacing:49,stroke:10,cheekBoost:1.12
-  };
   if(avatar==='minimal')return {
     eyeA:isLight?'#D7C7DE':'#F8F3FA',
     eyeB:isLight?'#AA94B8':'#DED4E9',
@@ -306,8 +292,7 @@ const AVATAR_MOTION_PROFILES={
   galaxy:{x:1.0,y:1.12,tilt:.44,scale:.005,speed:.73,phase:8.0},
   desert:{x:.66,y:.96,tilt:.33,scale:.003,speed:.64,phase:8.4},
   lavender:{x:.72,y:1.32,tilt:.42,scale:.004,speed:.70,phase:8.8},
-  matrix:{x:.44,y:.72,tilt:.20,scale:.003,speed:1.52,phase:9.2},
-  bonney_nika:{x:1.16,y:1.58,tilt:.72,scale:.0065,speed:1.10,phase:9.7}
+  matrix:{x:.44,y:.72,tilt:.20,scale:.003,speed:1.52,phase:9.2}
 };
 function avatarMotionEnvelope(m){
   const start=Number(m.avatarVariantStartedAt)||0;
@@ -456,11 +441,6 @@ function avatarAccent(c,m,avatar,isLight) {
     c.save();c.globalAlpha=m.reduced?.22:.20+.07*Math.sin(m.elapsed*2.6);
     const green=isLight?'rgba(55,144,72,.62)':'rgba(112,235,128,.62)';
     for(const x of [-98,-76,82,101]){const y=-72+((m.elapsed*(24+(x%7))+Math.abs(x))%142);line(c,x,y,x,y+10,green,1);}c.restore();
-  }else if(avatar==='bonney_nika'){
-    c.save();
-    c.globalAlpha=m.reduced?.22:.20+.06*Math.sin(m.elapsed*1.35);
-    ellipse(c,0,-8,132,106,null,isLight?'rgba(213,137,193,.22)':'rgba(255,190,235,.22)',1.1);
-    c.restore();
   }else if(avatar==='sakura'){
     c.save();c.globalAlpha=m.reduced?.38:.34+.08*Math.sin(m.elapsed*1.8);
     star(c,-108,-4,3.1,isLight?'#DD7FA9':'#FFB8D2',-14);
@@ -562,86 +542,6 @@ function light(c,x,y,r,color,rx=r,ry=r) {
   const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'transparent');
   ellipse(c,x,y,rx,ry,g);
 }
-function drawBonneyNikaBase(c,m,isLight){
-  const t=m.reduced?0:m.elapsed;
-  const hairCore=isLight?'rgba(126,104,148,.72)':'rgba(255,250,255,.91)';
-  const hairEdge=isLight?'rgba(180,154,198,.28)':'rgba(229,208,242,.34)';
-  const hairGlow=isLight?'rgba(205,164,211,.10)':'rgba(255,221,246,.18)';
-  const aura=isLight?'rgba(216,171,219,.08)':'rgba(255,214,244,.12)';
-  const gold=isLight?'rgba(180,129,42,.62)':'rgba(255,214,103,.70)';
-
-  c.save();
-  light(c,8,-42,148,aura,142,116);
-
-  // Gear-5/Joy-Boy hair language: cloud/flame locks rising upward then streaming backward.
-  // Each lock owns an independent phase so the hair breathes instead of moving as one rigid block.
-  const locks=[
-    {x:-68,y:-72,s:1.00,p:.15,r:-.10,d:'M0 12 C-18 -7 -17 -34 0 -51 C13 -64 28 -60 30 -47 C31 -36 19 -30 10 -35 C17 -24 12 -12 0 -6'},
-    {x:-43,y:-91,s:1.08,p:.82,r:-.04,d:'M0 15 C-19 -15 -8 -50 15 -67 C31 -79 49 -70 48 -55 C47 -42 31 -36 21 -42 C29 -29 23 -15 8 -8'},
-    {x:-11,y:-101,s:1.15,p:1.49,r:.02,d:'M0 17 C-12 -20 6 -59 32 -77 C49 -89 66 -78 62 -61 C58 -47 40 -41 30 -48 C35 -32 27 -17 10 -9'},
-    {x:23,y:-98,s:1.11,p:2.14,r:.08,d:'M0 16 C7 -21 31 -55 57 -67 C75 -75 87 -61 79 -46 C71 -31 51 -29 43 -39 C44 -23 33 -10 17 -5'},
-    {x:54,y:-86,s:1.05,p:2.83,r:.14,d:'M0 14 C15 -18 41 -43 67 -49 C84 -53 95 -38 86 -25 C77 -13 60 -15 54 -25 C52 -10 39 0 24 1'},
-    {x:80,y:-65,s:.92,p:3.52,r:.18,d:'M0 11 C16 -13 39 -28 59 -28 C74 -27 81 -14 73 -4 C65 6 51 2 47 -7 C43 5 30 11 18 7'},
-    {x:-91,y:-48,s:.82,p:4.22,r:-.18,d:'M0 10 C-18 -9 -20 -28 -7 -40 C4 -50 19 -45 21 -33 C23 -23 13 -16 4 -19 C10 -8 5 2 -5 5'}
-  ];
-
-  for(const lock of locks){
-    const lift=m.reduced?0:(Math.sin(t*.92+lock.p)*4.8 + Math.sin(t*.37+lock.p*1.31)*2.2);
-    const lean=m.reduced?0:(Math.sin(t*.63+lock.p)*.055 + Math.sin(t*1.11+lock.p*.7)*.018);
-    const stretch=m.reduced?1:(1+Math.sin(t*.54+lock.p)*.025);
-    c.save();
-    c.translate(lock.x,lock.y+lift);
-    c.rotate(lock.r+lean);
-    c.scale(lock.s*stretch,lock.s);
-
-    c.save();
-    c.shadowColor=hairGlow;
-    c.shadowBlur=11;
-    path(c,lock.d,null,hairEdge,6.0);
-    c.restore();
-
-    path(c,lock.d,null,hairCore,2.45);
-    c.restore();
-  }
-
-  // Front forehead curl + cloud band keeps it recognisable at small avatar size.
-  const crownBob=m.reduced?0:Math.sin(t*.78)*2.4;
-  c.save();
-  c.translate(0,crownBob);
-  c.shadowColor=hairGlow;c.shadowBlur=8;
-  path(c,'M-58 -73 C-34 -88 -7 -86 9 -73 C21 -63 17 -51 7 -49 C-4 -47 -13 -56 -8 -64',null,hairEdge,5.3);
-  path(c,'M-58 -73 C-34 -88 -7 -86 9 -73 C21 -63 17 -51 7 -49 C-4 -47 -13 -56 -8 -64',null,hairCore,2.2);
-  path(c,'M-80 -61 Q-39 -77 0 -67 T79 -61',null,hairCore,1.55);
-  c.restore();
-
-  // One long trailing wisp sells the "hair blowing backward" silhouette from the reference.
-  const tailWave=m.reduced?0:Math.sin(t*.72)*5;
-  c.save();
-  c.translate(62,-78+tailWave*.25);
-  c.rotate(.11+(m.reduced?0:Math.sin(t*.48)*.025));
-  c.shadowColor=hairGlow;c.shadowBlur=10;
-  path(c,'M0 0 C35 -19 67 -12 84 5 C98 19 91 33 78 31 C67 30 62 19 68 11 C50 17 31 13 19 6',null,hairEdge,5.4);
-  path(c,'M0 0 C35 -19 67 -12 84 5 C98 19 91 33 78 31 C67 30 62 19 68 11 C50 17 31 13 19 6',null,hairCore,2.2);
-  c.restore();
-
-  const sparkleSway=m.reduced?0:Math.sin(t*.78)*2.2;
-  star(c,-111+sparkleSway,-49,2.0,gold,-8);
-  star(c,118-sparkleSway,-51,1.9,gold,10);
-  star(c,-98,66+sparkleSway*.25,1.3,gold,0);
-  star(c,101,68-sparkleSway*.25,1.3,gold,0);
-
-  c.restore();
-}
-
-function drawBonneyNikaDetails(c,m,isLight){
-  // Kept intentionally minimal so the avatar matches the rest of DAI's floating-face system.
-  const gold=isLight?'rgba(180,129,42,.58)':'rgba(255,214,103,.62)';
-  c.save();
-  c.globalAlpha=.55;
-  star(c,-74,14,1.6,gold,-10);
-  star(c,74,14,1.6,gold,10);
-  c.restore();
-}
 function handTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
   const palettes={
@@ -668,8 +568,7 @@ function handTheme(c,avatar='classic') {
     galaxy:isLight?['#32374E','rgba(105,111,181,.23)','#889AE1','#626C9F','rgba(154,137,220,.21)']:['#10121F','rgba(158,154,234,.13)','#B1B8F4','#7F87CA','rgba(181,157,240,.24)'],
     desert:isLight?['#514332','rgba(180,139,84,.22)','#C7A066','#8F7049','rgba(218,176,108,.18)']:['#1D1710','rgba(226,184,117,.11)','#E0BF82','#B18C5B','rgba(235,193,126,.21)'],
     lavender:isLight?['#48414F','rgba(157,135,185,.20)','#B7A2CE','#837596','rgba(202,178,220,.18)']:['#1A1720','rgba(211,190,232,.10)','#D9C9EA','#A999B9','rgba(224,202,239,.20)'],
-    matrix:isLight?['#203F28','rgba(68,157,84,.24)','#69C879','#4A9258','rgba(105,215,121,.22)']:['#09170D','rgba(105,225,122,.13)','#86E993','#5BBB69','rgba(115,236,130,.25)'],
-    bonney_nika:isLight?['#56404D','rgba(229,184,211,.26)','#F4C8E2','#C08CAB','rgba(255,214,239,.24)']:['#21151E','rgba(255,217,240,.15)','#FFE5F3','#E7ACCC','rgba(255,224,243,.27)']
+    matrix:isLight?['#203F28','rgba(68,157,84,.24)','#69C879','#4A9258','rgba(105,215,121,.22)']:['#09170D','rgba(105,225,122,.13)','#86E993','#5BBB69','rgba(115,236,130,.25)']
   };
   const p=palettes[avatar]||palettes.classic;
   return {fill:p[0],outer:p[1],edge:p[2],palm:p[3],glow:p[4]};
@@ -695,8 +594,7 @@ function handPathForStyle(style,grip){
     ringed:'M-15 13 C-22 6 -21 -5 -15 -8 C-10 -11 -7 -3 -7 2 L-8 -17 C-8 -23 -2 -26 2 -20 L4 -4 L7 -19 C8 -24 15 -23 15 -15 L13 -1 C20 -10 24 -5 22 2 C19 15 10 22 2 23 C-6 23 -11 20 -15 13 Z',
     orbit:'M-15 13 C-23 6 -21 -5 -16 -8 C-11 -12 -7 -5 -6 1 C-8 -14 -3 -24 3 -23 C10 -22 9 -9 6 -1 C11 -10 18 -13 21 -7 C25 0 18 12 11 18 C4 23 -7 22 -15 13 Z',
     sand:'M-16 14 C-23 8 -21 -3 -15 -8 C-9 -13 -5 -6 -5 1 C-6 -12 0 -21 6 -20 C12 -18 11 -7 7 -1 C14 -7 21 -5 22 2 C23 10 15 17 8 20 C0 23 -9 21 -16 14 Z',
-    digital:'M-17 15 L-23 5 L-18 -6 L-11 -2 L-13 -19 L-6 -24 L-1 -6 L1 -25 L8 -22 L9 -5 L14 -20 L20 -15 L15 -1 L24 -9 L27 -2 L18 17 L8 23 L-7 22 Z',
-    cloud:'M-17 14 C-25 8 -23 -4 -16 -8 C-13 -17 -2 -20 3 -13 C10 -21 20 -15 19 -6 C27 -3 27 9 19 13 C14 23 -7 25 -17 14 Z'
+    digital:'M-17 15 L-23 5 L-18 -6 L-11 -2 L-13 -19 L-6 -24 L-1 -6 L1 -25 L8 -22 L9 -5 L14 -20 L20 -15 L15 -1 L24 -9 L27 -2 L18 17 L8 23 L-7 22 Z'
   };
   return shapes[style]||shapes.open;
 }
@@ -724,7 +622,6 @@ function drawHandMark(c,mark,style){
   if(mark==='pulse'){ path(c,'M-9 6 L-4 6 L-1 1 L2 11 L5 5 L9 5',null,col,1.2);return; }
   if(mark==='flower'){ star(c,0,5,3.6,col,45);ellipse(c,0,5,1.2,1.2,col);return; }
   if(mark==='code'){ line(c,-7,1,-2,1,col,1);line(c,1,4,7,4,col,1);line(c,-5,8,4,8,col,1);return; }
-  if(mark==='crescent'){ path(c,'M4 -2 C-5 1 -6 10 2 14 C-1 9 0 3 4 -2 Z',null,col,1.2);return; }
 }
 function hand(c,x,y,rotation,opacity,mirror,grip,avatar='classic') {
   if(opacity<.01)return;
@@ -747,8 +644,7 @@ const AVATAR_FACE_SHAPES={
   soft:{eyeRadius:.46,browStroke:2.7,cheekX:14,cheekY:5.5,mouthWidth:19,mouthStroke:3.3,speechBase:21,happyStroke:7},
   warm:{eyeRadius:.30,browStroke:2.7,cheekX:13,cheekY:5,mouthWidth:20,mouthStroke:3.4,speechBase:22,happyStroke:6.8},
   fluid:{eyeRadius:.40,browStroke:2.6,cheekX:12,cheekY:4.5,mouthWidth:19,mouthStroke:3.2,speechBase:21,happyStroke:6.8},
-  cosmic:{eyeRadius:.38,browStroke:2.6,cheekX:12,cheekY:4.5,mouthWidth:19,mouthStroke:3.2,speechBase:21,happyStroke:6.8},
-  joyful:{eyeRadius:.50,browStroke:3.0,cheekX:15,cheekY:6,mouthWidth:22,mouthStroke:3.8,speechBase:24,happyStroke:7.8}
+  cosmic:{eyeRadius:.38,browStroke:2.6,cheekX:12,cheekY:4.5,mouthWidth:19,mouthStroke:3.2,speechBase:21,happyStroke:6.8}
 };
 const AVATAR_FACE_SHAPE_BY_STYLE={
   classic:'balanced',minimal:'minimal',cute:'cute',
@@ -757,8 +653,7 @@ const AVATAR_FACE_SHAPE_BY_STYLE={
   soft:'soft',rose:'soft',lavender:'soft',sakura:'soft',
   solar:'warm',ember:'warm',crimson:'warm',desert:'warm',
   ocean:'fluid',mint:'fluid',aurora:'fluid',
-  midnight:'cosmic',galaxy:'cosmic',violet:'cosmic',
-  bonney_nika:'joyful'
+  midnight:'cosmic',galaxy:'cosmic',violet:'cosmic'
 };
 function avatarFaceShape(avatar='classic'){
   return AVATAR_FACE_SHAPES[AVATAR_FACE_SHAPE_BY_STYLE[avatar]||'balanced'];
@@ -769,7 +664,6 @@ function buildEyePath(shape,w,h,r){
   const poly=pts=>{p.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)p.lineTo(pts[i][0],pts[i][1]);p.closePath();};
   if(shape==='dot'){const rr=Math.min(w,h)*.30;p.ellipse(0,0,rr,rr,0,0,Math.PI*2);return p;}
   if(shape==='round'||shape==='pearl'||shape==='sun'){const rr=Math.min(w,h)*.49;p.ellipse(0,0,rr,rr,0,0,Math.PI*2);return p;}
-  if(shape==='nikaSpark'){p.roundRect(-w*.50,-h*.46,w,h*.92,Math.min(r,h*.42));return p;}
   if(shape==='slim'){p.roundRect(-w*.52,-h*.31,w*1.04,h*.62,Math.min(r,h*.28));return p;}
   if(shape==='hex'||shape==='gem')return poly([[-w*.43,-h*.48],[w*.33,-h*.48],[w*.53,0],[w*.33,h*.48],[-w*.43,h*.48],[-w*.55,0]]),p;
   if(shape==='square'){p.roundRect(-w*.46,-h*.46,w*.92,h*.92,Math.min(5,r));return p;}
@@ -816,11 +710,6 @@ function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   }
   if(dna.eye==='orbit'&&happy<.75){
     c.globalAlpha=(1-happy)*.45;ellipse(c,0,0,w*.62,h*.34,null,theme.happy,1);ellipse(c,w*.55,0,1.7,1.7,theme.happy);
-  }
-  if(dna.eye==='nikaSpark'&&happy<.78){
-    c.globalAlpha=(1-happy)*.72;
-    star(c,w*.18,-h*.12,Math.max(2.2,w*.095),'rgba(255,255,255,.96)',12);
-    ellipse(c,-w*.16,h*.12,Math.max(1.4,w*.045),Math.max(1.4,w*.045),'rgba(255,224,249,.92)');
   }
   if(dna.eye==='sun'&&happy<.70){
     c.globalAlpha=(1-happy)*.35;for(const a of [0,90,180,270])line(c,Math.cos(rad(a))*w*.48,Math.sin(rad(a))*h*.40,Math.cos(rad(a))*w*.62,Math.sin(rad(a))*h*.52,theme.happy,.8);
@@ -960,11 +849,6 @@ function drawRestMouth(c,m,avatar,theme,faceShape,q){
   if(style==='pulse'){ path(c,'M-20 57 L-10 57 L-5 50 L1 64 L7 54 L12 57 L20 57',null,theme.mouth,2.3);return; }
   if(style==='cosmic'){ path(c,'M-18 55 Q0 66 18 54',null,theme.mouth,2.7);star(c,22,52,1.7,theme.mouth,0);return; }
   if(style==='lavenderArc'){ path(c,'M-17 55 Q-5 65 5 58 Q12 54 18 52',null,theme.mouth,2.7);return; }
-  if(style==='nikaGrin'){
-    path(c,'M-25 52 Q0 73 25 52',null,theme.mouth,3.8);
-    path(c,'M-17 57 Q0 66 17 57',null,theme.mouth,1.4);
-    return;
-  }
   path(c,`M${-w} 55 C-8 ${55+smile} 8 ${55+smile} ${w} 55`,null,theme.mouth,stroke);
 }
 
@@ -1036,9 +920,6 @@ function avatarSignatureVisual(c,m,avatar,isLight,theme){
     ellipse(c,68,-82,11,11,null,secondary,1.1);path(c,'M-112 82 Q-62 57 -12 82 T90 80 T116 78',null,primary,1.3);
   }else if(signature==='butterfly'){
     for(const side of [-1,1]){c.save();c.translate(side*101,-45+Math.sin(t*1.1+side)*5);c.scale(side,1);path(c,'M0 0 C-14 -17 -27 -7 -15 8 C-25 20 -7 26 0 8 C7 26 25 20 15 8 C27 -7 14 -17 0 0',null,side<0?primary:secondary,1);c.restore();}
-  }else if(signature==='nikaCloudCrown'){
-    const drift=m.reduced?0:Math.sin(t*.8)*2;
-    for(const [x,y,s] of [[-108,-63,2.4],[108,-58,2.1],[-94,74,1.8],[94,76,1.9]])star(c,x+drift,y,s,secondary,0);
   }else if(signature==='codeRain'){
     for(let i=0;i<7;i++){const x=-108+i*36;const y=-76+((t*(19+i*2)+i*27)%145);line(c,x,y,x,y+8+(i%3)*4,i%2?primary:secondary,1);if(i%2===0)line(c,x+4,y+3,x+10,y+3,primary,.8);}
   }
@@ -1058,7 +939,6 @@ export function drawDai(c,m,w,h,avatar='classic') {
   c.globalAlpha*=avatarSwapEnvelope(m);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
-  if(avatar==='bonney_nika')drawBonneyNikaBase(c,m,isLight);
   if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
   if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
   if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
@@ -1116,7 +996,6 @@ export function drawDai(c,m,w,h,avatar='classic') {
   } else {
     drawRestMouth(c,m,avatar,theme,faceShape,q);
   }
-  if(avatar==='bonney_nika')drawBonneyNikaDetails(c,m,isLight);
 
   if(plan.overlays.thoughtDots) for(let i=0;i<3;i++) {
     const a=m.reduced?110:90+100*(.5+.5*Math.sin(m.elapsed*4-i));
