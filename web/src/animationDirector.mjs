@@ -131,7 +131,7 @@ export function createAnimationPlan(m,context={}){
   if(compact&&quality!=='high')budget=Math.max(0,budget-1);
   if(mode==='idle')budget=Math.min(budget,1);
 
-  const stateFxActive=['listening','thinking','searching','working','success','error'].includes(mode);
+  const stateFxActive=!reduced&&['listening','thinking','searching','working','success','error'].includes(mode);
   if(stateFxActive){
     budget=Math.max(0,budget-1);
     budget=Math.min(budget,quality==='high'?1:0);
@@ -175,7 +175,7 @@ export function createAnimationPlan(m,context={}){
       face:true,
       mouth:true,
       body:true,
-      hands:true,
+      hands:handScale>.01,
       accessory:Boolean(accessory),
       stateFx:stateFxActive,
       signatureFx:enabledFx.has('signatureFx'),
