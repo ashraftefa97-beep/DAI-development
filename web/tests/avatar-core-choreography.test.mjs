@@ -149,3 +149,63 @@ test('core choreography remains inside a sane pre-guard motion envelope',()=>{
     }
   }
 });
+
+
+function weightedPoseVector(p){
+  return [
+    (Number(p.tilt)||0)*1.2,
+    (Number(p.gaze_x)||0)*.9,
+    (Number(p.gaze_y)||0)*.9,
+    (Number(p.bob)||0)*1.1,
+    (Number(p.lx)||0)*((Number(p.la)||0)*.18),
+    (Number(p.ly)||0)*((Number(p.la)||0)*.18),
+    (Number(p.rx)||0)*((Number(p.ra)||0)*.18),
+    (Number(p.ry)||0)*((Number(p.ra)||0)*.18),
+    (Number(p.la)||0)*12,
+    (Number(p.ra)||0)*12,
+    (Number(p.lr)||0)*.18,
+    (Number(p.rr)||0)*.18,
+    (Number(p.smile)||0)*8,
+    (Number(p.cheek)||0)*6,
+    (Number(p.brow)||0)*5,
+    ((Number(p.sx)||1)-1)*90,
+    ((Number(p.sy)||1)-1)*90
+  ];
+}
+
+function averageTrajectoryDistance(aId,bId,slotName,variant=7){
+  const times=[.31,.78,1.37,2.08,2.91];
+  let total=0;
+  for(const time of times){
+    const a=basePose();
+    const b=basePose();
+    applyAvatarChoreography(a,{
+      avatarStyle:aId,
+      avatarVariantSlot:slotName,
+      avatarVariantId:`${aId}-${slotName}-${String(variant).padStart(2,'0')}`,
+      gestureTime:time,
+      reduced:false
+    });
+    applyAvatarChoreography(b,{
+      avatarStyle:bId,
+      avatarVariantSlot:slotName,
+      avatarVariantId:`${bId}-${slotName}-${String(variant).padStart(2,'0')}`,
+      gestureTime:time,
+      reduced:false
+    });
+    const av=weightedPoseVector(a),bv=weightedPoseVector(b);
+    total+=av.reduce((sum,value,index)=>sum+Math.abs(value-bv[index]),0);
+  }
+  return total/times.length;
+}
+
+test('trajectory difference from Classic stays visibly meaningful in every semantic state',()=>{
+  const slots=['idle','listening','thinking','searching','speaking','success','error'];
+  for(const id of avatarIds.filter(value=>value!=='classic')){
+    for(const slotName of slots){
+      const distance=averageTrajectoryDistance('classic',id,slotName,slotName==='speaking'?5:7);
+      const minimum=slotName==='speaking'?1.15:4.0;
+      assert.ok(distance>minimum,`${id}/${slotName}: visual trajectory distance from Classic is too small (${distance.toFixed(2)})`);
+    }
+  }
+});
