@@ -8,7 +8,7 @@ import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
 import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 import { analyzeSemanticMotion, semanticPhaseScene, semanticSpeechMood } from './semanticMotionDirector.mjs';
-import { DaiSupervisorError, getSupervisorHealth, runSupervised, supervisorHttpError } from './requestSupervisor';
+import { DaiSupervisorError, getSupervisorHealth, resetSupervisorHealth, runSupervised, supervisorHttpError } from './requestSupervisor';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -2783,6 +2783,7 @@ export default function GithubApp(){
   async function retryLastFailed(){
     if(!lastFailedText||sending||!online)return;
     const text=lastFailedText;
+    resetSupervisorHealth('chat-connect');
     setLastFailedText('');
     await sendMessage(text,'typed');
   }
@@ -3309,9 +3310,10 @@ export default function GithubApp(){
           })));
         }
         if(!aborted){
+          console.error('DAI request exhausted automatic recovery',error);
           setInput(text);
           setLastFailedText(text);
-          setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد.'));
+          setErrorText('ضي حاولت استرجاع الطلب تلقائيًا أكتر من مرة، ولسه الاتصال بالخدمة مش مستقر. تقدر تعيد المحاولة من نفس الرسالة.');
         }else{
           transitionCorePhase('idle',{silent:true,force:true});
         }
@@ -3349,8 +3351,10 @@ export default function GithubApp(){
           })));
         }
         if(!aborted){
+          console.error('DAI voice request exhausted automatic recovery',error);
           transitionCorePhase('error');
-          setErrorText(String((error as Error)?.message||'ضي حصل عندها خطأ وهي بتجهز الرد الصوتي.'));
+          setLastFailedText(text);
+          setErrorText('ضي حاولت استرجاع الرد الصوتي تلقائيًا أكتر من مرة، لكن الاتصال لسه غير مستقر. تقدر تعيد المحاولة من غير ما تعيد التسجيل.');
         }else{
           transitionCorePhase('idle',{silent:true,force:true});
         }
@@ -3926,6 +3930,7 @@ export default function GithubApp(){
     }
 
     if(!reconnecting){
+      resetSupervisorHealth('live-token');
       liveReconnectAttemptsRef.current=0;
       liveIntentionalCloseRef.current=false;
       if(liveReconnectTimerRef.current){
@@ -4298,6 +4303,7 @@ export default function GithubApp(){
 
   async function playAssistantMessageVoice(message:Message){
     if(message.role!=='assistant'||!message.content.trim()||speakingMessageId)return;
+    resetSupervisorHealth('tts');
     setErrorText('');
     setVoiceNotice('بجهّز صوت ضي…');
     setSpeakingMessageId(message.id);
@@ -4356,6 +4362,7 @@ export default function GithubApp(){
 
   async function processVoiceNote(blob:Blob,mimeType:string){
     if(!supabase)return;
+    resetSupervisorHealth('transcription');
     setVoiceNoteProcessing(true);
     setVoiceNotice('ضي بتفهم التسجيل…');
     transitionCorePhase('understanding',{force:true});
@@ -4612,6 +4619,7 @@ export default function GithubApp(){
       {id:'microphone',label:'الميكروفون',status:'running',detail:'جاري الفحص…'},
       {id:'audio',label:'تشغيل الصوت',status:'running',detail:'جاري الفحص…'},
       {id:'dai-voice',label:'خدمة صوت ضي',status:'running',detail:'جاري الفحص…'},
+      {id:'supervisor',label:'متابعة الطلبات والصوت',status:'running',detail:'براجع retries وCircuit Breaker…'},
       {id:'experience',label:'الحركة والساوند تراك',status:'running',detail:'براجع FPS وAudioContext…'},
       {id:'latency',label:'زمن استجابة ضي',status:'running',detail:'براجع آخر الطلبات…'}
     ];
@@ -4657,12 +4665,37 @@ export default function GithubApp(){
 
     try{
       const started=performance.now();
-      const {data,error}=await supabase!.functions.invoke('tts',{body:{text:'اختبار قصير لصوت ضي.'}});
-      if(error||!data?.audioBase64)throw error||new Error('audio');
+      const data=await runSupervised('tts',async()=>{
+        const result=await supabase!.functions.invoke('tts-gemini',{body:{text:'اختبار قصير لصوت ضي.'}});
+        if(result.error||!result.data?.audioBase64){
+          throw new DaiSupervisorError('VOICE_DIAGNOSTIC','voice diagnostic failed',{retryable:true,cause:result.error});
+        }
+        return result.data;
+      },{maxAttempts:2,baseDelayMs:120,maxDelayMs:240});
+      if(!data?.audioBase64)throw new Error('audio');
       const latency=Math.round(performance.now()-started);
       update('dai-voice',{status:latency>6000?'warn':'pass',detail:latency>6000?'صوت ضي شغال لكن الاستجابة أبطأ من المعتاد.':'خدمة صوت ضي جاهزة.',latency});
     }catch{
-      update('dai-voice',{status:'fail',detail:'خدمة صوت ضي واجهت مشكلة مؤقتة. جرّب إعادة الفحص.'});
+      update('dai-voice',{status:'fail',detail:'خدمة صوت ضي ما استجابتش بعد المحاولة التلقائية.'});
+    }
+
+    {
+      const supervisor=getSupervisorHealth();
+      const retries=supervisor.reduce((sum,item)=>sum+item.retries,0);
+      const failures=supervisor.reduce((sum,item)=>sum+item.failures,0);
+      const open=supervisor.filter(item=>item.circuitUntil>Date.now());
+      const noisy=supervisor.filter(item=>item.consecutiveFailures>0);
+      const status:DiagnosticStatus=open.length?'fail':noisy.length?'warn':'pass';
+      const channelSummary=supervisor
+        .filter(item=>item.retries||item.failures||item.circuitUntil>Date.now())
+        .map(item=>item.channel+': R'+item.retries+'/F'+item.failures)
+        .join(' · ');
+      update('supervisor',{
+        status,
+        detail:open.length
+          ? 'Circuit مفتوح مؤقتًا: '+open.map(item=>item.channel).join(', ')
+          : channelSummary||('المتابعة مستقرة · retries '+retries+' · failures '+failures)
+      });
     }
 
     {
