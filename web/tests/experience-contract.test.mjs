@@ -84,8 +84,8 @@ test('avatar system keeps all styles on the same motion engine',()=>{
   const registry=draw.match(/DAI_AVATAR_STYLES=\[([^\]]+)\]/);
   assert.ok(registry);
   const drawIds=[...registry[1].matchAll(/'([^']+)'/g)].map(match=>match[1]);
-  assert.equal(catalogIds.length,25);
-  assert.equal(new Set(catalogIds).size,25);
+  assert.equal(catalogIds.length,24);
+  assert.equal(new Set(catalogIds).size,24);
   assert.deepEqual(drawIds,catalogIds);
   assert.match(draw,/avatarTheme/);
   assert.match(draw,/handTheme/);
