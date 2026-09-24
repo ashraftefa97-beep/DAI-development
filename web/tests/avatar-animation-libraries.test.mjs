@@ -14,7 +14,7 @@ const libraryFiles=fs.readdirSync(libraryDir).filter(name=>name.endsWith('.mjs')
 const libraryIds=libraryFiles.map(name=>name.replace(/\.mjs$/,'')).sort();
 
 test('every DAI avatar has exactly one independent animation library',()=>{
-  assert.equal(catalogIds.length,24);
+  assert.equal(catalogIds.length,25);
   assert.equal(new Set(catalogIds).size,catalogIds.length);
   assert.deepEqual(libraryIds,[...catalogIds].sort());
   assert.deepEqual(Object.keys(AVATAR_ANIMATION_LIBRARIES).sort(),[...catalogIds].sort());
@@ -64,8 +64,8 @@ test('avatar animation libraries satisfy the 80-motion publish contract',()=>{
     assert.equal(localFingerprints.size,80,`${id}: fingerprints are not unique`);
   }
 
-  assert.equal(globalVariantCount,24*80);
-  assert.equal(globalFingerprints.size,24*80);
+  assert.equal(globalVariantCount,25*80);
+  assert.equal(globalFingerprints.size,25*80);
 });
 
 test('libraries expose distinct personality signatures and meaningful motion variety',()=>{
@@ -94,8 +94,8 @@ test('libraries expose distinct personality signatures and meaningful motion var
     signatures.add(signature);
   }
 
-  assert.equal(personalities.size,24);
-  assert.equal(signatures.size,24);
+  assert.equal(personalities.size,25);
+  assert.equal(signatures.size,25);
 });
 
 
