@@ -3,6 +3,7 @@ import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimat
 import { requestAnimationTransition, animationModeForGesture } from './animationDirector.mjs';
 import { applyEmotionToPose } from './emotionDirector.mjs';
 import { guardPose, guardInterpolatedPose } from './poseGuard.mjs';
+import { applyAvatarChoreography } from './avatarChoreography.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -623,6 +624,7 @@ export class DaiMotion {
       }
     }
 
+    applyAvatarChoreography(p,this);
     applyEmotionToPose(p,this);
 
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
