@@ -1314,8 +1314,8 @@ export default function GithubApp(){
       const refreshed=await supabase.auth.refreshSession();
       session=refreshed.data.session;
     }
-    const token=session?.access_token||'';
-    if(!token)throw new Error('tts-session');
+    let token=session?.access_token||'';
+    if(!token)throw new DaiSupervisorError('TTS_SESSION','voice session unavailable',{retryable:false});
 
     let speechParts:string[]=[];
     if(spoken.length<=520){
@@ -1329,47 +1329,87 @@ export default function GithubApp(){
     if(!speechParts.length)return false;
 
     const fetchSpeechPart=async(part:string,index:number)=>{
-      if(runId!==speechRunRef.current)throw new Error('tts-cancelled');
+      if(runId!==speechRunRef.current){
+        const cancelled=new Error('tts-cancelled');
+        cancelled.name='AbortError';
+        throw cancelled;
+      }
 
-      const partController=new AbortController();
-      const partTimeout=window.setTimeout(()=>partController.abort(),45000);
-      let response:Response;
-      try{
-        response=await fetch(
-          supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-gemini',
-          {
-            method:'POST',
-            signal:partController.signal,
-            headers:{
-              Authorization:'Bearer '+token,
-              apikey:supabasePublishableKey,
-              'Content-Type':'application/json'
-            },
-            body:JSON.stringify({
-              text:part,
-              segmentIndex:index,
-              segmentCount:speechParts.length,
-              previousTail:index>0?speechParts[index-1].slice(-180):''
-            })
-          }
-        );
-      }catch(error){
-        if((error as Error)?.name==='AbortError'){
-          throw new Error('TTS_GEMINI_CLIENT_TIMEOUT');
+      return await runSupervised('tts',async({attempt})=>{
+        if(runId!==speechRunRef.current){
+          const cancelled=new Error('tts-cancelled');
+          cancelled.name='AbortError';
+          throw cancelled;
         }
-        throw error;
-      }finally{
-        window.clearTimeout(partTimeout);
-      }
 
-      const payload=await response.json().catch(()=>null);
-      if(!response.ok||!payload?.audioBase64){
-        throw new Error(String(payload?.code||payload?.error||'tts-gemini-failed'));
-      }
-      if(runId!==speechRunRef.current)throw new Error('tts-cancelled');
+        if(attempt>1){
+          const refreshed=await supabase.auth.refreshSession();
+          token=refreshed.data.session?.access_token||token;
+        }
 
-      const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
-      return await ctx.decodeAudioData(audioBytes.slice(0));
+        const partController=new AbortController();
+        const partTimeout=window.setTimeout(()=>partController.abort(),28000);
+        let response:Response;
+        try{
+          response=await fetch(
+            supabaseUrl.replace(/\/$/,'')+'/functions/v1/tts-gemini',
+            {
+              method:'POST',
+              signal:partController.signal,
+              headers:{
+                Authorization:'Bearer '+token,
+                apikey:supabasePublishableKey,
+                'Content-Type':'application/json'
+              },
+              body:JSON.stringify({
+                text:part,
+                segmentIndex:index,
+                segmentCount:speechParts.length,
+                previousTail:index>0?speechParts[index-1].slice(-180):''
+              })
+            }
+          );
+        }catch(error){
+          if((error as Error)?.name==='AbortError'){
+            throw new DaiSupervisorError('TTS_TIMEOUT','voice generation timed out',{retryable:true,cause:error});
+          }
+          throw new DaiSupervisorError('TTS_NETWORK','voice connection failed',{retryable:true,cause:error});
+        }finally{
+          window.clearTimeout(partTimeout);
+        }
+
+        const payload=await response.json().catch(()=>null);
+        if(!response.ok||!payload?.audioBase64){
+          const code=String(payload?.code||payload?.error||'TTS_HTTP_'+response.status);
+          throw supervisorHttpError(
+            response.status||503,
+            code,
+            String(payload?.message||payload?.error||'voice generation failed')
+          );
+        }
+        if(runId!==speechRunRef.current){
+          const cancelled=new Error('tts-cancelled');
+          cancelled.name='AbortError';
+          throw cancelled;
+        }
+
+        try{
+          const audioBytes=base64ToArrayBuffer(String(payload.audioBase64));
+          return await ctx.decodeAudioData(audioBytes.slice(0));
+        }catch(error){
+          throw new DaiSupervisorError('TTS_AUDIO_INVALID','voice audio was invalid',{retryable:true,cause:error});
+        }
+      },{
+        onRetry:(_failure,context)=>{
+          if(runId!==speechRunRef.current)return;
+          console.debug('DAI request supervisor retry',{
+            channel:'tts',
+            segment:index,
+            attempt:context.attempt+1
+          });
+          setVoiceNotice('الصوت اتأخر لحظة، ضي بتحاول تاني تلقائيًا…');
+        }
+      });
     };
 
     // Generate only the first short chunk before playback. Remaining chunks are
@@ -1501,11 +1541,9 @@ export default function GithubApp(){
       return played;
     }catch(error){
       if(runId!==speechRunRef.current)return false;
-      const code=String((error as Error)?.message||'tts-gemini-failed');
-      console.error('DAI Gemini voice failed',error);
-      transitionCorePhase('error',{force:true});
-      setVoiceNotice('صوت ضي متعطل مؤقتًا. كود التشخيص: '+code);
-      setErrorText('تشخيص الصوت: '+code);
+      console.error('DAI voice generation failed',error);
+      transitionCorePhase('idle',{silent:true,force:true});
+      setVoiceNotice('ضي حاولت تشغيل الصوت تلقائيًا أكتر من مرة، والرد كامل موجود كتابة.');
       return false;
     }
   }
