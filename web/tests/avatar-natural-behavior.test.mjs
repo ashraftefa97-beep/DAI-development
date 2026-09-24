@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { createAnimationPlan } from '../src/animationDirector.mjs';
+import { DaiMotion } from '../src/motion.mjs';
 import { applyNaturalHandPolicy } from '../src/poseGuard.mjs';
 import { AVATAR_ANIMATION_LIBRARIES, chooseAvatarAnimation } from '../src/avatarAnimations/index.mjs';
 import { animationSlotForGesture } from '../src/avatarAnimations/runtime.mjs';
@@ -91,5 +92,53 @@ test('explicit rest actions remain available when actually requested',()=>{
       assert.ok(variant);
       assert.equal(variant.gesture,gesture);
     }
+  }
+});
+
+
+test('real motion engine keeps head-only gestures hand-free across all avatars',()=>{
+  const headOnly=['nod_yes','response_ready','approve','question','confused','thinking_deep','success','found','happy','sleep','relax'];
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    for(const gesture of headOnly){
+      const motion=new DaiMotion(()=>.37);
+      motion.setAvatar(avatar);
+      motion.setGesture(gesture);
+      motion.advance(.18);
+      assert.ok((motion.pose.la||0)<=.01,`${avatar}/${gesture}: left hand remained visible (${motion.pose.la})`);
+      assert.ok((motion.pose.ra||0)<=.01,`${avatar}/${gesture}: right hand remained visible (${motion.pose.ra})`);
+    }
+  }
+});
+
+test('intentional hand gestures are brief and return to rest automatically',()=>{
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar(avatar);
+    motion.setGesture('wave');
+    motion.advance(.28);
+    assert.ok((motion.pose.la||0)>.01||(motion.pose.ra||0)>.01,`${avatar}: wave never showed a hand`);
+    motion.advance(2.2);
+    assert.ok((motion.pose.la||0)<=.01,`${avatar}: wave left hand stayed raised too long`);
+    assert.ok((motion.pose.ra||0)<=.01,`${avatar}: wave right hand stayed raised too long`);
+  }
+});
+
+test('animation plans keep head-only semantic reactions hand-free',()=>{
+  const gestures=['nod_yes','response_ready','approve','question','confused','success','sleep'];
+  for(const gesture of gestures){
+    const plan=createAnimationPlan({
+      requestedGesture:gesture,
+      gesture,
+      state:['approve','success'].includes(gesture)?'happy':gesture==='confused'?'confused':'idle',
+      quality:'high',
+      reduced:false,
+      gestureTime:.4,
+      voiceDriven:false,
+      voice:0,
+      speechMood:'neutral',
+      speechMoodIntensity:.65,
+      pose:{listen:0,rod:0,wand:0,hat:0}
+    },{width:1200,height:700});
+    assert.equal(plan.handScale,0,`${gesture}: render plan still allows hands`);
   }
 });
