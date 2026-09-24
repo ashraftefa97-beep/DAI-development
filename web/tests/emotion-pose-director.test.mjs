@@ -64,7 +64,8 @@ test('adaptive motion density drops for compact speaking scenes',()=>{
     voice:.7
   }),{width:390,height:720});
   assert.ok(compactSpeaking.motionDensity<desktop.motionDensity);
-  assert.ok(compactSpeaking.handScale<desktop.handScale);
+  assert.equal(desktop.handScale,0);
+  assert.equal(compactSpeaking.handScale,0);
   assert.deepEqual(validateAnimationPlan(desktop),[]);
   assert.deepEqual(validateAnimationPlan(compactSpeaking),[]);
 });
