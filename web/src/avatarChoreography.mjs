@@ -98,7 +98,12 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
     case 'orbit':
       faceOnly(p,sin(t*.78+phase)*.58,cos(t*.78+phase)*.82,-.20,0);p.gaze_y+=sin(t*.54+phase)*.16;break;
     case 'poise':
-      faceOnly(p,a*.16,b*.30,-.10,0);p.smile=clamp((p.smile||0)+.018,-.35,1.2);break;
+      faceOnly(p,a*.12,b*.20,.26,sin(t*.38+phase)*.07);
+      p.smile=clamp((p.smile||0)+.032,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.018,0,1.2);
+      p.left=clamp((p.left||1)-.018,.05,1.35);
+      p.right=clamp((p.right||1)-.010,.05,1.35);
+      break;
     case 'heartbeat':{
       const beat=Math.max(0,sin(t*1.78+phase));faceOnly(p,(beat-.35)*.58,b*.40,-.22,-beat*.16);p.brow=clamp((p.brow||0)+.055,0,1.2);break;
     }
