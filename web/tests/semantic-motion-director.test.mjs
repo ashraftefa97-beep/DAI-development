@@ -8,6 +8,7 @@ import {
   semanticSpeechMood,
   validateSemanticMotionDirector
 } from '../src/semanticMotionDirector.mjs';
+import { animationSlotForGesture, gestureSlotMap } from '../src/avatarAnimations/runtime.mjs';
 
 const fallback={
   sonic:'idle',
@@ -102,4 +103,99 @@ test('speech mood returns intensity instead of a flat label only',()=>{
   assert.equal(serious.mood,'serious');
   assert.ok(happy.intensity>.7);
   assert.ok(serious.intensity>.7);
+});
+
+
+test('generic replies acknowledge completion instead of celebrating',()=>{
+  const generic=analyzeSemanticMotion({
+    userText:'قولّي معلومة عن القمر',
+    assistantText:'القمر تابع طبيعي للأرض.',
+    route:'chat'
+  });
+  const scene=semanticPhaseScene('complete',generic,{
+    sonic:'complete',
+    steps:[{after:0,state:'nod_yes'},{after:620,state:'idle'}],
+    settleMs:760
+  });
+  const states=scene.steps.map(step=>step.state);
+  assert.deepEqual(states,['nod_yes','idle']);
+  assert.ok(!states.includes('success'));
+  assert.ok(!states.includes('celebrate'));
+});
+
+test('reassuring language is not misread as a failure',()=>{
+  const semantic=analyzeSemanticMotion({
+    userText:'هل كل حاجة تمام؟',
+    assistantText:'مفيش مشكلة، كله تمام دلوقتي.',
+    route:'chat'
+  });
+  assert.equal(semantic.outcome,'reassuring');
+  assert.notEqual(semantic.mood,'serious');
+  const scene=semanticPhaseScene('complete',semantic,{
+    sonic:'complete',
+    steps:[{after:0,state:'nod_yes'},{after:620,state:'idle'}]
+  });
+  assert.ok(!scene.steps.some(step=>step.state==='error'||step.state==='confused'));
+});
+
+test('resolved and unresolved technical outcomes behave differently',()=>{
+  const resolved=analyzeSemanticMotion({
+    userText:'عندي مشكلة في الكود',
+    assistantText:'تم الحل واتصلح الكود.',
+    route:'code'
+  });
+  const unresolved=analyzeSemanticMotion({
+    userText:'عندي مشكلة في الكود',
+    assistantText:'للأسف تعذر التنفيذ ولسه مش شغال.',
+    route:'code'
+  });
+  assert.equal(resolved.outcome,'resolved');
+  assert.equal(unresolved.outcome,'unresolved');
+  assert.equal(semanticPhaseScene('complete',resolved,fallback).steps[0].state,'success');
+  assert.equal(semanticPhaseScene('complete',unresolved,fallback).steps[0].state,'confused');
+});
+
+test('semantic gestures are routed into avatar libraries deterministically',()=>{
+  const expected={
+    curious:'listening',
+    nod_yes:'listening',
+    look_around:'idle',
+    response_ready:'thinking',
+    wave:'success',
+    goodbye:'success',
+    scan:'searching',
+    reply:'speaking'
+  };
+  for(const [gesture,slot] of Object.entries(expected)){
+    assert.equal(animationSlotForGesture(gesture),slot,gesture);
+  }
+
+  const map=gestureSlotMap();
+  assert.equal(Object.keys(map).length,new Set(Object.keys(map)).size);
+});
+
+test('every semantic scene gesture has an avatar animation slot',()=>{
+  const scenarios=[
+    {userText:'اهلا',assistantText:'أهلا بيك',route:'chat'},
+    {userText:'باي',assistantText:'مع السلامة',route:'chat'},
+    {userText:'شكرا',assistantText:'العفو',route:'chat'},
+    {userText:'مبروك نجحت',assistantText:'مبروك!',route:'chat'},
+    {userText:'هههه',assistantText:'ضحكتني',route:'chat'},
+    {userText:'عندي مشكلة',assistantText:'تم الحل',route:'chat'},
+    {userText:'ابحث عن الخبر',assistantText:'لقيت النتيجة',route:'research'},
+    {userText:'اكتب كود',assistantText:'تم الحل',route:'code'},
+    {userText:'اعمل صورة',assistantText:'جاهز',route:'image'},
+    {userText:'افتح البرنامج',assistantText:'تم التنفيذ',route:'command'},
+    {userText:'حلل الموضوع',assistantText:'ده التحليل',route:'complex'}
+  ];
+  const phases=['understanding','searching','working','preparing','responding','speaking','complete'];
+  for(const scenario of scenarios){
+    const semantic=analyzeSemanticMotion(scenario);
+    for(const phase of phases){
+      const scene=semanticPhaseScene(phase,semantic,fallback);
+      for(const step of scene.steps){
+        assert.ok(animationSlotForGesture(step.state),`${semantic.intent}/${phase}: ${step.state} has no avatar slot`);
+      }
+    }
+  }
 });
