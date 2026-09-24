@@ -99,9 +99,8 @@ test('libraries expose distinct personality signatures and meaningful motion var
 });
 
 
-test('only ambient idle may auto-cycle variants',()=>{
-  assert.equal(shouldAutoCycleAvatarSlot('idle'),true);
-  for(const slot of ['listening','thinking','searching','speaking','success','error']){
-    assert.equal(shouldAutoCycleAvatarSlot(slot),false,`${slot} must stay pinned to the current DAI state`);
+test('no avatar state auto-cycles motion variants',()=>{
+  for(const slot of ['idle','listening','thinking','searching','speaking','success','error']){
+    assert.equal(shouldAutoCycleAvatarSlot(slot),false,`${slot} changed motion merely because time passed`);
   }
 });
