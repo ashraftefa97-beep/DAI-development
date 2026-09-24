@@ -2,30 +2,30 @@ const sin=Math.sin, cos=Math.cos;
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 
 export const AVATAR_CHOREOGRAPHY_DNA=Object.freeze({
-  classic:{motif:'balanced-sway'},
-  minimal:{motif:'micro-still'},
-  cute:{motif:'double-pop'},
-  cyber:{motif:'servo-snap'},
-  soft:{motif:'floating-breath'},
-  pro:{motif:'formal-present'},
-  hologram:{motif:'phase-shift'},
-  sakura:{motif:'petal-arc'},
-  ocean:{motif:'wave-flow'},
-  solar:{motif:'radial-rise'},
-  midnight:{motif:'moon-drift'},
-  mint:{motif:'sprout-bounce'},
-  aurora:{motif:'ribbon-cross'},
-  ember:{motif:'ember-punch'},
-  rose:{motif:'wrist-bloom'},
-  ice:{motif:'crystal-lock'},
-  lime:{motif:'zigzag-snap'},
-  violet:{motif:'orbital-hands'},
-  pearl:{motif:'poised-glide'},
-  crimson:{motif:'heartbeat-hit'},
-  galaxy:{motif:'counter-orbit'},
-  desert:{motif:'dune-sway'},
-  lavender:{motif:'butterfly-flutter'},
-  matrix:{motif:'quantized-code'}
+  classic:{motif:'balanced-sway',speech:'balanced'},
+  minimal:{motif:'micro-still',speech:'micro'},
+  cute:{motif:'double-pop',speech:'bouncy'},
+  cyber:{motif:'servo-snap',speech:'servo'},
+  soft:{motif:'floating-breath',speech:'breath'},
+  pro:{motif:'formal-present',speech:'formal'},
+  hologram:{motif:'phase-shift',speech:'phase'},
+  sakura:{motif:'petal-arc',speech:'petal'},
+  ocean:{motif:'wave-flow',speech:'wave'},
+  solar:{motif:'radial-rise',speech:'radiant'},
+  midnight:{motif:'moon-drift',speech:'moon'},
+  mint:{motif:'sprout-bounce',speech:'sprout'},
+  aurora:{motif:'ribbon-cross',speech:'ribbon'},
+  ember:{motif:'ember-punch',speech:'ember'},
+  rose:{motif:'wrist-bloom',speech:'bloom'},
+  ice:{motif:'crystal-lock',speech:'crystal'},
+  lime:{motif:'zigzag-snap',speech:'zigzag'},
+  violet:{motif:'orbital-hands',speech:'orbit'},
+  pearl:{motif:'poised-glide',speech:'poise'},
+  crimson:{motif:'heartbeat-hit',speech:'heartbeat'},
+  galaxy:{motif:'counter-orbit',speech:'cosmic'},
+  desert:{motif:'dune-sway',speech:'dune'},
+  lavender:{motif:'butterfly-flutter',speech:'flutter'},
+  matrix:{motif:'quantized-code',speech:'code'}
 });
 
 function variantIndex(m){
@@ -53,6 +53,68 @@ function subtleSpeaking(p,id,t,phase){
   const a=.35+.08*(id%3);
   faceOnly(p,sin(t*.8+phase)*a,cos(t*.55+phase)*.8,sin(t*.7+phase)*.18,sin(t*1.1+phase)*.08);
 }
+function applySpeakingChoreography(p,avatar,v,t,phase){
+  const style=AVATAR_CHOREOGRAPHY_DNA[avatar]?.speech||'balanced';
+  const a=sin(t*(.72+(v%5)*.08)+phase);
+  const b=cos(t*(.54+(v%7)*.05)+phase*.73);
+  const c=sin(t*(1.18+(v%3)*.11)+phase*1.17);
+
+  switch(style){
+    case 'micro':
+      faceOnly(p,a*.20,b*.32,-.08,c*.02);p.brow=(p.brow||0)+.02;break;
+    case 'bouncy':
+      faceOnly(p,a*.72,b*1.05,-.28,Math.max(0,c)*.22);p.cheek=clamp((p.cheek||0)+.07,0,1.2);break;
+    case 'servo':{
+      const q=Math.round(a*4)/4;faceOnly(p,q*.82,q*1.15,-.18,0);p.brow=clamp((p.brow||0)+.08,0,1.2);break;
+    }
+    case 'breath':
+      faceOnly(p,a*.38,b*.58,.18,sin(t*.66+phase)*.32);p.sy+=(sin(t*.66+phase)*.0018);break;
+    case 'formal':
+      faceOnly(p,a*.18,b*.42,-.16,0);p.brow=clamp((p.brow||0)+.04,0,1.2);break;
+    case 'phase':
+      faceOnly(p,a*.58,cos(t*1.34+phase)*.92,-.20,sin(t*1.62+phase)*.10);break;
+    case 'petal':
+      faceOnly(p,a*.50,b*.72,-.30,sin(t*.82+phase)*.14);p.cheek=clamp((p.cheek||0)+.04,0,1.2);break;
+    case 'wave':
+      faceOnly(p,sin(t*.92+phase)*.54,cos(t*.72+phase)*.88,.16,sin(t*.92+phase)*.18);break;
+    case 'radiant':
+      faceOnly(p,a*.64,b*.64,-.34,Math.max(0,c)*.26);p.smile=clamp((p.smile||0)+.05,0,1.2);break;
+    case 'moon':
+      faceOnly(p,a*.30,b*.76,.24,sin(t*.52+phase)*.20);p.left=clamp((p.left||1)-.025,.05,1.35);break;
+    case 'sprout':
+      faceOnly(p,a*.44,b*.58,-.18,Math.max(0,sin(t*.88+phase))*.18);break;
+    case 'ribbon':
+      faceOnly(p,a*.70,b*.82,-.22,sin(t*.76+phase)*.17);p.gaze_x+=(sin(t*.48+phase)*.35);break;
+    case 'ember':
+      faceOnly(p,c*.72,b*.48,-.30,Math.max(0,sin(t*1.55+phase))*.25);p.brow=clamp((p.brow||0)+.07,0,1.2);break;
+    case 'bloom':
+      faceOnly(p,a*.34,b*.46,-.20,sin(t*.64+phase)*.10);p.cheek=clamp((p.cheek||0)+.035,0,1.2);break;
+    case 'crystal':{
+      const q=Math.round(a*3)/3;faceOnly(p,q*.42,q*.50,-.20,0);break;
+    }
+    case 'zigzag':{
+      const q=sin(t*2.2+phase)>0?1:-1;faceOnly(p,q*.48,q*.72,-.20,0);break;
+    }
+    case 'orbit':
+      faceOnly(p,sin(t*.78+phase)*.58,cos(t*.78+phase)*.82,-.20,0);p.gaze_y+=sin(t*.54+phase)*.16;break;
+    case 'poise':
+      faceOnly(p,a*.16,b*.30,-.10,0);p.smile=clamp((p.smile||0)+.018,-.35,1.2);break;
+    case 'heartbeat':{
+      const beat=Math.max(0,sin(t*1.78+phase));faceOnly(p,(beat-.35)*.58,b*.40,-.22,-beat*.16);p.brow=clamp((p.brow||0)+.055,0,1.2);break;
+    }
+    case 'cosmic':
+      faceOnly(p,sin(t*.62+phase)*.48,cos(t*.62+phase)*.76,-.18,sin(t*.43+phase)*.16);p.gaze_x+=cos(t*.31+phase)*.28;break;
+    case 'dune':
+      faceOnly(p,sin(t*.58+phase)*.46,cos(t*.44+phase)*.44,.16,sin(t*.58+phase)*.10);break;
+    case 'flutter':
+      faceOnly(p,sin(t*1.08+phase)*.50,b*.58,-.24,-Math.abs(sin(t*1.08+phase))*.10);break;
+    case 'code':{
+      const q=Math.round(sin(t*2.45+phase)*5)/5;faceOnly(p,q*.50,q*.80,-.18,0);p.gaze_y=Math.round((p.gaze_y||0)*4)/4;break;
+    }
+    default:
+      subtleSpeaking(p,v,t,phase);
+  }
+}
 
 export function applyAvatarChoreography(p,m){
   if(!p||!m)return p;
@@ -68,9 +130,7 @@ export function applyAvatarChoreography(p,m){
   const c=sin(t*(1.8+(v%3)*.23)+phase*1.4);
 
   if(s==='speaking'){
-    subtleSpeaking(p,v,t,phase);
-    if(avatar==='minimal'||avatar==='pro'||avatar==='pearl')p.tilt*=.72;
-    if(avatar==='cute'||avatar==='solar'||avatar==='ember')p.cheek=clamp((p.cheek||0)+.05,0,1.2);
+    applySpeakingChoreography(p,avatar,v,t,phase);
     return p;
   }
 
