@@ -288,6 +288,17 @@ const AVATAR_MOTION_PROFILES={
   lavender:{x:.72,y:1.32,tilt:.42,scale:.004,speed:.70,phase:8.8},
   matrix:{x:.44,y:.72,tilt:.20,scale:.003,speed:1.52,phase:9.2}
 };
+function avatarMotionEnvelope(m){
+  const start=Number(m.avatarVariantStartedAt)||0;
+  const end=Number(m.avatarVariantUntil)||0;
+  if(end<=start)return 1;
+  const p=clamp((m.elapsed-start)/(end-start),0,1);
+  const smooth=x=>x*x*(3-2*x);
+  const intro=smooth(clamp(p/.12,0,1));
+  const settle=smooth(clamp((1-p)/.18,0,1));
+  return .72+.28*Math.min(intro,settle+.12);
+}
+
 function applyAvatarMotion(c,m,avatar='classic'){
   const p=AVATAR_MOTION_PROFILES[avatar]||AVATAR_MOTION_PROFILES.classic;
   const v=m.avatarVariantMotion||{};
@@ -295,6 +306,7 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(semantic);
   const activity=calm?1:.28;
   const reduced=m.reduced?(m.avatarVariantReducedIntensity||.22):1;
+  const envelope=avatarMotionEnvelope(m);
   const cadence=Number(v.cadence)||1;
   const speed=p.speed*(Number(v.speed)||1)*cadence;
   const t=m.elapsed*speed+p.phase+(Number(v.phase)||0);
@@ -311,10 +323,11 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const drift=(Number(v.drift)||0)*5.2;
   const microX=Math.sin(t*5.3+1.7)*shake;
   const microY=Math.cos(t*4.7+.6)*shake*.38;
-  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*activity*reduced;
-  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*activity*reduced;
-  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*activity*reduced;
-  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*breath*activity*reduced;
+  const intensity=activity*reduced*envelope;
+  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*intensity;
+  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*intensity;
+  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*intensity;
+  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*breath*intensity;
   c.translate(dx,dy);c.rotate(rad(tilt));c.scale(scale,scale);
 }
 
