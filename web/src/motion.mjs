@@ -209,7 +209,11 @@ export class DaiMotion {
     }
     if(this.mouseInside&&!this.dragging) set({gaze_x:clamp(this.pointer.x/22,-10,10),gaze_y:clamp(this.pointer.y/32,-5,5)});
     const qualityScale=this.quality==='high'?1:this.quality==='medium'?.72:.42;
-    if(!this.reduced) p.bob=Math.sin(t*1.7)*2.2*qualityScale;
+    if(!this.reduced){
+      const ambient=['idle','relax','breathe','sleep','dream','meditate','wait_patient','voicewait','recharge'].includes(active);
+      const baseBob=ambient?.58:2.2;
+      p.bob=Math.sin(t*(ambient?1.15:1.7))*baseBob*qualityScale;
+    }
     const enter=e<.62?back(e/.62,.8):1;
     if(e<.14 && active!=='idle') set({sx:1.018,sy:.985});
     if(active==='typing') {
