@@ -124,9 +124,13 @@ export function createAnimationPlan(m,context={}){
   if(mode==='listening')budget=Math.min(budget,1);
   if(emotion.fx<.72)budget=Math.max(0,budget-1);
   if(compact&&quality!=='high')budget=Math.max(0,budget-1);
+  if(mode==='idle')budget=Math.min(budget,1);
 
-  const stateFxActive=['thinking','searching','working','success','error'].includes(mode);
-  if(stateFxActive)budget=Math.max(0,budget-1);
+  const stateFxActive=['listening','thinking','searching','working','success','error'].includes(mode);
+  if(stateFxActive){
+    budget=Math.max(0,budget-1);
+    budget=Math.min(budget,quality==='high'?1:0);
+  }
   const enabledFx=new Set(fxOrderForMode(mode).slice(0,budget));
   const semantic=String(m?.requestedGesture||m?.gesture||'idle');
   const isBusy=mode!=='idle';
@@ -175,9 +179,9 @@ export function createAnimationPlan(m,context={}){
       particles
     }),
     overlays:Object.freeze({
-      listen:mode==='listening',
+      listen:false,
       personality:mode==='idle'||mode==='success',
-      thoughtDots:(mode==='thinking'||mode==='working')&&!SEARCH_GESTURES.has(semantic),
+      thoughtDots:false,
       searchFocus:mode==='searching',
       suppressAmbient:isBusy&&mode!=='success'
     })
