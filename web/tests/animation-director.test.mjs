@@ -140,3 +140,33 @@ test('thinking uses avatar state FX instead of shared thought dots',()=>{
   assert.equal(plan.overlays.thoughtDots,false);
   assert.deepEqual(validateAnimationPlan(plan),[]);
 });
+
+
+test('current gesture wins over stale pose residue',()=>{
+  const search=createAnimationPlan(motion({
+    requestedGesture:'search',
+    gesture:'search',
+    state:'thinking',
+    pose:{listen:1,rod:0,wand:0,hat:0}
+  }));
+  assert.equal(search.mode,'searching');
+
+  const working=createAnimationPlan(motion({
+    requestedGesture:'working',
+    gesture:'working',
+    state:'thinking'
+  }));
+  assert.equal(working.mode,'working');
+});
+
+test('social wave does not masquerade as a success event',()=>{
+  const wave=createAnimationPlan(motion({
+    requestedGesture:'wave',
+    gesture:'wave',
+    state:'happy',
+    quality:'high'
+  }));
+  assert.equal(wave.mode,'idle');
+  assert.equal(wave.channels.stateFx,false);
+  assert.equal(wave.channels.particles,false);
+});
