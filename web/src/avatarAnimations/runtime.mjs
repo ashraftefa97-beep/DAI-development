@@ -203,9 +203,13 @@ export function selectAvatarVariant(library,requestedGesture,options={}){
   // Ambient idle must stay calm. Sleep/yawn/meditation and large body actions
   // are only eligible after a long quiet period or when explicitly requested.
   const normalizedRequested=String(requestedGesture||'idle').replace(/^dai_/,'').replace('idle_soft','idle');
-  if(slot==='idle'&&normalizedRequested==='idle'&&!options.allowSleepyIdle){
-    const blocked=new Set(['sleep','dream','yawn','meditate','stretch','side_stretch','roam_walk']);
-    const calm=candidates.filter(item=>!blocked.has(item.gesture));
+  if(slot==='idle'&&normalizedRequested==='idle'){
+    const alwaysBlocked=new Set(['stretch','side_stretch','roam_walk']);
+    const sleepyBlocked=new Set(['sleep','dream','yawn','meditate']);
+    const calm=candidates.filter(item=>
+      !alwaysBlocked.has(item.gesture)&&
+      (options.allowSleepyIdle||!sleepyBlocked.has(item.gesture))
+    );
     if(calm.length)candidates=calm;
   }
 
