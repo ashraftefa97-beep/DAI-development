@@ -44,6 +44,7 @@ export class DaiMotion {
     this.avatarVariantLastBySlot = Object.create(null);
     this.avatarVariantRecentIds = [];
     this.animationLockUntil = 0;
+    this.pendingGesture = null;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -111,9 +112,13 @@ export class DaiMotion {
       lockedUntil:this.animationLockUntil,
       voiceActive:this.voiceDriven||this.voice>.04
     });
-    if(!transition.accept)return;
+    if(!transition.accept){
+      this.pendingGesture=requested;
+      return;
+    }
 
     const externalChanged=this.requestedGesture!==requested;
+    this.pendingGesture=null;
     this.requestedGesture=requested;
     this.animationLockUntil=this.elapsed+(transition.lockMs||0)/1000;
     this._applyAvatarVariant(requested,true);
@@ -755,6 +760,20 @@ export class DaiMotion {
   advance(elapsedDt) {
     elapsedDt=Math.max(0,elapsedDt); const dt=Math.min(elapsedDt,.05);
     this.elapsed+=elapsedDt;
+
+    if(this.pendingGesture){
+      const pending=this.pendingGesture;
+      const pendingTransition=requestAnimationTransition(this.requestedGesture,pending,{
+        now:this.elapsed,
+        lockedUntil:this.animationLockUntil,
+        voiceActive:this.voiceDriven||this.voice>.04
+      });
+      if(pendingTransition.accept){
+        this.pendingGesture=null;
+        this.setGesture(pending);
+      }
+    }
+
     if(this.avatarVariantUntil>0&&this.elapsed>=this.avatarVariantUntil&&shouldAutoCycleAvatarSlot(this.avatarVariantSlot)&&!this.dragging){
       this._applyAvatarVariant(this.requestedGesture,false);
     }
