@@ -1,6 +1,6 @@
 [build]
 base = "web"
-command = "npm install && npm run build"
+command = "npm install && cp github.html index.html && npm run build"
 publish = "dist"
 
 [build.environment]
