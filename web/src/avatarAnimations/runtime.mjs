@@ -166,8 +166,12 @@ export function selectAvatarVariant(library,requestedGesture,options={}){
     const safe=candidates.filter(item=>item.reducedSafe!==false);
     if(safe.length)candidates=safe;
   }
-  if(options.lastId&&candidates.length>1){
-    const fresh=candidates.filter(item=>item.id!==options.lastId);
+  const excluded=new Set([
+    ...(Array.isArray(options.excludeIds)?options.excludeIds:[]),
+    ...(options.lastId?[options.lastId]:[])
+  ]);
+  if(excluded.size&&candidates.length>1){
+    const fresh=candidates.filter(item=>!excluded.has(item.id));
     if(fresh.length)candidates=fresh;
   }
   const variant=weightedPick(candidates,options.random);
