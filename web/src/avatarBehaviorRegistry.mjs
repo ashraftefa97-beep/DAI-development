@@ -105,15 +105,27 @@ export function avatarAllowsHandGesture(id,gesture=''){
 
 export function validateAvatarBehaviorProfiles(ids=[]){
   const errors=[];
-  const searchVisuals=new Set();
+  const visualSets={
+    searchVisual:new Set(),
+    thinkingVisual:new Set(),
+    successVisual:new Set(),
+    errorVisual:new Set()
+  };
   const motionFamilies=new Set();
   for(const id of ids){
     const p=AVATAR_BEHAVIOR_PROFILES[id];
     if(!p){errors.push(`${id}: missing behavior profile`);continue;}
-    if(searchVisuals.has(p.searchVisual))errors.push(`${id}: duplicate search visual ${p.searchVisual}`);
+
+    for(const key of Object.keys(visualSets)){
+      const value=p[key];
+      if(!value)errors.push(`${id}: missing ${key}`);
+      else if(visualSets[key].has(value))errors.push(`${id}: duplicate ${key} ${value}`);
+      else visualSets[key].add(value);
+    }
+
     if(motionFamilies.has(p.motionFamily))errors.push(`${id}: duplicate motion family ${p.motionFamily}`);
-    searchVisuals.add(p.searchVisual);
     motionFamilies.add(p.motionFamily);
+
     for(const key of ['tempo','tiltAmp','gazeAmp','bobAmp','scaleAmp','phase']){
       if(!Number.isFinite(p[key]))errors.push(`${id}: invalid ${key}`);
     }
