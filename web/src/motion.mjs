@@ -38,8 +38,10 @@ export class DaiMotion {
     this.avatarVariantAccent = 'pulse';
     this.avatarVariantPersonality = 'balanced';
     this.avatarVariantReducedIntensity = .22;
+    this.avatarVariantStartedAt = 0;
     this.avatarVariantUntil = 0;
     this.avatarVariantLastBySlot = Object.create(null);
+    this.avatarVariantRecentIds = [];
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -55,6 +57,8 @@ export class DaiMotion {
     if(this.avatarStyle===next)return;
     this.avatarStyle=next;
     this.avatarVariantLastBySlot=Object.create(null);
+    this.avatarVariantRecentIds=[];
+    this.avatarVariantStartedAt=this.elapsed;
     this.avatarVariantUntil=0;
     this._applyAvatarVariant(this.requestedGesture,true);
   }
@@ -62,7 +66,8 @@ export class DaiMotion {
     const selection=chooseAvatarAnimation(this.avatarStyle,requestedGesture,{
       random:this.random,
       reduced:this.reduced,
-      lastId:this.avatarVariantLastBySlot[this.avatarVariantSlot]||''
+      lastId:this.avatarVariantLastBySlot[this.avatarVariantSlot]||'',
+      excludeIds:this.avatarVariantRecentIds
     });
     const candidate=selection&&gestures.includes(selection.gesture)?selection.gesture:requestedGesture;
     const changed=this.gesture!==candidate||force;
@@ -76,7 +81,9 @@ export class DaiMotion {
       this.avatarVariantPersonality=selection.personality||this.avatarStyle;
       this.avatarVariantReducedIntensity=Number(selection.reducedIntensity)||.22;
       this.avatarVariantLastBySlot[selection.slot]=selection.id;
+      this.avatarVariantRecentIds=[selection.id,...this.avatarVariantRecentIds.filter(id=>id!==selection.id)].slice(0,8);
       const cooldown=Math.max(0,Number(selection.cooldownMs)||0);
+      this.avatarVariantStartedAt=this.elapsed;
       this.avatarVariantUntil=this.elapsed+Math.max(selection.durationMs||2200,cooldown)/1000;
     }else{
       this.avatarVariantId='';
@@ -85,6 +92,7 @@ export class DaiMotion {
       this.avatarVariantAccent='pulse';
       this.avatarVariantPersonality=this.avatarStyle;
       this.avatarVariantReducedIntensity=.22;
+      this.avatarVariantStartedAt=this.elapsed;
       this.avatarVariantUntil=0;
     }
     if(changed){
