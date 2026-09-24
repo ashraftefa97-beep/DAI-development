@@ -472,7 +472,6 @@ export default function GithubApp(){
   const voiceRecorderTimerRef=useRef<number|undefined>(undefined);
   const animationLockUntilRef=useRef(0);
   const animationCooldownUntilRef=useRef(0);
-  const behaviorCycleTimerRef=useRef<number|undefined>(undefined);
   const pendingAutoAnimationRef=useRef('');
   const lastAnimationRequestRef=useRef('');
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
@@ -1069,7 +1068,7 @@ export default function GithubApp(){
   }
 
   async function requestAnimationDecision(
-    mode:'request'|'auto',
+    mode:'request',
     userText:string,
     assistantText=''
   ){
@@ -1096,30 +1095,6 @@ export default function GithubApp(){
     const played=executeSelectedAnimation(id,'explicit');
     if(!played&&animationAudioBusy())pendingAutoAnimationRef.current=id;
     return played;
-  }
-
-  function contextAnimationWorthPlaying(userText:string,assistantText:string){
-    const combined=(userText+' '+assistantText).toLowerCase();
-    return /(?:أهل[ًاا]|اهل[ًاا]|صباح|مساء|مع السلامة|باي|شكرا|شكرًا|تسلم|مبروك|نجح|نجاح|تمام جدًا|ممتاز|رائع|حلو جدًا|لقيت|وجدت|فكرة|للأسف|آسف|اسف|خطأ|مشكلة|مفاجأة|مفاجاه|واو|ههه|😂|🎉|❤️|\?|؟)/i.test(combined);
-  }
-
-  async function chooseContextAnimation(userText:string,assistantText:string){
-    if(!professional||!proAnimations||looksLikeAnimationRequest(userText))return;
-    if(Date.now()<animationCooldownUntilRef.current)return;
-    if(!contextAnimationWorthPlaying(userText,assistantText))return;
-
-    const id=await requestAnimationDecision('auto',userText,assistantText);
-    if(!id)return;
-
-    const spec=animationSpecById(id);
-    if(!spec)return;
-    const greetingContext=/(?:أهل[ًاا]|اهل[ًاا]|صباح|مساء|مع السلامة|باي|hello|hi|bye)/i.test(userText+' '+assistantText);
-    if(['wave','double_wave','hello_shy','goodbye','salute'].includes(spec.gesture)&&!greetingContext)return;
-
-    // While DAI is speaking, expression and gesture are driven by the actual audio.
-    // Do not queue an unrelated full-body animation to fire immediately afterwards.
-    if(animationAudioBusy()||sending)return;
-    executeSelectedAnimation(id,'auto');
   }
 
   function playProAnimation(spec:ProAnimationSpec){
@@ -1596,7 +1571,6 @@ export default function GithubApp(){
     clearTimeout(corePhaseTimerRef.current);
     for(const id of phaseChoreographyTimersRef.current)window.clearTimeout(id);
     phaseChoreographyTimersRef.current=[];
-    clearTimeout(behaviorCycleTimerRef.current);
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
     textRequestAbortRef.current?.abort();
