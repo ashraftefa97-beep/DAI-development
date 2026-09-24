@@ -8,11 +8,11 @@ const avatarCatalog=readFileSync(new URL('../src/avatarCatalog.ts',import.meta.u
 const motion=readFileSync(new URL('../src/motion.mjs',import.meta.url),'utf8');
 const director=readFileSync(new URL('../src/animationDirector.mjs',import.meta.url),'utf8');
 const authBootstrap=readFileSync(new URL('../src/AuthGate.tsx',import.meta.url),'utf8');
-const chatStream=readFileSync(new URL('../../api/chat-stream.ts',import.meta.url),'utf8');
-const webResearch=readFileSync(new URL('../../api/web-research.ts',import.meta.url),'utf8');
-const voiceLive=readFileSync(new URL('../../api/voice-live.ts',import.meta.url),'utf8');
-const supervisor=readFileSync(new URL('../src/serviceSupervisor.ts',import.meta.url),'utf8');
-const diagnostics=readFileSync(new URL('../src/runtimeDiagnostics.ts',import.meta.url),'utf8');
+const chatStream=readFileSync(new URL('../../supabase/functions/chat-stream/index.ts',import.meta.url),'utf8');
+const webResearch=readFileSync(new URL('../../supabase/functions/web-research/index.ts',import.meta.url),'utf8');
+const voiceLive=app;
+const supervisor=readFileSync(new URL('../src/requestSupervisor.ts',import.meta.url),'utf8');
+const diagnostics=app;
 
 // Experience contracts intentionally assert stable architecture/user-facing invariants,
 // not incidental implementation details.
