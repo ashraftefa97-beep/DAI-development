@@ -270,5 +270,7 @@ export function validateAvatarLibrary(library){
 }
 
 export function shouldAutoCycleAvatarSlot(slot){
-  return ['idle','listening','thinking','searching','speaking'].includes(slot);
+  // Active semantic states must stay visually stable until DAI changes state.
+  // Only ambient idle may rotate subtle motion variants.
+  return slot==='idle';
 }
