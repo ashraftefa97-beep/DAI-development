@@ -120,3 +120,24 @@ test('core phase is the only automatic animation authority',()=>{
   assert.match(app,/function transitionCorePhase/);
   assert.match(app,/semanticPhaseScene\(/);
 });
+
+
+test('avatar reload hydration is local-first and cannot swap to stale cloud preference',()=>{
+  const start=app.indexOf('async function loadAvatarPreference');
+  const end=app.indexOf("useEffect(()=>{\n    if(!supabase||!userId||!avatarPreferenceLoadedRef.current)return;",start);
+  const block=app.slice(start,end);
+
+  assert.match(block,/localStorage\.getItem\('dai-avatar-style'\)/);
+  assert.match(block,/const currentLocal=/);
+  assert.match(block,/if\(currentLocal\)\{/);
+  assert.match(block,/else if\(remoteAvatar\)\{/);
+
+  const localStart=block.indexOf('if(currentLocal){');
+  const remoteStart=block.indexOf('}else if(remoteAvatar){',localStart);
+  const localBranch=block.slice(localStart,remoteStart);
+  const remoteBranch=block.slice(remoteStart);
+
+  assert.doesNotMatch(localBranch,/setAvatarStyle\(remoteAvatar\)/);
+  assert.match(localBranch,/avatar_style:currentLocal/);
+  assert.match(remoteBranch,/setAvatarStyle\(remoteAvatar\)/);
+});
