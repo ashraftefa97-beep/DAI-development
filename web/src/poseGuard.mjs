@@ -33,31 +33,58 @@ function dampTwoHandCrowding(p){
   }
 }
 
-const PASSIVE_HAND_GESTURES=new Set([
-  'idle','relax','breathe','sleep','dream','yawn','meditate','sway','cozy_sway',
-  'wait_patient','voicewait','recharge'
-]);
-const SPEAKING_HAND_GESTURES=new Set(['talk','reply']);
+const HAND_INTENT_WINDOWS=Object.freeze({
+  wave:1.8,
+  double_wave:2.0,
+  goodbye:1.9,
+  hello_shy:1.5,
+  salute:1.25,
+  peace:1.6,
+  high_five:1.35,
+  clap:2.1,
+  celebrate:2.25,
+  cheer:1.9,
+  victory:1.7,
+  pose_star:1.8,
+  stretch:2.4,
+  side_stretch:2.35,
+  heart:1.9,
+  dance:2.8,
+  music_groove:2.4,
+  party:2.6,
+  fishing:6.8,
+  write:2.6,
+  type_fast:2.2,
+  search:2.1,
+  scout:1.6,
+  window_peek:1.5
+});
 
-export function handsShouldRest(context={}){
+export function handIntentScale(context={}){
   const requested=String(context.requestedGesture||'idle');
   const active=String(context.activeGesture||requested);
-  const mode=String(context.mode||'idle');
-  return mode==='speaking'||
-    requested==='idle'||
-    PASSIVE_HAND_GESTURES.has(requested)||
-    SPEAKING_HAND_GESTURES.has(requested)||
-    (PASSIVE_HAND_GESTURES.has(active)&&mode==='idle');
+  const gesture=HAND_INTENT_WINDOWS[requested]!=null?requested:
+    HAND_INTENT_WINDOWS[active]!=null?active:null;
+  if(!gesture)return 0;
+
+  const maxHold=Number(HAND_INTENT_WINDOWS[gesture])||0;
+  const age=Math.max(0,Number(context.gestureTime)||0);
+  if(age<=maxHold)return 1;
+
+  const fade=.34;
+  if(age>=maxHold+fade)return 0;
+  return Math.max(0,1-(age-maxHold)/fade);
+}
+
+export function handsShouldRest(context={}){
+  return handIntentScale(context)<=.01;
 }
 
 export function applyNaturalHandPolicy(p,context={}){
   if(!p)return p;
 
-  const requested=String(context.requestedGesture||'idle');
-  const active=String(context.activeGesture||requested);
-  const mode=String(context.mode||'idle');
-
-  if(handsShouldRest({requestedGesture:requested,activeGesture:active,mode})){
+  const scale=handIntentScale(context);
+  if(scale<=.01){
     p.la=0;
     p.ra=0;
     p.lx=-118;p.ly=72;p.lr=-10;
@@ -65,16 +92,23 @@ export function applyNaturalHandPolicy(p,context={}){
     return p;
   }
 
-  // Listening should read as attentive, not as two-handed gesturing.
-  if(mode==='listening'){
+  p.la=(Number(p.la)||0)*scale;
+  p.ra=(Number(p.ra)||0)*scale;
+
+  // Even intentional gestures should not keep two hands equally dominant
+  // unless the gesture itself clearly calls for both hands.
+  const requested=String(context.requestedGesture||'');
+  const twoHanded=new Set([
+    'double_wave','clap','celebrate','victory','pose_star','stretch',
+    'side_stretch','heart','dance','music_groove','party','type_fast'
+  ]);
+  if(!twoHanded.has(requested)){
     const la=Number(p.la)||0;
     const ra=Number(p.ra)||0;
     if(la>.08&&ra>.08){
       if(ra>=la)p.la=Math.min(la,.08);
       else p.ra=Math.min(ra,.08);
     }
-    p.la=Math.min(Number(p.la)||0,.78);
-    p.ra=Math.min(Number(p.ra)||0,.78);
   }
 
   return p;
