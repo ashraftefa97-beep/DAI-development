@@ -114,8 +114,12 @@ function buildVariants(slot,gestures,base){
     const {motion,fingerprint}=normalizeMotion(base,slot,index,gesture);
     const durationSeed=seededUnit(`${base.id}|${slot}|${index}`,'duration');
     const spanSeed=seededUnit(`${base.id}|${slot}|${index}`,'span');
-    const durationMin=Math.round((base.durationMin||2200)*(.82+durationSeed*.42));
-    const durationMax=Math.max(durationMin+550,Math.round((base.durationMax||4200)*(.88+spanSeed*.48)));
+    const rawMin=Math.round((base.durationMin||2200)*(.82+durationSeed*.42));
+    const rawMax=Math.round((base.durationMax||4200)*(.88+spanSeed*.48));
+    const durationMin=slot==='idle'?Math.max(4200,rawMin):rawMin;
+    const durationMax=slot==='idle'
+      ?Math.max(durationMin+1100,Math.max(6200,rawMax))
+      :Math.max(durationMin+550,rawMax);
     const accentVariant=1+(hash32(`${base.id}|${slot}|${index}|accent`)%4);
     return Object.freeze({
       id:`${base.id}-${slot}-${String(index+1).padStart(2,'0')}`,
@@ -179,6 +183,16 @@ export function selectAvatarVariant(library,requestedGesture,options={}){
   if(!slot)return null;
   let candidates=[...(library.slots?.[slot]||[])];
   if(!candidates.length)return null;
+
+  // Ambient idle must stay calm. Sleep/yawn/meditation and large body actions
+  // are only eligible after a long quiet period or when explicitly requested.
+  const normalizedRequested=String(requestedGesture||'idle').replace(/^dai_/,'').replace('idle_soft','idle');
+  if(slot==='idle'&&normalizedRequested==='idle'&&!options.allowSleepyIdle){
+    const blocked=new Set(['sleep','dream','yawn','meditate','stretch','side_stretch','roam_walk']);
+    const calm=candidates.filter(item=>!blocked.has(item.gesture));
+    if(calm.length)candidates=calm;
+  }
+
   if(options.reduced){
     const safe=candidates.filter(item=>item.reducedSafe!==false);
     if(safe.length)candidates=safe;
