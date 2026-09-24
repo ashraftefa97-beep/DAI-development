@@ -18,8 +18,8 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
       motion.current.setVoiceLevel(detail.level||0,detail.active!==false);
     };
     const onMood=(event:Event)=>{
-      const detail=(event as CustomEvent<{mood?:string}>).detail||{};
-      motion.current.setSpeechMood(detail.mood||'neutral');
+      const detail=(event as CustomEvent<{mood?:string;intensity?:number}>).detail||{};
+      motion.current.setSpeechMood(detail.mood||'neutral',detail.intensity??.65);
     };
     window.addEventListener('dai:voice-level',onVoice as EventListener);
     window.addEventListener('dai:speech-mood',onMood as EventListener);
