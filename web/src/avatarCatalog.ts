@@ -1,6 +1,6 @@
 export const DAI_AVATAR_IDS = [
   'classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint',
-  'aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender'  ,'matrix'
+  'aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix'
 ] as const;
 
 export type DaiAvatarStyle = typeof DAI_AVATAR_IDS[number];
