@@ -108,6 +108,100 @@ function drawSearch(c,visual,t,a,b,alpha){
   }
 }
 
+function visualSeed(name=''){
+  let h=2166136261;
+  for(const ch of String(name)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
+  return h>>>0;
+}
+
+function drawThinking(c,visual,t,a,b,alpha){
+  const seed=visualSeed(visual);
+  const count=2+(seed%4);
+  if(/dot/i.test(visual)){
+    circle(c,0,-4,3.2,a,1,alpha,true);
+    return;
+  }
+  if(/cloud/i.test(visual)){
+    for(let i=0;i<4;i++)circle(c,-24+i*16,-8+Math.sin(t*.5+i)*5,10+i%2*3,i%2?a:b,1,alpha*.55);
+    return;
+  }
+  if(/code|data|charge/i.test(visual)){
+    for(let i=0;i<6;i++){
+      const x=-45+i*18;
+      const y=-28+((t*(10+i*2)+i*13)%56);
+      line(c,x,y,x,y+8,i%2?a:b,1,alpha*.65);
+    }
+    return;
+  }
+  for(let i=0;i<count;i++){
+    const q=t*(.35+(seed%7)*.03)+i*TAU/count;
+    const r=24+(i%3)*11+(seed%9);
+    circle(c,Math.cos(q)*r,-4+Math.sin(q)*r*.55,2.2+(i%2),i%2?a:b,1,alpha*.72,true);
+  }
+  arc(c,0,-4,38+(seed%14),t*.28,t*.28+Math.PI*1.2,a,1,alpha*.45);
+}
+
+function drawSuccess(c,visual,t,a,b,alpha){
+  const seed=visualSeed(visual);
+  if(/check|tick/i.test(visual)){
+    line(c,-18,0,-4,14,a,2.4,alpha);
+    line(c,-4,14,22,-18,b,2.4,alpha);
+    return;
+  }
+  if(/heart/i.test(visual)){
+    heart(c,0,-2,2.2,a,alpha);
+    return;
+  }
+  if(/leaf/i.test(visual)){
+    leaf(c,-12,2,-.5,a,alpha);leaf(c,10,0,.6,b,alpha);
+    return;
+  }
+  if(/flower|petal|bloom/i.test(visual)){
+    for(let i=0;i<6;i++){const q=i*TAU/6+t*.12;petal(c,Math.cos(q)*22,-4+Math.sin(q)*16,q+Math.PI/2,i%2?a:b,alpha*.8);}
+    return;
+  }
+  const count=5+(seed%4);
+  for(let i=0;i<count;i++){
+    const q=i*TAU/count+t*.22;
+    const r=28+(seed%18);
+    star(c,Math.cos(q)*r,-4+Math.sin(q)*r*.66,2.5+(i%3),i%2?a:b,alpha*.78);
+  }
+}
+
+function drawError(c,visual,t,a,b,alpha){
+  const seed=visualSeed(visual);
+  if(/glitch|static|code|signal/i.test(visual)){
+    for(let i=0;i<6;i++){
+      const y=-30+i*12+Math.sin(t*5+i)*2;
+      const shift=((seed>>(i%8))&7)-3;
+      line(c,-44+shift,y,44-shift,y,i%2?a:b,1,alpha*.6);
+    }
+    return;
+  }
+  if(/crack|break/i.test(visual)){
+    const pts=[[0,-34],[-8,-14],[3,-2],[-12,13],[2,32]];
+    for(let i=1;i<pts.length;i++)line(c,pts[i-1][0],pts[i-1][1],pts[i][0],pts[i][1],i%2?a:b,1.4,alpha*.8);
+    return;
+  }
+  if(/drop|fall|fade|dim|collapse|wilt/i.test(visual)){
+    for(let i=0;i<5;i++){
+      const x=-34+i*17;
+      const y=-22+((t*(9+i)+i*13)%54);
+      circle(c,x,y,2.2,i%2?a:b,1,alpha*(.75-i*.08),true);
+    }
+    return;
+  }
+  arc(c,0,-4,34+Math.sin(t*2)*4,Math.PI*.08,Math.PI*.92,a,1.5,alpha*.75);
+  line(c,-26,-22,26,18,b,1.2,alpha*.55);
+}
+
+function drawStateVisual(c,mode,visual,t,a,b,alpha){
+  if(mode==='searching')return drawSearch(c,visual,t,a,b,alpha);
+  if(mode==='thinking'||mode==='working')return drawThinking(c,visual,t,a,b,alpha);
+  if(mode==='success')return drawSuccess(c,visual,t,a,b,alpha);
+  if(mode==='error')return drawError(c,visual,t,a,b,alpha);
+}
+
 export function renderAvatarStateFx(c,m,avatar='classic',theme={},plan={}){
   if(!plan?.channels?.stateFx)return;
   const mode=String(plan.mode||'idle');
@@ -118,10 +212,15 @@ export function renderAvatarStateFx(c,m,avatar='classic',theme={},plan={}){
   const secondary=theme.eyeB||theme.brow||primary;
   const t=Number(m?.gestureTime||m?.elapsed||0);
   const baseAlpha=clamp(Number(plan.fxAlpha)||.7,.2,1);
-  const intensity=mode==='searching'?1:mode==='thinking'||mode==='working'?.48:mode==='success'?.62:.52;
+  const intensity=mode==='searching'?1:mode==='thinking'||mode==='working'?.46:mode==='success'?.58:.48;
+  const visual=
+    mode==='searching'?profile.searchVisual:
+    mode==='thinking'||mode==='working'?profile.thinkingVisual:
+    mode==='success'?profile.successVisual:
+    profile.errorVisual;
 
   c.save();
   c.globalAlpha*=baseAlpha*intensity;
-  drawSearch(c,profile.searchVisual,t,primary,secondary,1);
+  drawStateVisual(c,mode,visual,t,primary,secondary,1);
   c.restore();
 }
