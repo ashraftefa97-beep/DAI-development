@@ -1,3 +1,5 @@
+const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
+
 const profile=(id,motionFamily,searchVisual,thinkingVisual,successVisual,errorVisual,opts={})=>Object.freeze({
   id,
   motionFamily,
