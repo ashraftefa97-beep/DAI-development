@@ -168,3 +168,24 @@ test('long ambient idle never auto-selects hand or locomotion gestures',()=>{
     }
   }
 });
+
+
+test('active semantic states keep the same motion variant over time',()=>{
+  const cases=['listen','thinking_deep','search','reply'];
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    for(const gesture of cases){
+      const motion=new DaiMotion(()=>.37);
+      motion.setAvatar(avatar);
+      motion.setGesture(gesture);
+      const firstId=motion.avatarVariantId;
+      assert.ok(firstId,`${avatar}/${gesture}: missing initial variant`);
+      for(let i=0;i<120;i++)motion.advance(.25);
+      assert.equal(
+        motion.avatarVariantId,
+        firstId,
+        `${avatar}/${gesture}: changed variant without a DAI state change`
+      );
+      assert.equal(motion.requestedGesture,gesture);
+    }
+  }
+});
