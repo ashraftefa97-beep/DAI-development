@@ -251,10 +251,12 @@ export class DaiMotion {
     } else if(active==='listen') {
       set({ra:1,rx:111,ry:48-98*enter,rr:-16,tilt:6,left:.42,right:.52,smile:.66,listen:1,cheek:.25,gaze_x:3,happy:.32});
       if(!this.reduced) p.bob+=Math.sin(t*3)*this.audio*2.5;
-    } else if(active==='search'||active==='found') {
+    } else if(active==='search') {
       const sweep=this.reduced?0:Math.sin(e*2);
       set({hat:0,wand:0,tilt:-2+sweep*1.2,gaze_x:sweep*4,gaze_y:-4,left:.72,right:.82,smile:.16});
-      if(active==='found') set({happy:1,smile:.88,mouth:.18,cheek:.62,tilt:-2,sy:1.015,bob:-2,gaze_y:-2});
+    } else if(active==='found') {
+      const settle=this.reduced?0:Math.sin(e*2.4)*Math.exp(-e*.7);
+      set({happy:1,smile:.88,mouth:.18,cheek:.62,tilt:-2+settle*2,sy:1.015,bob:-2,gaze_y:-2,gaze_x:settle*2});
     } else if(active==='talk'||this.state==='talking') {
       let beat=this.voice;
       if(!this.voiceDriven) {
