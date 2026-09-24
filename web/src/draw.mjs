@@ -567,6 +567,63 @@ function light(c,x,y,r,color,rx=r,ry=r) {
   const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'transparent');
   ellipse(c,x,y,rx,ry,g);
 }
+function drawBonneyNikaBase(c,m,isLight){
+  const t=m.reduced?0:m.elapsed;
+  const drift=Math.sin(t*.72)*2.2;
+  c.save();
+  light(c,0,-8,154,isLight?'rgba(235,154,214,.10)':'rgba(245,166,226,.14)',148,126);
+  light(c,0,-24,118,isLight?'rgba(255,218,118,.045)':'rgba(255,218,118,.07)',118,102);
+
+  c.save();
+  c.shadowColor=isLight?'rgba(179,121,180,.16)':'rgba(255,196,239,.22)';
+  c.shadowBlur=14;
+  const hairFill=isLight?'#F8F3FA':'#FFF9FF';
+  const hairShade=isLight?'#D8C8E4':'#E8D7F1';
+  const backCurls=[[-82,-58,32,27],[-57,-86,36,30],[-20,-103,40,31],[18,-105,41,32],[57,-88,37,30],[84,-59,32,27],[-100,-24,27,25],[101,-21,28,25],[-99,19,24,23],[99,21,24,23],[-76,53,27,22],[77,54,27,22]];
+  for(const [x,y,rx,ry] of backCurls){ellipse(c,x+drift*(x/110),y,rx,ry,hairFill,hairShade,1.5);}
+  c.restore();
+
+  const skin=c.createLinearGradient(0,-88,0,92);
+  skin.addColorStop(0,isLight?'#F4C6B5':'#F6C4B3');
+  skin.addColorStop(.54,isLight?'#F0B8A8':'#F2B8A7');
+  skin.addColorStop(1,isLight?'#EBAE9F':'#EDAE9E');
+  path(c,'M-73 -66 C-88 -36 -88 18 -72 48 C-58 74 -31 91 0 94 C31 91 58 74 72 48 C88 18 88 -36 73 -66 C52 -84 28 -91 0 -91 C-28 -91 -52 -84 -73 -66 Z',skin,isLight?'rgba(164,103,118,.16)':'rgba(255,218,229,.10)',1.2);
+
+  ellipse(c,-78,7,12,19,isLight?'#EAB09F':'#ECB3A1',isLight?'rgba(154,96,111,.18)':'rgba(255,220,230,.11)',1);
+  ellipse(c,78,7,12,19,isLight?'#EAB09F':'#ECB3A1',isLight?'rgba(154,96,111,.18)':'rgba(255,220,230,.11)',1);
+  c.save();
+  c.shadowColor='rgba(255,202,84,.28)';c.shadowBlur=7;
+  ellipse(c,-86,29,13,18,null,isLight?'#C9932D':'#F0BE55',4);
+  ellipse(c,86,29,13,18,null,isLight?'#C9932D':'#F0BE55',4);
+  c.restore();
+
+  const lock=isLight?'rgba(248,243,250,.98)':'rgba(255,250,255,.98)';
+  const lockEdge=isLight?'rgba(191,165,207,.62)':'rgba(230,205,239,.72)';
+  const drawLock=(d,w=16)=>{
+    c.save();c.shadowColor=isLight?'rgba(202,153,202,.10)':'rgba(255,199,238,.18)';c.shadowBlur=8;
+    path(c,d,null,lockEdge,w+3);path(c,d,null,lock,w);c.restore();
+  };
+  drawLock('M-59 -75 C-48 -111 -8 -118 12 -91 C25 -73 8 -57 -7 -72',18);
+  drawLock('M8 -84 C26 -113 62 -103 66 -72 C68 -52 49 -44 39 -63',16);
+  drawLock('M-72 -49 C-107 -52 -116 -22 -96 -7 C-79 6 -65 -6 -71 -22',14);
+  drawLock('M73 -48 C108 -50 116 -18 95 -5 C79 5 66 -7 72 -22',14);
+  drawLock('M-78 50 C-106 56 -106 82 -86 88 C-69 92 -58 74 -68 62',11);
+  drawLock('M78 51 C106 57 106 83 86 89 C69 93 58 75 68 63',11);
+  c.restore();
+}
+
+function drawBonneyNikaDetails(c,m,isLight){
+  c.save();
+  path(c,'M-3 23 Q0 27 4 23',null,isLight?'rgba(168,101,118,.34)':'rgba(255,219,230,.38)',1.25);
+  ellipse(c,2,21,1.7,1.2,isLight?'rgba(255,245,239,.68)':'rgba(255,246,242,.70)');
+  c.save();c.translate(-69,5);
+  path(c,'M8 -11 C-7 -7 -10 9 4 15 C-2 7 0 -3 8 -11 Z',isLight?'#C9932D':'#F1C45E');
+  c.restore();
+  const gold=isLight?'#C99534':'#F4C65C';
+  star(c,-116,-45,2.5,gold,-8);star(c,116,-42,2.2,gold,10);
+  star(c,-106,63,1.7,gold,0);star(c,105,67,1.7,gold,0);
+  c.restore();
+}
 function handTheme(c,avatar='classic') {
   const isLight=lightTheme(c);
   const palettes={
@@ -981,6 +1038,7 @@ export function drawDai(c,m,w,h,avatar='classic') {
   c.globalAlpha*=avatarSwapEnvelope(m);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
+  if(avatar==='bonney_nika')drawBonneyNikaBase(c,m,isLight);
   if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
   if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
   if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
@@ -1038,6 +1096,7 @@ export function drawDai(c,m,w,h,avatar='classic') {
   } else {
     drawRestMouth(c,m,avatar,theme,faceShape,q);
   }
+  if(avatar==='bonney_nika')drawBonneyNikaDetails(c,m,isLight);
 
   if(plan.overlays.thoughtDots) for(let i=0;i<3;i++) {
     const a=m.reduced?110:90+100*(.5+.5*Math.sin(m.elapsed*4-i));
