@@ -1,4 +1,5 @@
 import { product } from './product.mjs';
+import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -26,10 +27,18 @@ const moods = {
 export class DaiMotion {
   constructor(random = Math.random) {
     this.random = random;
-    this.state = this.gesture = 'idle';
+    this.state = this.gesture = this.requestedGesture = 'idle';
     this.elapsed = this.gestureTime = 0;
     this.reduced = false;
     this.quality = 'high';
+    this.avatarStyle = 'classic';
+    this.avatarVariantId = '';
+    this.avatarVariantSlot = 'idle';
+    this.avatarVariantMotion = null;
+    this.avatarVariantAccent = 'pulse';
+    this.avatarVariantPersonality = 'balanced';
+    this.avatarVariantUntil = 0;
+    this.avatarVariantLastBySlot = Object.create(null);
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -40,20 +49,59 @@ export class DaiMotion {
     this.particles = []; this.caught = false; this.audioEvents = [];
     this.pose = this.targets();
   }
+  setAvatar(style='classic') {
+    const next=String(style||'classic');
+    if(this.avatarStyle===next)return;
+    this.avatarStyle=next;
+    this.avatarVariantLastBySlot=Object.create(null);
+    this.avatarVariantUntil=0;
+    this._applyAvatarVariant(this.requestedGesture,true);
+  }
+  _applyAvatarVariant(requestedGesture,force=false) {
+    const selection=chooseAvatarAnimation(this.avatarStyle,requestedGesture,{
+      random:this.random,
+      reduced:this.reduced,
+      lastId:this.avatarVariantLastBySlot[this.avatarVariantSlot]||''
+    });
+    const candidate=selection&&gestures.includes(selection.gesture)?selection.gesture:requestedGesture;
+    const changed=this.gesture!==candidate||force;
+    this.gesture=candidate;
+    this.state=moods[requestedGesture]||moods[candidate]||'idle';
+    if(selection){
+      this.avatarVariantId=selection.id;
+      this.avatarVariantSlot=selection.slot;
+      this.avatarVariantMotion=selection.motion||null;
+      this.avatarVariantAccent=selection.accent||'pulse';
+      this.avatarVariantPersonality=selection.personality||this.avatarStyle;
+      this.avatarVariantLastBySlot[selection.slot]=selection.id;
+      const cooldown=Math.max(0,Number(selection.cooldownMs)||0);
+      this.avatarVariantUntil=this.elapsed+Math.max(selection.durationMs||2200,cooldown)/1000;
+    }else{
+      this.avatarVariantId='';
+      this.avatarVariantSlot='';
+      this.avatarVariantMotion=null;
+      this.avatarVariantAccent='pulse';
+      this.avatarVariantPersonality=this.avatarStyle;
+      this.avatarVariantUntil=0;
+    }
+    if(changed){
+      this.gestureTime=0; this.idleUntil=0; this.caught=false; this.audioEvents=[];
+    }
+  }
   setGesture(name) {
-    name = name.replace(/^dai_/, '').replace('idle_soft', 'idle');
-    const nextGesture = gestures.includes(name) ? name : 'idle';
-    if (this.gesture === nextGesture) return;
-    this.gesture = nextGesture;
-    this.state = moods[this.gesture] || 'idle';
-    this.gestureTime = 0; this.idleUntil = 0; this.caught = false; this.audioEvents = [];
-    if (['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(this.gesture)) {
+    name = String(name||'idle').replace(/^dai_/, '').replace('idle_soft', 'idle');
+    const requested = gestures.includes(name) ? name : 'idle';
+    if (this.requestedGesture === requested && this.avatarVariantUntil>this.elapsed) return;
+    const externalChanged=this.requestedGesture!==requested;
+    this.requestedGesture=requested;
+    this._applyAvatarVariant(requested,true);
+    if (externalChanged&&['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(requested)) {
       const burstCount=
-        this.gesture==='celebrate'?16:
-        this.gesture==='success'?12:
-        this.gesture==='found'?10:
-        this.gesture==='response_ready'?5:
-        this.gesture==='idea'?7:
+        requested==='celebrate'?16:
+        requested==='success'?12:
+        requested==='found'?10:
+        requested==='response_ready'?5:
+        requested==='idea'?7:
         6;
       this.burst(0,-65,burstCount);
     }
@@ -683,8 +731,12 @@ export class DaiMotion {
 
   advance(elapsedDt) {
     elapsedDt=Math.max(0,elapsedDt); const dt=Math.min(elapsedDt,.05);
+    this.elapsed+=elapsedDt;
+    if(this.avatarVariantUntil>0&&this.elapsed>=this.avatarVariantUntil&&shouldAutoCycleAvatarSlot(this.avatarVariantSlot)&&!this.dragging){
+      this._applyAvatarVariant(this.requestedGesture,false);
+    }
     const prevGestureTime=this.gestureTime;
-    this.elapsed+=elapsedDt; this.gestureTime+=elapsedDt;
+    this.gestureTime+=elapsedDt;
     this.advanceAudio(prevGestureTime,this.gestureTime);
     if(this.elapsed>this.nextBlink&&!this.reduced) {
       this.blinkTime=0; this.nextBlink=this.elapsed+2.6+this.random()*2.9;
