@@ -20,15 +20,23 @@ test('all 24 avatars own independent behavior profiles',()=>{
   assert.deepEqual(Object.keys(AVATAR_BEHAVIOR_PROFILES).sort(),[...avatarIds].sort());
 
   const motionFamilies=new Set();
-  const searchVisuals=new Set();
+  const visualSets={
+    searchVisual:new Set(),
+    thinkingVisual:new Set(),
+    successVisual:new Set(),
+    errorVisual:new Set()
+  };
   for(const id of avatarIds){
     const profile=getAvatarBehaviorProfile(id);
     assert.ok(profile.motionFamily);
-    assert.ok(profile.searchVisual);
     assert.ok(!motionFamilies.has(profile.motionFamily),`${id}: reused motion family`);
-    assert.ok(!searchVisuals.has(profile.searchVisual),`${id}: reused search visual`);
     motionFamilies.add(profile.motionFamily);
-    searchVisuals.add(profile.searchVisual);
+
+    for(const [key,set] of Object.entries(visualSets)){
+      assert.ok(profile[key],`${id}: missing ${key}`);
+      assert.ok(!set.has(profile[key]),`${id}: reused ${key}`);
+      set.add(profile[key]);
+    }
   }
 });
 
@@ -105,4 +113,19 @@ test('same search command produces meaningfully different real motion trajectori
     signatures.set(sig,id);
   }
   assert.equal(signatures.size,24);
+});
+
+
+test('renderer uses the correct visual family for each state',()=>{
+  const fx=fs.readFileSync(new URL('../src/avatarStateFx.mjs',import.meta.url),'utf8');
+  assert.match(fx,/mode==='searching'\?profile\.searchVisual/);
+  assert.match(fx,/mode==='thinking'\|\|mode==='working'\?profile\.thinkingVisual/);
+  assert.match(fx,/mode==='success'\?profile\.successVisual/);
+  assert.match(fx,/profile\.errorVisual/);
+  assert.match(fx,/drawStateVisual\(c,mode,visual/);
+});
+
+test('idle motion is intentionally calmer than active motion',()=>{
+  const draw=fs.readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
+  assert.match(draw,/const activity=calm\?\.22:expressive\?1:\.62/);
 });
