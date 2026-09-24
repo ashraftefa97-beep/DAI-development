@@ -73,10 +73,11 @@ export function applyAvatarBehaviorToPose(p,m){
     p.sy=(Number(p.sy)||1)-Math.abs(wave)*profile.scaleAmp*.65;
 
     if(profile.legacySearchProps){
+      const wandPhase=clamp(1-Math.max(0,t-2.0)/.34,0,1);
       p.hat=1;
-      p.wand=1;
+      p.wand=wandPhase;
       const sweep=reduced?0:Math.sin(t*2);
-      p.la=1;
+      p.la=wandPhase;
       p.lx=-111-sweep*5;
       p.ly=26;
       p.lr=-24+sweep*8;
