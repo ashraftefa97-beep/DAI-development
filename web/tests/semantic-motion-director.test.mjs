@@ -33,15 +33,15 @@ test('task routes produce clearly different motion understanding',()=>{
 
   assert.deepEqual(
     semanticPhaseScene('searching',research,fallback).steps.map(step=>step.state),
-    ['scan','search']
+    ['search']
   );
   assert.deepEqual(
     semanticPhaseScene('working',code,fallback).steps.map(step=>step.state),
-    ['code_focus','type_fast']
+    ['code_focus']
   );
   assert.deepEqual(
     semanticPhaseScene('working',image,fallback).steps.map(step=>step.state),
-    ['brainstorm','working']
+    ['brainstorm']
   );
 });
 
@@ -58,8 +58,8 @@ test('conversation meaning changes emotion and completion choreography',()=>{
 
   assert.equal(semanticPhaseScene('complete',celebration,fallback).steps[0].state,'celebrate');
   assert.equal(semanticPhaseScene('complete',greeting,fallback).steps[0].state,'wave');
-  assert.equal(semanticPhaseScene('understanding',problem,fallback).steps[0].state,'alert');
-  assert.equal(semanticPhaseScene('understanding',question,fallback).steps[0].state,'question');
+  assert.equal(semanticPhaseScene('understanding',problem,fallback).steps[0].state,'thinking_deep');
+  assert.equal(semanticPhaseScene('understanding',question,fallback).steps[0].state,'thinking_deep');
 });
 
 test('every semantic scene gesture exists in the DAI motion engine',()=>{
@@ -118,7 +118,7 @@ test('generic replies acknowledge completion instead of celebrating',()=>{
     settleMs:760
   });
   const states=scene.steps.map(step=>step.state);
-  assert.deepEqual(states,['nod_yes','idle']);
+  assert.deepEqual(states,['nod_yes']);
   assert.ok(!states.includes('success'));
   assert.ok(!states.includes('celebrate'));
 });
@@ -213,4 +213,23 @@ test('reassuring user wording is not classified as a problem',()=>{
   assert.equal(noProblem.intent,'agreement');
   assert.equal(resolved.intent,'agreement');
   assert.notEqual(noProblem.mood,'serious');
+});
+
+
+test('every semantic phase resolves to one stable gesture',()=>{
+  const scenarios=[
+    {userText:'ابحث عن الخبر',assistantText:'لقيت النتيجة',route:'research'},
+    {userText:'اكتب كود',assistantText:'تم الحل',route:'code'},
+    {userText:'اعمل صورة',assistantText:'جاهز',route:'image'},
+    {userText:'حلل الموضوع',assistantText:'ده التحليل',route:'complex'},
+    {userText:'ازاي؟',assistantText:'هشرحلك',route:'chat'}
+  ];
+  for(const scenario of scenarios){
+    const semantic=analyzeSemanticMotion(scenario);
+    for(const phase of ['understanding','searching','working','responding','speaking','complete']){
+      const scene=semanticPhaseScene(phase,semantic,fallback);
+      assert.equal(scene.steps.length,1,`${semantic.intent}/${phase} changed animation inside one phase`);
+      assert.equal(scene.steps[0].after,0);
+    }
+  }
 });
