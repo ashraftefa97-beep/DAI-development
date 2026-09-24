@@ -5105,7 +5105,7 @@ export default function GithubApp(){
 
         <section className='dai-settings-section'>
           <div className='dai-settings-section-title'>
-            <div><Eye/><span><strong>الأفاتار والشخصية</strong><small>اختار شكل ضي — نفس العقل والحركة بصيغة بصرية مختلفة</small></span></div>
+            <div><Eye/><span><strong>الأفاتار والشخصية</strong><small>اختار شخصية ضي — نفس العقل، لكن لكل أفاتار مكتبة مستقلة فيها 80 حركة ولمسته الخاصة</small></span></div>
           </div>
           <div className='dai-settings-card'>
             <div className='dai-avatar-grid' role='radiogroup' aria-label='اختيار أفاتار ضي'>
@@ -5138,7 +5138,7 @@ export default function GithubApp(){
               )}
             </div>
             <div className='dai-avatar-sync' aria-live='polite'>
-              <span>{avatarSyncing?'بزامن اختيارك…':'الاختيار بيتطبق فورًا على ضي وكل الأنيميشن.'}</span>
+              <span>{avatarSyncing?'بزامن اختيارك…':'كل أفاتار عنده 80 حركة مستقلة، مع منع التكرار وحركة خاصة بألوانه وشخصيته.'}</span>
               <button type='button' onClick={()=>setAvatarStyle('classic')} disabled={avatarStyle==='classic'}>الافتراضي</button>
             </div>
           </div>
