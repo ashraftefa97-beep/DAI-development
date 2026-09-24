@@ -863,7 +863,9 @@ function avatarSignatureVisual(c,m,avatar,isLight,theme){
   const alpha=(m.reduced?.24:(.28+.05*Math.sin(t*(.8+(variant%4)*.13))))*fxAlpha;
   c.save();c.globalAlpha=alpha;
 
-  if(signature==='orbit'){
+  if(signature==='classicBare'){
+    // Original Classic DAI has no outline/ring around the face.
+  }else if(signature==='orbit'){
     c.save();c.rotate(rad(-7));ellipse(c,0,-2,119,88,null,primary,1);ellipse(c,Math.cos(t*.45)*116,Math.sin(t*.45)*42-2,2.3,2.3,secondary);c.restore();
   }else if(signature==='baseline'){
     line(c,-42,88,-12,88,primary,1);line(c,-6,88,6,88,secondary,1);line(c,12,88,42,88,primary,1);
