@@ -305,9 +305,9 @@ function avatarMotionEnvelope(m){
   return .72+.28*Math.min(intro,settle+.12);
 }
 
-function applyAvatarMotion(c,m,avatar='classic'){
+function avatarMotionSample(m,avatar,variant){
   const p=AVATAR_MOTION_PROFILES[avatar]||AVATAR_MOTION_PROFILES.classic;
-  const v=m.avatarVariantMotion||{};
+  const v=variant||{};
   const semantic=m.requestedGesture||m.gesture;
   const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(semantic);
   const expressive=['celebrate','cheer','victory','wow','surprise_soft','error','alert','wave','double_wave'].includes(semantic);
@@ -332,11 +332,38 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const microY=Math.cos(t*4.7+.6)*shake*.38;
   const density=Number(m.animationPlan?.motionDensity)||1;
   const intensity=activity*reduced*envelope*density;
-  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*intensity;
-  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*intensity;
-  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*intensity;
-  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*breath*intensity;
-  c.translate(dx,dy);c.rotate(rad(tilt));c.scale(scale,scale);
+  return {
+    dx:(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*intensity,
+    dy:(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*intensity,
+    tilt:(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*intensity,
+    scale:1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*breath*intensity
+  };
+}
+
+function avatarVariantBlend(m){
+  const start=Number(m.avatarVariantBlendStartedAt)||0;
+  const end=Number(m.avatarVariantBlendUntil)||0;
+  if(!m.avatarPreviousVariantMotion||end<=start||m.elapsed>=end)return 1;
+  const p=clamp((m.elapsed-start)/(end-start),0,1);
+  return p*p*(3-2*p);
+}
+
+function applyAvatarMotion(c,m,avatar='classic'){
+  const current=avatarMotionSample(m,avatar,m.avatarVariantMotion||{});
+  const blend=avatarVariantBlend(m);
+  let sample=current;
+  if(blend<1&&m.avatarPreviousVariantMotion){
+    const previous=avatarMotionSample(m,avatar,m.avatarPreviousVariantMotion);
+    sample={
+      dx:previous.dx+(current.dx-previous.dx)*blend,
+      dy:previous.dy+(current.dy-previous.dy)*blend,
+      tilt:previous.tilt+(current.tilt-previous.tilt)*blend,
+      scale:previous.scale+(current.scale-previous.scale)*blend
+    };
+  }
+  c.translate(sample.dx,sample.dy);
+  c.rotate(rad(sample.tilt));
+  c.scale(sample.scale,sample.scale);
 }
 
 function avatarLibraryAccent(c,m,theme){
