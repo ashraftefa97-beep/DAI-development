@@ -4,24 +4,28 @@ const INTENT_RULES=[
   ['farewell',/(?:مع السلامة|باي|تصبح على خير|اشوفك|أشوفك|bye|goodbye|see you)/i],
   ['greeting',/(?:اهل[ًاا]|أهل[ًاا]|ازيك|إزيك|صباح الخير|مساء الخير|هاي\b|hello\b|\bhi\b|welcome)/i],
   ['gratitude',/(?:شكرا|شكرًا|متشكر|تسلم|ميرسي|thank(?:s| you))/i],
-  ['celebration',/(?:مبروك|نجح|نجاح|فزت|فرحان|فرحانة|ممتاز|رائع|تحفة|جامد جدًا|🎉|congrat)/i],
-  ['humor',/(?:هههه|ههه|😂|🤣|ضحك|نكتة|joke|funny|lol\b)/i],
+  ['celebration',/(?:مبروك|نجح|نجاح|فزت|فرحان|فرحانة|🎉|congrat)/i],
+  ['humor',/(?:هههه|ههه|😂|🤣|نكتة|joke|funny|lol\b)/i],
   ['apology',/(?:آسف|اسف|معلش|سامح|sorry|apolog)/i],
-  ['problem',/(?:مشكلة|غلط|خطأ|مش شغال|مش بيشتغل|وقع|تعطل|فشل|بايظ|مش فاهم|متلخبط|error|broken|failed|issue|problem)/i],
-  ['surprise',/(?:واو|يا نهار|بجد|مفاجأة|مفاجاه|wow\b|surpris)/i],
   ['story',/(?:حدوتة|حكاية|قصة|قبل النوم|story|bedtime)/i],
+  ['surprise',/(?:واو|يا نهار|بجد|مفاجأة|مفاجاه|wow\b|surpris)/i],
+  ['disagreement',/(?:لأ|لا مش|مش كده|مش موافق|no\b|wrong)/i],
+  ['problem',/(?:مشكلة|غلط|خطأ|مش شغال|مش بيشتغل|وقع|تعطل|فشل|بايظ|مش فاهم|متلخبط|error|broken|failed|issue|problem)/i],
   ['agreement',/(?:تمام|صح|بالضبط|ايوه|أيوه|ماشي|موافق|exactly|correct|yes\b)/i],
-  ['disagreement',/(?:لأ|لا مش|مش كده|غلط|مش موافق|no\b|wrong)/i],
   ['question',/[؟?]|(?:ليه|إزاي|ازاي|كيف|هل|فين|أين|امتى|إمتى|what|why|how|where|when|can you|could you)/i]
 ];
+
+const REASSURING=/(?:مفيش مشكلة|مش مشكلة|لا توجد مشكلة|مافيش مشكلة|no problem|not a problem|all good|كله تمام)/i;
+const RESOLVED=/(?:تم الحل|اتحل|اتصلح|اشتغل دلوقتي|تم بنجاح|اكتمل|جاهز|نجح التنفيذ|تم التنفيذ|fixed|resolved|completed|done successfully|working now)/i;
+const UNRESOLVED=/(?:تعذر|مقدرش|مش قادر|لسه مش شغال|فشل|غير متاح|تعطل|خطأ مستمر|can't|cannot|failed|unavailable|still broken)/i;
 
 function normalizeRoute(route='chat'){
   const value=String(route||'chat').toLowerCase();
   return ['research','code','command','image','complex','chat'].includes(value)?value:'chat';
 }
 
-function detectIntent(userText='',assistantText='',route='chat'){
-  const combined=(String(userText||'')+' '+String(assistantText||'')).trim();
+function detectIntent(userText='',route='chat'){
+  const value=String(userText||'').trim();
   const normalizedRoute=normalizeRoute(route);
   if(normalizedRoute==='research')return 'research';
   if(normalizedRoute==='code')return 'coding';
@@ -29,35 +33,46 @@ function detectIntent(userText='',assistantText='',route='chat'){
   if(normalizedRoute==='command')return 'command';
   if(normalizedRoute==='complex')return 'analysis';
   for(const [intent,pattern] of INTENT_RULES){
-    if(pattern.test(combined))return intent;
+    if(pattern.test(value))return intent;
   }
-  if(String(assistantText||'').length>700)return 'explanation';
   return 'conversation';
 }
 
-function emotionForIntent(intent,text=''){
+function detectOutcome(assistantText=''){
+  const value=String(assistantText||'').trim();
+  if(!value)return 'unknown';
+  if(REASSURING.test(value))return 'reassuring';
+  if(UNRESOLVED.test(value))return 'unresolved';
+  if(RESOLVED.test(value))return 'resolved';
+  return 'neutral';
+}
+
+function emotionForIntent(intent,text='',outcome='unknown'){
   const exclamations=(String(text).match(/[!！]/g)||[]).length;
-  const base={
+  let base={
     greeting:['warm',.72],
     farewell:['warm',.66],
     gratitude:['warm',.78],
     celebration:['happy',.94],
     humor:['happy',.84],
     apology:['calm',.70],
-    problem:['serious',.82],
-    surprise:['curious',.88],
+    problem:['serious',.74],
+    surprise:['curious',.84],
     story:['calm',.76],
     agreement:['warm',.62],
     disagreement:['serious',.64],
     question:['curious',.76],
-    research:['curious',.74],
-    coding:['serious',.66],
-    creative:['curious',.82],
-    command:['serious',.62],
-    analysis:['curious',.72],
-    explanation:['neutral',.58],
-    conversation:['neutral',.54]
-  }[intent]||['neutral',.54];
+    research:['curious',.72],
+    coding:['serious',.62],
+    creative:['curious',.78],
+    command:['serious',.60],
+    analysis:['curious',.70],
+    conversation:['neutral',.52]
+  }[intent]||['neutral',.52];
+
+  if(outcome==='resolved'||outcome==='reassuring')base=['warm',Math.max(.62,base[1]-.06)];
+  if(outcome==='unresolved')base=['serious',Math.max(.72,base[1])];
+
   return {mood:base[0],intensity:clamp(base[1]+Math.min(.08,exclamations*.02),.2,1)};
 }
 
@@ -94,8 +109,7 @@ const PHASE_BY_INTENT={
   },
   problem:{
     understanding:['alert','thinking_deep'],
-    responding:['focus','reply'],
-    complete:['approve','idle']
+    responding:['focus','reply']
   },
   surprise:{
     understanding:['surprise_soft','curious'],
@@ -115,48 +129,48 @@ const PHASE_BY_INTENT={
   disagreement:{
     understanding:['shake_no','focus'],
     responding:['thinking_deep','reply'],
-    complete:['approve','idle']
+    complete:['nod_yes','idle']
   },
   question:{
     understanding:['question','thinking_deep'],
     responding:['response_ready','reply'],
-    complete:['approve','idle']
+    complete:['nod_yes','idle']
   },
   research:{
     understanding:['detect','focus'],
     searching:['scan','search'],
     working:['search','detect'],
     responding:['found','reply'],
-    complete:['found','approve','idle']
+    complete:['found','idle']
   },
   coding:{
     understanding:['code_focus','focus'],
     working:['code_focus','type_fast'],
     responding:['response_ready','reply'],
-    complete:['success','proud','idle']
+    complete:['approve','idle']
   },
   creative:{
     understanding:['idea','brainstorm'],
     working:['brainstorm','working'],
-    responding:['wow','reply'],
-    complete:['pose_star','happy','idle']
+    responding:['response_ready','reply'],
+    complete:['approve','idle']
   },
   command:{
     understanding:['detect','focus'],
     working:['focus','working'],
     responding:['approve','reply'],
-    complete:['approve','idle']
+    complete:['nod_yes','idle']
   },
   analysis:{
     understanding:['thought_orbit','thinking_deep'],
     working:['brainstorm','focus'],
     responding:['response_ready','reply'],
-    complete:['approve','idle']
+    complete:['nod_yes','idle']
   },
-  explanation:{
-    understanding:['focus','thinking_deep'],
-    responding:['reply','nod_yes'],
-    complete:['approve','idle']
+  conversation:{
+    understanding:['curious','listen'],
+    responding:['reply'],
+    complete:['nod_yes','idle']
   }
 };
 
@@ -166,12 +180,33 @@ const PHASE_DELAYS={
   understanding:[0,300],
   searching:[0,300],
   working:[0,300],
-  preparing:[0,390],
-  responding:[0,400],
+  preparing:[0,360],
+  responding:[0,360],
   speaking:[0],
-  complete:[0,760,1080],
-  error:[0,1040]
+  complete:[0,620,820],
+  error:[0,900]
 };
+
+function completionOverride(semantic){
+  if(!semantic)return null;
+  const outcome=semantic.outcome;
+  const intent=semantic.intent;
+
+  if(outcome==='unresolved'){
+    return intent==='problem'||['coding','command','research','creative'].includes(intent)
+      ? ['confused','idle']
+      : ['nod_yes','idle'];
+  }
+  if(outcome==='resolved'){
+    if(intent==='coding')return ['success','idle'];
+    if(intent==='command')return ['approve','idle'];
+    if(intent==='research')return ['found','idle'];
+    if(intent==='creative')return ['pose_star','idle'];
+    if(intent==='problem')return ['approve','idle'];
+  }
+  if(outcome==='reassuring'&&intent==='problem')return ['relax','idle'];
+  return null;
+}
 
 export function analyzeSemanticMotion({
   userText='',
@@ -179,19 +214,21 @@ export function analyzeSemanticMotion({
   route='chat',
   source='text'
 }={}){
-  const intent=detectIntent(userText,assistantText,route);
-  const emotion=emotionForIntent(intent,userText+' '+assistantText);
-  const sourceBoost=source==='voice'?.06:0;
+  const intent=detectIntent(userText,route);
+  const outcome=detectOutcome(assistantText);
+  const emotion=emotionForIntent(intent,userText,outcome);
+  const sourceBoost=source==='voice'?.05:0;
   return Object.freeze({
     intent,
+    outcome,
     route:normalizeRoute(route),
     source:String(source||'text'),
     mood:emotion.mood,
     intensity:clamp(emotion.intensity+sourceBoost,.2,1),
     confidence:
-      intent==='conversation'?.46:
+      intent==='conversation'?.48:
       ['research','coding','creative','command','analysis'].includes(intent)?.94:
-      .78
+      .80
   });
 }
 
@@ -201,26 +238,41 @@ export function semanticPhaseScene(phase,semantic,baseScene){
   if(phase==='speaking')return {...fallback,steps:[{after:0,state:'talk'}]};
   if(phase==='error')return fallback;
 
-  const intentMap=PHASE_BY_INTENT[semantic.intent]||null;
-  const gestures=intentMap?.[phase];
+  let gestures=null;
+  if(phase==='complete')gestures=completionOverride(semantic);
+  if(!gestures){
+    const intentMap=PHASE_BY_INTENT[semantic.intent]||PHASE_BY_INTENT.conversation;
+    gestures=intentMap?.[phase]||null;
+  }
   if(!gestures?.length)return fallback;
 
   const delays=PHASE_DELAYS[phase]||[];
   const steps=gestures.map((state,index)=>({
     state,
-    after:Number.isFinite(delays[index])?delays[index]:index*360
+    after:Number.isFinite(delays[index])?delays[index]:index*320
   }));
   return {...fallback,steps};
 }
 
+function speechTone(text=''){
+  const value=String(text||'');
+  if(REASSURING.test(value))return {mood:'warm',intensity:.64};
+  if(UNRESOLVED.test(value))return {mood:'serious',intensity:.78};
+  if(/(?:مبروك|رائع|ممتاز|تحفة|جميل جدًا|حلو جدًا|ههه|😂|🎉)/i.test(value))return {mood:'happy',intensity:.82};
+  if(/(?:شكرا|شكرًا|تسلم|أهلًا|اهلا|صباح|مساء|منور)/i.test(value))return {mood:'warm',intensity:.70};
+  if(/(?:حدوتة|حكاية|بهدوء|استرخ|هادئ)/i.test(value))return {mood:'calm',intensity:.70};
+  if(/[؟?]|(?:ليه|إزاي|ازاي|هل|فين|امتى|ممكن)/i.test(value))return {mood:'curious',intensity:.70};
+  return {mood:'neutral',intensity:.54};
+}
+
 export function semanticSpeechMood(text='',context={}){
-  const result=analyzeSemanticMotion({
-    userText:context.userText||'',
-    assistantText:String(text||''),
-    route:context.route||'chat',
-    source:context.source||'voice'
-  });
-  return {mood:result.mood,intensity:result.intensity,intent:result.intent};
+  const tone=speechTone(text);
+  const sourceBoost=context.source==='voice'?.04:0;
+  return {
+    mood:tone.mood,
+    intensity:clamp(tone.intensity+sourceBoost,.2,1),
+    intent:context.intent||'conversation'
+  };
 }
 
 export function validateSemanticMotionDirector(){
