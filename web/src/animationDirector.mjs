@@ -20,7 +20,7 @@ export const DAI_ANIMATION_PRIORITIES=Object.freeze({
 const ERROR_GESTURES=new Set(['error','alert','startled','impatient','confused','shake_no']);
 const SUCCESS_GESTURES=new Set(['success','found','celebrate','victory','cheer','happy','approve','proud','excited','high_five']);
 const SEARCH_GESTURES=new Set(['search','scan','detect','scout','window_peek','peek']);
-const THINK_GESTURES=new Set(['thinking_deep','brainstorm','focus','code_focus','read','write','typing','type_fast','idea','lightbulb_pop','question','thought_orbit','working']);
+const THINK_GESTURES=new Set(['thinking_deep','brainstorm','focus','code_focus','read','write','typing','type_fast','idea','lightbulb_pop','question','thought_orbit']);
 const LISTEN_GESTURES=new Set(['listen']);
 const SPEAK_GESTURES=new Set(['talk','reply']);
 
@@ -32,13 +32,18 @@ function qualityBudget(quality='high'){
 
 export function animationModeForMotion(m){
   const gesture=String(m?.requestedGesture||m?.gesture||'idle');
-  if(ERROR_GESTURES.has(gesture)||m?.state==='confused')return 'error';
-  if(SUCCESS_GESTURES.has(gesture)||m?.state==='happy')return 'success';
-  if((m?.voiceDriven||m?.voice>0.04)&&(SPEAK_GESTURES.has(gesture)||m?.state==='talking'))return 'speaking';
-  if(LISTEN_GESTURES.has(gesture)||m?.pose?.listen>0.12)return 'listening';
+
+  // Current semantic gesture always wins over residue from the previous pose.
+  if(ERROR_GESTURES.has(gesture))return 'error';
+  if(SUCCESS_GESTURES.has(gesture))return 'success';
+  if((m?.voiceDriven||m?.voice>0.04)&&SPEAK_GESTURES.has(gesture))return 'speaking';
   if(SEARCH_GESTURES.has(gesture))return 'searching';
-  if(THINK_GESTURES.has(gesture)||m?.state==='thinking')return 'thinking';
+  if(THINK_GESTURES.has(gesture))return 'thinking';
   if(gesture==='working'||gesture==='loading'||gesture==='wait_patient')return 'working';
+  if(LISTEN_GESTURES.has(gesture))return 'listening';
+
+  // Only use pose residue as a fallback while semantically idle.
+  if(gesture==='idle'&&m?.pose?.listen>0.12)return 'listening';
   return 'idle';
 }
 
