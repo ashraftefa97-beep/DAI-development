@@ -638,6 +638,7 @@ export class DaiMotion {
       mode:animationModeForGesture(this.requestedGesture),
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
+      gestureTime:this.gestureTime,
       accessory,
       reduced:this.reduced
     });
@@ -827,16 +828,24 @@ export class DaiMotion {
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
     const speechFace=this.voiceDriven&&(this.gesture==='talk'||this.state==='talking');
+    const restingHands=handsShouldRest({
+      mode:animationModeForGesture(this.requestedGesture),
+      requestedGesture:this.requestedGesture,
+      activeGesture:this.gesture,
+      gestureTime:this.gestureTime
+    });
     for(const key of Object.keys(this.pose)) {
       const rate=this.reduced
         ? 22
-        : speechFace&&key==='mouth'
-          ? 24
-          : speechFace&&key==='mouthWide'
-            ? 18
-            : ['left','right','gaze_x','gaze_y'].includes(key)
-              ? 10
-              : 6.2;
+        : restingHands&&['la','ra'].includes(key)
+          ? 20
+          : speechFace&&key==='mouth'
+            ? 24
+            : speechFace&&key==='mouthWide'
+              ? 18
+              : ['left','right','gaze_x','gaze_y'].includes(key)
+                ? 10
+                : 6.2;
       this.pose[key]=mix(this.pose[key],target[key],rate);
     }
 
@@ -845,6 +854,7 @@ export class DaiMotion {
       mode:animationModeForGesture(this.requestedGesture),
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
+      gestureTime:this.gestureTime,
       accessory:liveAccessory,
       reduced:this.reduced
     });
