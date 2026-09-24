@@ -4298,13 +4298,37 @@ export default function GithubApp(){
       if(blob.size>6_500_000)throw new Error('recording-too-large');
 
       const audioBase64=await blobToBase64(blob);
-      const {data,error}=await supabase.functions.invoke('transcribe-voice',{
-        body:{audioBase64,mimeType:mimeType||blob.type||'audio/webm'}
+      const data=await runSupervised('transcription',async()=>{
+        const result=await supabase.functions.invoke('transcribe-voice',{
+          body:{audioBase64,mimeType:mimeType||blob.type||'audio/webm'}
+        });
+        if(result.error){
+          throw new DaiSupervisorError(
+            'TRANSCRIPTION_SERVICE',
+            String((result.error as any)?.message||'transcription failed'),
+            {retryable:true,cause:result.error}
+          );
+        }
+        const transcript=String(result.data?.transcript||'').trim();
+        if(!transcript){
+          throw new DaiSupervisorError(
+            'EMPTY_TRANSCRIPT',
+            'empty transcript',
+            {retryable:true}
+          );
+        }
+        return result.data;
+      },{
+        onRetry:(_failure,context)=>{
+          console.debug('DAI request supervisor retry',{
+            channel:'transcription',
+            attempt:context.attempt+1
+          });
+          setVoiceNotice('الصوت وصل، ضي بتحاول تفهمه تاني تلقائيًا…');
+        }
       });
-      if(error)throw error;
 
       const transcript=String(data?.transcript||'').trim();
-      if(!transcript)throw new Error('empty-transcript');
 
       setVoiceNotice('سمعتك: '+transcript.slice(0,90)+(transcript.length>90?'…':''));
       setInput('');
@@ -4315,9 +4339,9 @@ export default function GithubApp(){
       if(message==='recording-too-large'){
         setErrorText('التسجيل طويل زيادة. خلّيه أقل من دقيقة وجرب تاني.');
       }else{
-        setErrorText('ضي مقدرتش تفهم التسجيل ده. جرّب تسجله تاني.');
+        setErrorText('ضي حاولت تفهم التسجيل أكتر من مرة، لكن التسجيل نفسه محتاج يتبعت من جديد.');
       }
-      setVoiceNotice('التسجيل ماوصلش بشكل سليم.');
+      setVoiceNotice('المحاولات التلقائية خلصت للتسجيل ده.');
       transitionCorePhase('error',{force:true});
     }finally{
       setVoiceNoteProcessing(false);
