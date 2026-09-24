@@ -217,18 +217,28 @@ export function selectAvatarVariant(library,requestedGesture,options={}){
     const safe=candidates.filter(item=>item.reducedSafe!==false);
     if(safe.length)candidates=safe;
   }
-  const excluded=new Set([
-    ...(Array.isArray(options.excludeIds)?options.excludeIds:[]),
-    ...(options.lastId?[options.lastId]:[])
-  ]);
-  if(excluded.size&&candidates.length>1){
-    const fresh=candidates.filter(item=>!excluded.has(item.id));
-    if(fresh.length)candidates=fresh;
+  const stable=options.stable!==false;
+  if(!stable){
+    const excluded=new Set([
+      ...(Array.isArray(options.excludeIds)?options.excludeIds:[]),
+      ...(options.lastId?[options.lastId]:[])
+    ]);
+    if(excluded.size&&candidates.length>1){
+      const fresh=candidates.filter(item=>!excluded.has(item.id));
+      if(fresh.length)candidates=fresh;
+    }
   }
-  const variant=weightedPick(candidates,options.random);
+
+  const stableSeed=`${library.id}|${slot}|${normalizedRequested}|${options.reduced?'reduced':'full'}`;
+  const stableRandom=()=>{
+    let tick=0;
+    return ()=>seededUnit(stableSeed,`pick-${tick++}`);
+  };
+  const rng=stable?stableRandom():options.random;
+  const variant=weightedPick(candidates,rng);
   const min=Math.max(900,Number(variant.durationMs?.[0])||2200);
   const max=Math.max(min,Number(variant.durationMs?.[1])||4200);
-  let durationMs=min+((options.random?.()??Math.random())*(max-min));
+  let durationMs=min+((rng?.()??Math.random())*(max-min));
   if(options.reduced)durationMs=Math.max(durationMs,library.reducedMotion?.minDurationMs||3600);
 
   // Preserve the exact semantic gesture requested by the director. Avatar
@@ -269,8 +279,8 @@ export function validateAvatarLibrary(library){
   return errors;
 }
 
-export function shouldAutoCycleAvatarSlot(slot){
-  // Active semantic states must stay visually stable until DAI changes state.
-  // Only ambient idle may rotate subtle motion variants.
-  return slot==='idle';
+export function shouldAutoCycleAvatarSlot(_slot){
+  // No semantic state changes its motion variant merely because time passed.
+  // A new variant is selected only when DAI actually enters a new gesture.
+  return false;
 }
