@@ -428,6 +428,9 @@ export default function GithubApp(){
   const activeIdRef=useRef('');
   const voiceSessionActiveRef=useRef(false);
   const liveSocketRef=useRef<WebSocket|null>(null);
+  const liveReconnectAttemptsRef=useRef(0);
+  const liveReconnectTimerRef=useRef<number|undefined>(undefined);
+  const liveIntentionalCloseRef=useRef(false);
   const liveInputContextRef=useRef<AudioContext|null>(null);
   const liveOutputContextRef=useRef<AudioContext|null>(null);
   const liveStreamRef=useRef<MediaStream|null>(null);
@@ -1610,6 +1613,9 @@ export default function GithubApp(){
     phaseChoreographyTimersRef.current=[];
     keepListeningRef.current=false;
     voiceSessionActiveRef.current=false;
+    liveIntentionalCloseRef.current=true;
+    if(liveReconnectTimerRef.current)window.clearTimeout(liveReconnectTimerRef.current);
+    liveReconnectTimerRef.current=undefined;
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
     try{ recognitionRef.current?.stop(); }catch{}
@@ -3694,7 +3700,15 @@ export default function GithubApp(){
     liveOutputTranscriptRef.current='';
   }
 
-  async function endLiveVoice(){
+  async function endLiveVoice(intentional=true){
+    if(intentional){
+      liveIntentionalCloseRef.current=true;
+      liveReconnectAttemptsRef.current=0;
+      if(liveReconnectTimerRef.current){
+        window.clearTimeout(liveReconnectTimerRef.current);
+        liveReconnectTimerRef.current=undefined;
+      }
+    }
     if(!voiceSessionActiveRef.current)return;
     gatewayRequestRef.current='';
     voiceSessionActiveRef.current=false;
@@ -3904,14 +3918,28 @@ export default function GithubApp(){
     return {ok:false,message:'الأمر المحلي غير معروف.'};
   }
 
-  async function startLiveVoice(){
+  async function startLiveVoice(reconnecting=false){
     if(!supabase||loadingData||sending||voiceSessionActiveRef.current)return;
     if(!navigator.mediaDevices?.getUserMedia){
       setErrorText('المتصفح ده مش بيدعم المحادثة الصوتية.');
       return;
     }
 
-    const liveGateway=createDaiRequest('محادثة صوتية مباشرة','live');
+    if(!reconnecting){
+      liveReconnectAttemptsRef.current=0;
+      liveIntentionalCloseRef.current=false;
+      if(liveReconnectTimerRef.current){
+        window.clearTimeout(liveReconnectTimerRef.current);
+        liveReconnectTimerRef.current=undefined;
+      }
+    }else{
+      liveIntentionalCloseRef.current=false;
+    }
+
+    const liveGateway=createDaiRequest(
+      reconnecting?'إعادة اتصال المحادثة الصوتية':'محادثة صوتية مباشرة',
+      'live'
+    );
     gatewayRequestRef.current=liveGateway.id;
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
@@ -3942,8 +3970,25 @@ export default function GithubApp(){
       liveOutputContextRef.current=outputCtx;
       liveOutputAnalyserRef.current=null;
 
-      const {data,error}=await supabase.functions.invoke('live-token',{body:{}});
-      if(error||!data?.token)throw error||new Error('voice-token');
+      const data=await runSupervised('live-token',async()=>{
+        const result=await supabase.functions.invoke('live-token',{body:{}});
+        if(result.error||!result.data?.token){
+          throw new DaiSupervisorError(
+            'LIVE_TOKEN',
+            String((result.error as any)?.message||'live token unavailable'),
+            {retryable:true,cause:result.error}
+          );
+        }
+        return result.data;
+      },{
+        onRetry:(_failure,context)=>{
+          console.debug('DAI request supervisor retry',{
+            channel:'live-token',
+            attempt:context.attempt+1
+          });
+          setVoiceNotice('اتصال الصوت بيتجهز، ضي بتحاول تاني تلقائيًا…');
+        }
+      });
 
       const token=String(data.token);
       const model=String(data.model||'gemini-3.8-live');
@@ -4156,6 +4201,8 @@ export default function GithubApp(){
         }
 
         if(payload?.setupComplete){
+          liveReconnectAttemptsRef.current=0;
+          setErrorText('');
           void startLiveCapture(socket).catch(error=>{
             console.error('DAI live mic failed',error);
             setErrorText('ضي مش قادرة تفتح الميكروفون. راجع إذن الميكروفون.');
@@ -4210,18 +4257,37 @@ export default function GithubApp(){
       socket.onerror=(event)=>{
         console.error('DAI live socket error',event);
         if(!voiceSessionActiveRef.current)return;
-        setVoiceNotice('حصل خطأ في اتصال الصوت.');
-        setErrorText('ضي حصل عندها خطأ في المحادثة الصوتية. جرّب تاني.');
+        setVoiceNotice('اتصال الصوت اتلخبط، ضي مستنية تأكيد الاتصال…');
       };
 
       socket.onclose=(event)=>{
         console.debug('DAI live socket closed',{code:event.code,reason:event.reason||''});
         if(!voiceSessionActiveRef.current)return;
-        if(event.code!==1000){
-          setVoiceNotice('اتصال الصوت اتقفل بشكل غير متوقع.');
-          setErrorText('المحادثة الصوتية اتقفلت بشكل غير متوقع.');
+
+        const intentional=liveIntentionalCloseRef.current||event.code===1000;
+        if(intentional){
+          void endLiveVoice(true);
+          return;
         }
-        void endLiveVoice();
+
+        if(liveReconnectAttemptsRef.current<2){
+          liveReconnectAttemptsRef.current++;
+          const retryNumber=liveReconnectAttemptsRef.current;
+          setErrorText('');
+          setVoiceNotice('اتصال الصوت اتقطع، ضي بترجعه تلقائيًا…');
+          void (async()=>{
+            await endLiveVoice(false);
+            liveReconnectTimerRef.current=window.setTimeout(()=>{
+              liveReconnectTimerRef.current=undefined;
+              void startLiveVoice(true);
+            },retryNumber===1?450:900);
+          })();
+          return;
+        }
+
+        setVoiceNotice('ضي حاولت ترجع اتصال الصوت تلقائيًا، لكن الاتصال لسه غير مستقر.');
+        setErrorText('المحادثة الصوتية وقفت بعد محاولات الاسترجاع التلقائية.');
+        void endLiveVoice(false);
       };
     }catch(error){
       console.error('DAI live voice failed',error);
@@ -4447,8 +4513,8 @@ export default function GithubApp(){
   }
 
   function toggleLiveVoice(){
-    if(voiceSessionActiveRef.current)void endLiveVoice();
-    else void startLiveVoice();
+    if(voiceSessionActiveRef.current)void endLiveVoice(true);
+    else void startLiveVoice(false);
   }
 
   async function newConversation(){
