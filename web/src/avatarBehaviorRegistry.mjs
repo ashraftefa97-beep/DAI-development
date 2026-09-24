@@ -91,6 +91,13 @@ export function avatarAllowsLegacyAccessory(id,kind,gesture=''){
   return false;
 }
 
+export function avatarAllowsHandGesture(id,gesture=''){
+  const value=String(gesture||'idle');
+  const profile=getAvatarBehaviorProfile(id);
+  if(['search','scan','detect','scout','found'].includes(value))return Boolean(profile.searchHand);
+  return true;
+}
+
 export function validateAvatarBehaviorProfiles(ids=[]){
   const errors=[];
   const searchVisuals=new Set();
