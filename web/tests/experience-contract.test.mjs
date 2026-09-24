@@ -104,3 +104,14 @@ test('avatar picker uses the central catalog and keyboard-safe radio behavior',(
   assert.match(app,/data-avatar-choice=\{item\.id\}/);
   assert.match(app,/aria-live='polite'/);
 });
+
+
+test('core phase is the only automatic animation authority',()=>{
+  assert.doesNotMatch(app,/behaviorCycleTimerRef/);
+  assert.doesNotMatch(app,/contextAnimationWorthPlaying/);
+  assert.doesNotMatch(app,/chooseContextAnimation/);
+  assert.doesNotMatch(app,/sequence=\['search','scan','focus'\]/);
+  assert.doesNotMatch(app,/ambient:\+state/);
+  assert.match(app,/function transitionCorePhase/);
+  assert.match(app,/semanticPhaseScene\(/);
+});
