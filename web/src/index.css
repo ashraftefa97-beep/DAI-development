@@ -4631,54 +4631,25 @@ html[data-dai-theme="light"] .dai-quality-status {
 .dai-avatar-choice.classic .dai-avatar-preview .eye {
   z-index:2;
 }
-.dai-avatar-choice.classic .dai-avatar-preview .mouth {
-  z-index:2;
-}
-.dai-avatar-preview .classic-face-ring {
-  position:absolute;
-  inset:7px 10px 5px;
-  border:1px solid rgba(222,190,218,.24);
-  border-radius:50%;
-  z-index:1;
-  pointer-events:none;
-  box-shadow:inset 0 0 14px rgba(246,169,193,.025);
-}
-.dai-avatar-preview .classic-face-ring::before,
-.dai-avatar-preview .classic-face-ring::after {
+.dai-avatar-choice.classic .dai-avatar-preview .eye::before {
   content:'';
   position:absolute;
-  top:10px;
+  top:-9px;
+  left:50%;
   width:14px;
   height:5px;
   border-top:2px solid rgba(235,198,224,.76);
   border-radius:50%;
+  transform:translateX(-50%);
 }
-.dai-avatar-preview .classic-face-ring::before {
-  left:10px;
-  transform:rotate(-7deg);
+.dai-avatar-choice.classic .dai-avatar-preview .eye.left::before {
+  transform:translateX(-50%) rotate(-7deg);
 }
-.dai-avatar-preview .classic-face-ring::after {
-  right:10px;
-  transform:rotate(7deg);
+.dai-avatar-choice.classic .dai-avatar-preview .eye.right::before {
+  transform:translateX(-50%) rotate(7deg);
 }
-.dai-avatar-choice.classic .dai-avatar-preview::before,
-.dai-avatar-choice.classic .dai-avatar-preview::after {
-  content:'';
-  position:absolute;
-  top:40px;
-  width:12px;
-  height:5px;
-  border-radius:50%;
-  background:rgba(228,126,173,.13);
+.dai-avatar-choice.classic .dai-avatar-preview .mouth {
   z-index:2;
-}
-.dai-avatar-choice.classic .dai-avatar-preview::before { left:12px; }
-.dai-avatar-choice.classic .dai-avatar-preview::after { right:12px; }
-.dai-avatar-choice.classic.active {
-  border-color:rgba(246,169,193,.42);
-}
-html[data-dai-theme="light"] .dai-avatar-preview .classic-face-ring {
-  border-color:rgba(126,91,139,.24);
 }
 .dai-avatar-choice.minimal .dai-avatar-preview .eye {
   width:10px;
