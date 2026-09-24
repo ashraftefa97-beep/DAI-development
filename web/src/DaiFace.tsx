@@ -49,10 +49,14 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
     const observer=new ResizeObserver(resize);observer.observe(node);resize();
     const tick=(now:number)=>{
       if(!document.hidden) {
+        const dt=Math.min((now-last)/1000,.1);
+        // Simulation timing must stay independent from render throttling.
+        // Medium/low quality may skip draws, but DAI still advances in real time.
+        m.advance(dt);
+        for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
+
         const minFrameMs=quality==='low'?32:quality==='medium'?21:0;
         if(!minFrameMs||now-lastDraw>=minFrameMs){
-          m.advance(Math.min((now-last)/1000,.1));
-          for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
           drawDai(c,m,w,h,avatar);
           lastDraw=now;
         }
