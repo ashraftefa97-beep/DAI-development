@@ -523,15 +523,14 @@ export default function GithubApp(){
 
         const remoteValue=!error&&data?.avatar_style?String(data.avatar_style):'';
         const remoteAvatar=isDaiAvatarStyle(remoteValue)?remoteValue:null;
+        const currentLocal=(()=>{
+          try{
+            const stored=localStorage.getItem('dai-avatar-style');
+            return isDaiAvatarStyle(stored)?stored:null;
+          }catch{return null;}
+        })();
 
-        if(localAvatar){
-          const currentLocal=(()=>{
-            try{
-              const stored=localStorage.getItem('dai-avatar-style');
-              return isDaiAvatarStyle(stored)?stored:avatarStyleRef.current;
-            }catch{return avatarStyleRef.current;}
-          })();
-
+        if(currentLocal){
           if(!remoteAvatar||remoteAvatar!==currentLocal){
             await supabase!.from('dai_preferences').upsert({
               user_id:userId,
