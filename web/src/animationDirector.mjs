@@ -1,4 +1,5 @@
 import { resolveEmotion } from './emotionDirector.mjs';
+import { handsShouldRest } from './poseGuard.mjs';
 
 export const DAI_ANIMATION_CHANNELS=Object.freeze([
   'face','mouth','body','hands','accessory','stateFx','signatureFx','avatarFx','libraryFx','particles'
@@ -126,12 +127,16 @@ export function createAnimationPlan(m,context={}){
   const enabledFx=new Set(fxOrderForMode(mode).slice(0,budget));
   const semantic=String(m?.requestedGesture||m?.gesture||'idle');
   const isBusy=mode!=='idle';
-  const handScale=(
-    mode==='speaking'?.42:
-    mode==='listening'?.70:
-    mode==='thinking'||mode==='searching'||mode==='working'?.78:
-    1
-  )*emotion.hand*motionDensity;
+  const restHands=handsShouldRest({
+    mode,
+    requestedGesture:m?.requestedGesture||'idle',
+    activeGesture:m?.gesture||m?.requestedGesture||'idle'
+  });
+  const handScale=restHands
+    ?0
+    :(mode==='listening'?.66:
+      mode==='thinking'||mode==='searching'||mode==='working'?.72:
+      1)*emotion.hand*motionDensity;
 
   const particles=
     !reduced&&
