@@ -1,5 +1,6 @@
 import { product } from './product.mjs';
 import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
+import { requestAnimationTransition } from './animationDirector.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -42,6 +43,7 @@ export class DaiMotion {
     this.avatarVariantUntil = 0;
     this.avatarVariantLastBySlot = Object.create(null);
     this.avatarVariantRecentIds = [];
+    this.animationLockUntil = 0;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -103,9 +105,19 @@ export class DaiMotion {
     name = String(name||'idle').replace(/^dai_/, '').replace('idle_soft', 'idle');
     const requested = gestures.includes(name) ? name : 'idle';
     if (this.requestedGesture === requested && this.avatarVariantUntil>this.elapsed) return;
+
+    const transition=requestAnimationTransition(this.requestedGesture,requested,{
+      now:this.elapsed,
+      lockedUntil:this.animationLockUntil,
+      voiceActive:this.voiceDriven||this.voice>.04
+    });
+    if(!transition.accept)return;
+
     const externalChanged=this.requestedGesture!==requested;
     this.requestedGesture=requested;
+    this.animationLockUntil=this.elapsed+(transition.lockMs||0)/1000;
     this._applyAvatarVariant(requested,true);
+
     if (externalChanged&&['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(requested)) {
       const burstCount=
         requested==='celebrate'?16:
