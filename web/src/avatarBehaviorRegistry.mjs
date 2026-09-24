@@ -74,6 +74,11 @@ export function applyAvatarBehaviorToPose(p,m){
     if(profile.legacySearchProps){
       p.hat=1;
       p.wand=1;
+      const sweep=reduced?0:Math.sin(t*2);
+      p.la=1;
+      p.lx=-111-sweep*5;
+      p.ly=26;
+      p.lr=-24+sweep*8;
     }else{
       // Search for non-Classic avatars is intentionally face/body led.
       p.la=0;
