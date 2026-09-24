@@ -3650,8 +3650,8 @@ export default function GithubApp(){
     transitionCorePhase('speaking');
   }
 
-  async function startLiveCapture(socket:WebSocket){
-    const stream=await navigator.mediaDevices.getUserMedia({
+  async function startLiveCapture(socket:WebSocket,prewarmedStream?:MediaStream){
+    const stream=prewarmedStream||await navigator.mediaDevices.getUserMedia({
       audio:{
         channelCount:1,
         sampleRate:16000,
@@ -4111,7 +4111,20 @@ export default function GithubApp(){
     liveNoiseFloorRef.current=.012;
     liveLastSpeechAtRef.current=0;
 
+    let warmMicPromise:Promise<MediaStream>|null=null;
     try{
+      // Ask for the microphone in parallel with the ephemeral live-token request.
+      // On repeat sessions this removes an entire serial setup step.
+      warmMicPromise=navigator.mediaDevices.getUserMedia({
+        audio:{
+          channelCount:1,
+          sampleRate:16000,
+          echoCancellation:true,
+          noiseSuppression:true,
+          autoGainControl:true
+        }
+      });
+
       const outputCtx=new AudioContext();
       await outputCtx.resume();
       liveOutputContextRef.current=outputCtx;
@@ -4350,7 +4363,9 @@ export default function GithubApp(){
         if(payload?.setupComplete){
           liveReconnectAttemptsRef.current=0;
           setErrorText('');
-          void startLiveCapture(socket).catch(error=>{
+          void (warmMicPromise||Promise.reject(new Error('microphone-unavailable')))
+            .then(stream=>startLiveCapture(socket,stream))
+            .catch(error=>{
             console.error('DAI live mic failed',error);
             setErrorText('ضي مش قادرة تفتح الميكروفون. راجع إذن الميكروفون.');
             void endLiveVoice();
@@ -4438,6 +4453,11 @@ export default function GithubApp(){
       };
     }catch(error){
       console.error('DAI live voice failed',error);
+      if(warmMicPromise){
+        void warmMicPromise.then(stream=>{
+          if(stream!==liveStreamRef.current)stream.getTracks().forEach(track=>track.stop());
+        }).catch(()=>undefined);
+      }
       setErrorText('ضي مش قادرة تبدأ المحادثة الصوتية دلوقتي. جرّب تاني.');
       await endLiveVoice();
     }
