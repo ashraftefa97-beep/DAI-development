@@ -253,10 +253,9 @@ export class DaiMotion {
       const settle=this.reduced?0:Math.sin(e*2.4)*Math.exp(-e*.7);
       set({happy:1,smile:.88,mouth:.18,cheek:.62,tilt:-2+settle*2,sy:1.015,bob:-2,gaze_y:-2,gaze_x:settle*2});
     } else if(active==='talk'||this.state==='talking') {
-      let beat=this.voice;
-      if(!this.voiceDriven) {
-        beat=this.reduced?.18:(.16+.28*(.5+.5*Math.sin(e*7.4)))*(.78+.22*Math.sin(e*2.0)**2);
-      }
+      // Mouth motion is driven only by real voice energy. Text responses use
+      // the reply state, so a stopped voice must never leave synthetic speech.
+      let beat=this.voiceDriven?this.voice:0;
       beat=clamp(beat,0,1);
 
       // Gate tiny room/noise energy so the mouth actually closes between words.
@@ -862,9 +861,13 @@ export class DaiMotion {
       this.pose[key]=mix(this.pose[key],target[key],rate);
     }
 
-    // The search wand must never float after its hand-intent window closes.
-    // Target fade handles normal frames; this snap protects long frame gaps.
+    // Props belong to the current semantic state, never the previous one.
+    // Snap incompatible props off immediately; body/face continuity still
+    // uses smoothing, so state changes stay natural without prop leakage.
     if((target.wand||0)<=.01)this.pose.wand=0;
+    if((target.hat||0)<=.01)this.pose.hat=0;
+    if((target.rod||0)<=.01)this.pose.rod=0;
+    if((target.fish||0)<=.01)this.pose.fish=0;
 
     const liveAccessory=this.pose.rod>.03?'fishing':this.pose.wand>.03?'wand':this.pose.hat>.03?'hat':null;
     guardInterpolatedPose(this.pose,{
