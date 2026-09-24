@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { gestures } from '../src/motion.mjs';
 import { AVATAR_ANIMATION_LIBRARIES, validateAvatarLibrary } from '../src/avatarAnimations/index.mjs';
-import { REQUIRED_AVATAR_ANIMATION_SLOTS, AVATAR_LIBRARY_SIZE, AVATAR_VARIANT_COUNTS } from '../src/avatarAnimations/runtime.mjs';
+import { REQUIRED_AVATAR_ANIMATION_SLOTS, AVATAR_LIBRARY_SIZE, AVATAR_VARIANT_COUNTS, shouldAutoCycleAvatarSlot } from '../src/avatarAnimations/runtime.mjs';
 
 const catalogText=fs.readFileSync(new URL('../src/avatarCatalog.ts',import.meta.url),'utf8');
 const catalogIds=[...catalogText.matchAll(/\{id:'([^']+)'/g)].map(match=>match[1]);
@@ -96,4 +96,12 @@ test('libraries expose distinct personality signatures and meaningful motion var
 
   assert.equal(personalities.size,24);
   assert.equal(signatures.size,24);
+});
+
+
+test('only ambient idle may auto-cycle variants',()=>{
+  assert.equal(shouldAutoCycleAvatarSlot('idle'),true);
+  for(const slot of ['listening','thinking','searching','speaking','success','error']){
+    assert.equal(shouldAutoCycleAvatarSlot(slot),false,`${slot} must stay pinned to the current DAI state`);
+  }
 });
