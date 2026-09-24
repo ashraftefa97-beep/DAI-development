@@ -74,21 +74,54 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     }
 
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
+    let bootstrapSettled = false;
+
+    const finishBootstrap = (message = '') => {
       if (!mounted) return;
-      applySessionUser(data.session?.user || null);
+      bootstrapSettled = true;
+      if (message) setNotice(message);
       setReady(true);
-    });
+    };
+
+    // Never let a stalled auth SDK/local-storage lock trap DAI on the logo
+    // forever. A late auth event can still restore the session afterwards.
+    const bootstrapTimeout = window.setTimeout(() => {
+      if (!bootstrapSettled) {
+        finishBootstrap('تسجيل الدخول اتأخر شوية. تقدر تحاول الدخول من جديد.');
+      }
+    }, 3500);
+
+    void supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error) {
+          console.warn('DAI auth session restore failed', error.message);
+          finishBootstrap('تعذر استعادة الجلسة القديمة. سجّل دخولك من جديد.');
+          return;
+        }
+        applySessionUser(data.session?.user || null);
+        finishBootstrap();
+      })
+      .catch((error) => {
+        if (!mounted) return;
+        console.warn('DAI auth bootstrap failed', error);
+        finishBootstrap('تعذر استعادة الجلسة القديمة. سجّل دخولك من جديد.');
+      })
+      .finally(() => {
+        window.clearTimeout(bootstrapTimeout);
+      });
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
       applySessionUser(session?.user || null);
       if (!session) void (window as any).daiDesktop?.clearSession?.().catch?.(() => false);
       if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
-      setReady(true);
+      finishBootstrap();
     });
 
     return () => {
       mounted = false;
+      window.clearTimeout(bootstrapTimeout);
       data.subscription.unsubscribe();
     };
   }, []);
