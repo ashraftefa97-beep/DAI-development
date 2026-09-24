@@ -3,6 +3,8 @@ import { clamp } from './motion.mjs';
 import { getAvatarVisualDNA } from './avatarVisualDNA.mjs';
 import { createAnimationPlan } from './animationDirector.mjs';
 import { stabilizeRenderedHands, avatarSwapEnvelope, sanitizePoseForRender } from './renderStabilizer.mjs';
+import { avatarAllowsLegacyAccessory } from './avatarBehaviorRegistry.mjs';
+import { renderAvatarStateFx } from './avatarStateFx.mjs';
 const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
@@ -911,9 +913,12 @@ export function drawDai(c,m,w,h,avatar='classic') {
   if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
   if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
   if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
-  if(plan.accessory==='hat')hat(c,m);
-  else if(plan.accessory==='wand')wand(c,m);
-  else if(plan.accessory==='fishing')fishing(c,m);
+  renderAvatarStateFx(c,m,avatar,theme,plan);
+
+  const requestedGesture=String(m.requestedGesture||m.gesture||'idle');
+  if(plan.accessory==='hat'&&avatarAllowsLegacyAccessory(avatar,'hat',requestedGesture))hat(c,m);
+  else if(plan.accessory==='wand'&&avatarAllowsLegacyAccessory(avatar,'wand',requestedGesture))wand(c,m);
+  else if(plan.accessory==='fishing'&&avatarAllowsLegacyAccessory(avatar,'fishing',requestedGesture))fishing(c,m);
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
