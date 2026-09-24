@@ -88,10 +88,9 @@ export class DaiMotion {
   _applyAvatarVariant(requestedGesture,force=false) {
     const selection=chooseAvatarAnimation(this.avatarStyle,requestedGesture,{
       random:this.random,
+      stable:true,
       reduced:this.reduced,
-      lastId:this.avatarVariantLastBySlot[this.avatarVariantSlot]||'',
-      excludeIds:this.avatarVariantRecentIds,
-      allowSleepyIdle:requestedGesture==='idle'&&(this.elapsed-this.lastMeaningfulAt)>=55
+      allowSleepyIdle:false
     });
     const candidate=selection&&gestures.includes(selection.gesture)?selection.gesture:requestedGesture;
     const changed=this.gesture!==candidate;
@@ -821,17 +820,6 @@ export class DaiMotion {
       this.blinkTime=0; this.nextBlink=this.elapsed+2.6+this.random()*2.9;
     }
     this.blinkTime+=elapsedDt;
-    if(this.elapsed>this.nextIdle&&this.state==='idle'&&this.gesture==='idle'&&!this.dragging&&!this.reduced) {
-      const v=this.random()*100;
-      const quietFor=this.elapsed-this.lastMeaningfulAt;
-      this.idleAction=quietFor>=55
-        ?(v<42?'look':v<72?'smile':v<92?'tilt':'sleepy')
-        :(v<50?'look':v<80?'smile':'tilt');
-      this.idleSide=this.random()<.5?-1:1;
-      const quietFactor=(this.quality==='low'?1.55:this.quality==='medium'?1.22:1)*(quietFor<55?1.18:1);
-      this.idleUntil=this.elapsed+(quietFor<55?1.25:1.55);
-      this.nextIdle=this.elapsed+(7.2+this.random()*4.4)*quietFactor;
-    }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
     this.voice=mix(this.voice,this.voiceTarget,18); this.audio=mix(this.audio,this.audioTarget,12);
