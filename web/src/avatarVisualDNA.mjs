@@ -22,7 +22,8 @@ export const AVATAR_VISUAL_DNA=Object.freeze({
   galaxy:{eye:'star',mouth:'cosmic',hand:'orbit',handMark:'star',signature:'planetRing'},
   desert:{eye:'dune',mouth:'duneWave',hand:'sand',handMark:'sun',signature:'duneSun'},
   lavender:{eye:'butterfly',mouth:'lavenderArc',hand:'petal',handMark:'flower',signature:'butterfly'},
-  matrix:{eye:'square',mouth:'code',hand:'digital',handMark:'code',signature:'codeRain'}
+  matrix:{eye:'square',mouth:'code',hand:'digital',handMark:'code',signature:'codeRain'},
+  bonney_nika:{eye:'nikaSpark',mouth:'nikaGrin',hand:'cloud',handMark:'crescent',signature:'nikaCloudCrown'}
 });
 
 export function getAvatarVisualDNA(id='classic'){
