@@ -86,3 +86,66 @@ test('non-classic avatars are not just classic with tiny numeric drift',()=>{
     assert.ok(distance>8,`${id}: core choreography remains too close to classic (${distance.toFixed(2)})`);
   }
 });
+
+
+function trajectorySignature(id,slotName,variant=7){
+  const times=[.31,.78,1.37,2.08,2.91];
+  return times.map(time=>{
+    const p=basePose();
+    applyAvatarChoreography(p,{
+      avatarStyle:id,
+      avatarVariantSlot:slotName,
+      avatarVariantId:`${id}-${slotName}-${String(variant).padStart(2,'0')}`,
+      gestureTime:time,
+      reduced:false
+    });
+    return signature(p);
+  }).join('>>');
+}
+
+test('all semantic slots produce 24 distinct avatar trajectories over time',()=>{
+  const slots=['idle','listening','thinking','searching','speaking','success','error'];
+  for(const slotName of slots){
+    const seen=new Map();
+    for(const id of avatarIds){
+      const sig=trajectorySignature(id,slotName,slotName==='speaking'?5:7);
+      assert.ok(!seen.has(sig),`${slotName}: ${id} duplicates ${seen.get(sig)} trajectory`);
+      seen.set(sig,id);
+    }
+    assert.equal(seen.size,24,`${slotName}: expected 24 unique trajectories`);
+  }
+});
+
+test('each avatar has meaningfully different trajectories across semantic slots',()=>{
+  const slots=['idle','listening','thinking','searching','speaking','success','error'];
+  for(const id of avatarIds){
+    const signatures=new Set(slots.map(slotName=>trajectorySignature(id,slotName,slotName==='speaking'?5:7)));
+    assert.equal(signatures.size,slots.length,`${id}: semantic slots collapse into repeated trajectories`);
+  }
+});
+
+test('core choreography remains inside a sane pre-guard motion envelope',()=>{
+  const slots=['idle','listening','thinking','searching','speaking','success','error'];
+  for(const id of avatarIds){
+    for(const slotName of slots){
+      for(const time of [.25,.75,1.4,2.2,3.1]){
+        const p=basePose();
+        applyAvatarChoreography(p,{
+          avatarStyle:id,
+          avatarVariantSlot:slotName,
+          avatarVariantId:`${id}-${slotName}-07`,
+          gestureTime:time,
+          reduced:false
+        });
+        assert.ok(Number.isFinite(p.tilt)&&Math.abs(p.tilt)<=18,`${id}/${slotName}: tilt escaped envelope`);
+        assert.ok(Number.isFinite(p.gaze_x)&&Math.abs(p.gaze_x)<=16,`${id}/${slotName}: gaze_x escaped envelope`);
+        assert.ok(Number.isFinite(p.gaze_y)&&Math.abs(p.gaze_y)<=12,`${id}/${slotName}: gaze_y escaped envelope`);
+        for(const key of ['lx','ly','rx','ry','la','ra','lr','rr','sx','sy']){
+          assert.ok(Number.isFinite(p[key]),`${id}/${slotName}: ${key} is not finite`);
+        }
+        assert.ok(Math.abs(p.lx)<=165&&Math.abs(p.rx)<=165,`${id}/${slotName}: hand x escaped envelope`);
+        assert.ok(p.ly>=-95&&p.ly<=110&&p.ry>=-95&&p.ry<=110,`${id}/${slotName}: hand y escaped envelope`);
+      }
+    }
+  }
+});
