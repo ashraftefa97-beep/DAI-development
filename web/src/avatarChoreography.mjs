@@ -61,7 +61,15 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
 
   switch(style){
     case 'micro':
-      faceOnly(p,a*.20,b*.32,-.08,c*.02);p.brow=(p.brow||0)+.02;break;
+      // Intentionally restrained: almost no sway, focused downward gaze and
+      // flatter expression so Minimal reads differently even while speaking.
+      faceOnly(p,a*.08,b*.12,.55,c*.012);
+      p.smile=clamp((p.smile||0)-.06,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)-.025,0,1.2);
+      p.brow=clamp((p.brow||0)+.08,0,1.2);
+      p.left=clamp((p.left||1)*.94,.05,1.35);
+      p.right=clamp((p.right||1)*.94,.05,1.35);
+      break;
     case 'bouncy':
       faceOnly(p,a*.72,b*1.05,-.28,Math.max(0,c)*.22);p.cheek=clamp((p.cheek||0)+.07,0,1.2);break;
     case 'servo':{
