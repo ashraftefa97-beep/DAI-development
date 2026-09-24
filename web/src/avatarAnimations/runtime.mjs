@@ -14,22 +14,39 @@ export const AVATAR_VARIANT_COUNTS=Object.freeze({
 
 export const AVATAR_LIBRARY_SIZE=Object.values(AVATAR_VARIANT_COUNTS).reduce((sum,value)=>sum+value,0);
 
-const SLOT_GESTURES={
-  idle:new Set(['idle','relax','breathe','sway','cozy_sway','meditate','dream','sleep','yawn','wait_patient','voicewait','recharge','look_around','curious','stretch','side_stretch','roam_walk']),
-  listening:new Set(['listen','nod_yes','salute','peace','curious']),
-  thinking:new Set(['typing','thinking_deep','brainstorm','focus','code_focus','read','write','idea','lightbulb_pop','question','thought_orbit','working']),
-  searching:new Set(['search','scan','detect','scout','window_peek','peek','look_around']),
-  speaking:new Set(['talk','reply','music_nod','nod_yes']),
-  success:new Set(['found','happy','success','celebrate','victory','cheer','approve','proud','excited','high_five','pose_star','welcome_back','giggle','laugh','clap','double_wave']),
-  error:new Set(['error','alert','shake_no','startled','impatient','confused','shy','surprise_soft'])
-};
+const GESTURE_SLOT_MAP=Object.freeze({
+  idle:'idle',relax:'idle',breathe:'idle',sway:'idle',cozy_sway:'idle',meditate:'idle',
+  dream:'idle',sleep:'idle',yawn:'idle',wait_patient:'idle',voicewait:'idle',recharge:'idle',
+  look_around:'idle',stretch:'idle',side_stretch:'idle',roam_walk:'idle',
+
+  listen:'listening',nod_yes:'listening',salute:'listening',peace:'listening',curious:'listening',
+
+  typing:'thinking',thinking_deep:'thinking',brainstorm:'thinking',focus:'thinking',
+  code_focus:'thinking',read:'thinking',write:'thinking',idea:'thinking',
+  lightbulb_pop:'thinking',question:'thinking',thought_orbit:'thinking',working:'thinking',
+  response_ready:'thinking',
+
+  search:'searching',scan:'searching',detect:'searching',scout:'searching',
+  window_peek:'searching',peek:'searching',
+
+  talk:'speaking',reply:'speaking',music_nod:'speaking',
+
+  found:'success',happy:'success',success:'success',celebrate:'success',victory:'success',
+  cheer:'success',approve:'success',proud:'success',excited:'success',high_five:'success',
+  pose_star:'success',welcome_back:'success',giggle:'success',laugh:'success',clap:'success',
+  double_wave:'success',wave:'success',bow:'success',hello_shy:'success',goodbye:'success',wow:'success',
+
+  error:'error',alert:'error',shake_no:'error',startled:'error',impatient:'error',
+  confused:'error',shy:'error',surprise_soft:'error'
+});
 
 export function animationSlotForGesture(gesture='idle'){
   const normalized=String(gesture||'idle').replace(/^dai_/,'').replace('idle_soft','idle');
-  for(const slot of REQUIRED_AVATAR_ANIMATION_SLOTS){
-    if(SLOT_GESTURES[slot].has(normalized))return slot;
-  }
-  return null;
+  return GESTURE_SLOT_MAP[normalized]||null;
+}
+
+export function gestureSlotMap(){
+  return GESTURE_SLOT_MAP;
 }
 
 function clamp(value,min,max){ return Math.max(min,Math.min(max,value)); }
