@@ -325,7 +325,8 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const drift=(Number(v.drift)||0)*5.2;
   const microX=Math.sin(t*5.3+1.7)*shake;
   const microY=Math.cos(t*4.7+.6)*shake*.38;
-  const intensity=activity*reduced*envelope;
+  const density=Number(m.animationPlan?.motionDensity)||1;
+  const intensity=activity*reduced*envelope*density;
   const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*intensity;
   const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*intensity;
   const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*intensity;
@@ -895,7 +896,7 @@ export function stageScale(w,h) { return Math.max(.35,Math.min(w/600,h/420,1.12)
 export function drawDai(c,m,w,h,avatar='classic') {
   c.clearRect(0,0,w,h);c.save();c.lineCap='round';c.lineJoin='round';
   const isLight=lightTheme(c),theme=avatarTheme(c,avatar),faceShape=avatarFaceShape(avatar);
-  const plan=createAnimationPlan(m);
+  const plan=createAnimationPlan(m,{width:w,height:h});
   m.animationPlan=plan;
   c.filter=isLight?'brightness(.88) saturate(1.18) contrast(1.10)':'none';
   const scale=stageScale(w,h),q=m.pose;
