@@ -1,5 +1,5 @@
 export const AVATAR_VISUAL_DNA=Object.freeze({
-  classic:{eye:'oval',mouth:'arc',hand:'open',handMark:'palmArc',signature:'orbit'},
+  classic:{eye:'oval',mouth:'arc',hand:'open',handMark:'palmArc',signature:'classicBare'},
   minimal:{eye:'dot',mouth:'dash',hand:'mitten',handMark:'none',signature:'baseline'},
   cute:{eye:'round',mouth:'w',hand:'rounded',handMark:'heart',signature:'heartBurst'},
   cyber:{eye:'hex',mouth:'digital',hand:'angular',handMark:'circuit',signature:'visorScan'},
