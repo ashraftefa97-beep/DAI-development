@@ -258,6 +258,7 @@ function speechTone(text=''){
   const value=String(text||'');
   if(REASSURING.test(value))return {mood:'warm',intensity:.64};
   if(UNRESOLVED.test(value))return {mood:'serious',intensity:.78};
+  if(/(?:للأسف|مشكلة|خطأ|فشل|تحذير|تعطل|error|failed|problem)/i.test(value))return {mood:'serious',intensity:.74};
   if(/(?:مبروك|رائع|ممتاز|تحفة|جميل جدًا|حلو جدًا|ههه|😂|🎉)/i.test(value))return {mood:'happy',intensity:.82};
   if(/(?:شكرا|شكرًا|تسلم|أهلًا|اهلا|صباح|مساء|منور)/i.test(value))return {mood:'warm',intensity:.70};
   if(/(?:حدوتة|حكاية|بهدوء|استرخ|هادئ)/i.test(value))return {mood:'calm',intensity:.70};
