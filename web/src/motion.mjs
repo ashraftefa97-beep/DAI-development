@@ -811,10 +811,14 @@ export class DaiMotion {
     this.blinkTime+=elapsedDt;
     if(this.elapsed>this.nextIdle&&this.state==='idle'&&this.gesture==='idle'&&!this.dragging&&!this.reduced) {
       const v=this.random()*100;
-      this.idleAction=v<45?'look':v<72?'smile':v<91?'tilt':v<97?'stretch':'sleepy';
+      const quietFor=this.elapsed-this.lastMeaningfulAt;
+      this.idleAction=quietFor>=55
+        ?(v<40?'look':v<68?'smile':v<88?'tilt':v<95?'stretch':'sleepy')
+        :(v<50?'look':v<80?'smile':'tilt');
       this.idleSide=this.random()<.5?-1:1;
-      const quietFactor=this.quality==='low'?1.55:this.quality==='medium'?1.22:1;
-      this.idleUntil=this.elapsed+1.55; this.nextIdle=this.elapsed+(5.8+this.random()*3.8)*quietFactor;
+      const quietFactor=(this.quality==='low'?1.55:this.quality==='medium'?1.22:1)*(quietFor<55?1.18:1);
+      this.idleUntil=this.elapsed+(quietFor<55?1.25:1.55);
+      this.nextIdle=this.elapsed+(7.2+this.random()*4.4)*quietFactor;
     }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
