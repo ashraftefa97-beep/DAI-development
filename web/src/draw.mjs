@@ -295,7 +295,8 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(semantic);
   const activity=calm?1:.28;
   const reduced=m.reduced?(m.avatarVariantReducedIntensity||.22):1;
-  const speed=p.speed*(Number(v.speed)||1);
+  const cadence=Number(v.cadence)||1;
+  const speed=p.speed*(Number(v.speed)||1)*cadence;
   const t=m.elapsed*speed+p.phase+(Number(v.phase)||0);
   const xAmp=p.x*(.72+(Number(v.x)||1)*.34);
   const yAmp=p.y*(.72+(Number(v.y)||1)*.30);
@@ -304,10 +305,16 @@ function applyAvatarMotion(c,m,avatar='classic'){
   const orbit=(Number(v.orbit)||0)*7;
   const bounce=(Number(v.bounce)||0)*6;
   const nod=(Number(v.nod)||0)*1.6;
-  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit)*activity*reduced;
-  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce)*activity*reduced;
-  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod)*activity*reduced;
-  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*activity*reduced;
+  const lean=(Number(v.lean)||0)*4.2;
+  const shake=(Number(v.shake)||0)*2.4;
+  const breath=Number(v.breath)||1;
+  const drift=(Number(v.drift)||0)*5.2;
+  const microX=Math.sin(t*5.3+1.7)*shake;
+  const microY=Math.cos(t*4.7+.6)*shake*.38;
+  const dx=(Math.sin(t)*xAmp+Math.cos(t*.61+1.2)*orbit+Math.sin(t*.37)*drift+microX)*activity*reduced;
+  const dy=(Math.sin(t*1.31+p.phase*.21)*yAmp-Math.abs(Math.sin(t*1.7))*bounce+microY)*activity*reduced;
+  const tilt=(Math.sin(t*.83+p.phase*.37)*tiltAmp+Math.sin(t*1.9)*nod+Math.sin(t*.44)*lean)*activity*reduced;
+  const scale=1+Math.sin(t*1.11+p.phase*.13)*scaleAmp*breath*activity*reduced;
   c.translate(dx,dy);c.rotate(rad(tilt));c.scale(scale,scale);
 }
 
@@ -554,7 +561,10 @@ function avatarFaceShape(avatar='classic'){
 
 function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   const q=m.pose,theme=avatarTheme(c,avatar),shape=avatarFaceShape(avatar);
-  c.save();c.translate(x+q.gaze_x,-17+q.gaze_y);c.rotate(rad(tilt));
+  const variant=m.avatarVariantMotion||{};
+  const gazeX=(Number(variant.gazeX)||0)*4.8;
+  const gazeY=(Number(variant.gazeY)||0)*3.4;
+  c.save();c.translate(x+q.gaze_x+gazeX,-17+q.gaze_y+gazeY);c.rotate(rad(tilt));
   const blink=m.blinkTime<.19?1-.97*Math.sin(Math.PI*m.blinkTime/.19):1;
   const w=35*width*theme.eyeW,h=Math.max(4,75*openness*blink*theme.eyeH);
   const r=Math.min(w*shape.eyeRadius,h/2);
@@ -684,7 +694,11 @@ export function drawDai(c,m,w,h,avatar='classic') {
   avatarAccent(c,m,avatar,isLight);
   avatarLibraryAccent(c,m,theme);
   hat(c,m);wand(c,m);fishing(c,m);
-  hand(c,q.lx,q.ly,q.lr,q.la,true,q.wand>.3,avatar);hand(c,q.rx,q.ry,q.rr,q.ra,false,q.rod>.3,avatar);
+  const variantMotion=m.avatarVariantMotion||{};
+  const handBias=(Number(variantMotion.handBias)||0)*5.5;
+  const handLift=(Number(variantMotion.handLift)||0)*4.2;
+  hand(c,q.lx-handBias,q.ly-handLift,q.lr,q.la,true,q.wand>.3,avatar);
+  hand(c,q.rx+handBias,q.ry-handLift,q.rr,q.ra,false,q.rod>.3,avatar);
   listen(c,m);personality(c,m);
 
   const spacing=theme.spacing;
