@@ -61,6 +61,7 @@ const HAND_INTENT_WINDOWS=Object.freeze({
 });
 
 export function handIntentScale(context={}){
+  if(context.allowHands===false)return 0;
   const requested=String(context.requestedGesture||'idle');
   const active=String(context.activeGesture||requested);
   const gesture=HAND_INTENT_WINDOWS[requested]!=null?requested:
