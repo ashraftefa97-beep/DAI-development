@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { Download, KeyRound, LogIn, ShieldCheck, Trash2, UserCog, UserPlus, X } from 'lucide-react';
+import { Download, Eye, EyeOff, KeyRound, LogIn, ShieldCheck, Sparkles, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
 
 type Mode = 'login' | 'register';
@@ -17,6 +17,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   const [profileGender, setProfileGender] = useState<UserGender>('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
   const [accountOpen, setAccountOpen] = useState(false);
@@ -402,70 +403,128 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
   if (!sessionEmail) {
     return (
-      <main className='auth-shell' dir='rtl'>
-        <section className='auth-card'>
-          <img className='auth-logo' src='./dai-logo.svg' alt='DAI AI' />
-          <h1>DAI AI</h1>
-          <p>{mode === 'login' ? 'سجّل دخولك وكمل مع ضي' : 'اعمل حساب جديد'}</p>
+      <main className='auth-shell auth-login-shell' dir='rtl'>
+        <div className='auth-layout'>
+          <section className='auth-showcase' aria-label='مقدمة ضي'>
+            <div className='auth-showcase-top'>
+              <div className='auth-brand-lockup'>
+                <img src='./dai-logo.svg' alt='' aria-hidden='true' />
+                <div>
+                  <strong>DAI AI</strong>
+                  <span>ضي · رفيقة أفكارك</span>
+                </div>
+              </div>
+              <span className='auth-private-pill'><ShieldCheck className='h-4 w-4' /> تجربة خاصة وآمنة</span>
+            </div>
 
-          <div className='auth-tabs'>
-            <button className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setNotice(''); }}>تسجيل الدخول</button>
-            <button className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setNotice(''); }}>إنشاء حساب</button>
-          </div>
+            <div className='auth-showcase-main'>
+              <div className='auth-kicker'><Sparkles className='h-4 w-4' /> ذكاء شخصي ليومك</div>
+              <h2>أفكارك، شغلك، يومك.<br/><em>كلهم مع ضي.</em></h2>
+              <p>اسأل، ابحث، اتكلم، وابعت ملفاتك. ضي مصممة تبقى مساعدتك اليومية بهدوء وسرعة من غير زحمة.</p>
 
-          {mode === 'register' && (
-            <>
-              <label className='auth-field'>
-                <span>اسمك</span>
-                <input type='text' value={name} onChange={e => setName(e.target.value)} autoComplete='name' placeholder='مثال: أحمد' maxLength={40} />
-              </label>
-              <label className='auth-field'>
-                <span>النوع</span>
-                <select value={gender} onChange={e => setGender(e.target.value as UserGender)} aria-label='النوع'>
-                  <option value=''>اختار</option>
-                  <option value='male'>ذكر</option>
-                  <option value='female'>أنثى</option>
-                </select>
-              </label>
-            </>
-          )}
+              <div className='auth-hero-mark' aria-hidden='true'>
+                <div className='auth-hero-glow'/>
+                <img src='./dai-logo.svg' alt='' />
+                <i className='auth-orbit auth-orbit-one'/>
+                <i className='auth-orbit auth-orbit-two'/>
+              </div>
 
-          <label className='auth-field'>
-            <span>البريد الإلكتروني</span>
-            <input type='email' value={email} onChange={e => setEmail(e.target.value)} autoComplete='email' placeholder='name@example.com' />
-          </label>
+              <div className='auth-feature-pills' aria-label='مميزات ضي'>
+                <span>بحث وفهم أسرع</span>
+                <span>صوت طبيعي</span>
+                <span>صور وملفات</span>
+                <span>ذاكرة اختيارية</span>
+              </div>
+            </div>
 
-          <label className='auth-field'>
-            <span>كلمة المرور</span>
-            <input
-              type='password'
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              placeholder='8 أحرف على الأقل'
-              onKeyDown={e => { if (e.key === 'Enter') submit(); }}
-            />
-          </label>
+            <div className='auth-showcase-foot'>
+              <span className='auth-ready'><i/> ضي جاهزة</span>
+              <span>Web · Desktop</span>
+            </div>
+          </section>
 
-          {mode === 'login' && (
-            <button className='auth-text-button' disabled={busy} onClick={sendPasswordReset}>
-              نسيت كلمة المرور؟
+          <section className='auth-card auth-card-premium'>
+            <div className='auth-mobile-brand' aria-hidden='true'>
+              <img src='./dai-logo.svg' alt='' />
+              <div><strong>DAI AI</strong><span>ضي · رفيقة أفكارك</span></div>
+            </div>
+
+            <div className='auth-form-heading'>
+              <span className='auth-eyebrow'>{mode === 'login' ? 'مرحبًا بعودتك' : 'أهلًا بيك في ضي'}</span>
+              <h1>{mode === 'login' ? 'كمّل من حيث توقفت' : 'ابدأ رحلتك مع ضي'}</h1>
+              <p>{mode === 'login' ? 'سجّل دخولك للوصول لمحادثاتك وإعداداتك.' : 'حساب واحد يحفظ تجربتك ويخلي ضي تعرف تخاطبك بالشكل المناسب.'}</p>
+            </div>
+
+            <div className='auth-tabs' role='tablist' aria-label='نوع الحساب'>
+              <button type='button' role='tab' aria-selected={mode === 'login'} className={mode === 'login' ? 'active' : ''} onClick={() => { setMode('login'); setNotice(''); }}>تسجيل الدخول</button>
+              <button type='button' role='tab' aria-selected={mode === 'register'} className={mode === 'register' ? 'active' : ''} onClick={() => { setMode('register'); setNotice(''); }}>إنشاء حساب</button>
+            </div>
+
+            {mode === 'register' && (
+              <div className='auth-register-grid'>
+                <label className='auth-field'>
+                  <span>اسمك</span>
+                  <input type='text' value={name} onChange={e => setName(e.target.value)} autoComplete='name' placeholder='مثال: أحمد' maxLength={40} />
+                </label>
+                <label className='auth-field'>
+                  <span>النوع</span>
+                  <select value={gender} onChange={e => setGender(e.target.value as UserGender)} aria-label='النوع'>
+                    <option value=''>اختار</option>
+                    <option value='male'>ذكر</option>
+                    <option value='female'>أنثى</option>
+                  </select>
+                </label>
+              </div>
+            )}
+
+            <label className='auth-field'>
+              <span>البريد الإلكتروني</span>
+              <input type='email' value={email} onChange={e => setEmail(e.target.value)} autoComplete='email' placeholder='name@example.com' inputMode='email' />
+            </label>
+
+            <label className='auth-field'>
+              <span>كلمة المرور</span>
+              <div className='auth-password-wrap'>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder='8 أحرف على الأقل'
+                  onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+                />
+                <button type='button' className='auth-password-toggle' onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}>
+                  {showPassword ? <EyeOff className='h-4 w-4' /> : <Eye className='h-4 w-4' />}
+                </button>
+              </div>
+            </label>
+
+            {mode === 'login' && (
+              <button type='button' className='auth-text-button' disabled={busy} onClick={sendPasswordReset}>
+                نسيت كلمة المرور؟
+              </button>
+            )}
+
+            {notice && <div className='auth-notice' role='status'>{notice}</div>}
+
+            <button className='auth-primary' disabled={busy || !email.trim() || password.length < 8 || (mode === 'register' && (name.trim().length < 2 || !gender))} onClick={submit}>
+              {mode === 'login' ? <LogIn className='h-5 w-5' /> : <UserPlus className='h-5 w-5' />}
+              {busy ? 'جاري التنفيذ…' : mode === 'login' ? 'دخول إلى ضي' : 'إنشاء الحساب'}
             </button>
-          )}
 
-          {notice && <div className='auth-notice'>{notice}</div>}
+            <div className='auth-divider'><span>أو</span></div>
 
-          <button className='auth-primary' disabled={busy || !email.trim() || password.length < 8 || (mode === 'register' && (name.trim().length < 2 || !gender))} onClick={submit}>
-            {mode === 'login' ? <LogIn className='h-5 w-5' /> : <UserPlus className='h-5 w-5' />}
-            {busy ? 'جاري التنفيذ…' : mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
-          </button>
+            <button className='auth-google' disabled={busy} onClick={googleLogin}>
+              <span className='auth-google-mark' aria-hidden='true'>G</span>
+              متابعة باستخدام Google
+            </button>
 
-          <div className='auth-divider'><span>أو</span></div>
-
-          <button className='auth-google' disabled={busy} onClick={googleLogin}>
-            متابعة باستخدام Google
-          </button>
-        </section>
+            <div className='auth-trust-note'>
+              <ShieldCheck className='h-4 w-4' />
+              <span>بيانات حسابك محمية، ومحادثاتك لا تظهر لأي مستخدم آخر.</span>
+            </div>
+          </section>
+        </div>
       </main>
     );
   }
