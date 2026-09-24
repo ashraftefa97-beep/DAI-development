@@ -49,6 +49,21 @@ export function gestureSlotMap(){
   return GESTURE_SLOT_MAP;
 }
 
+const SLOT_DEFAULT_GESTURE=Object.freeze({
+  idle:'idle',
+  listening:'listen',
+  thinking:'thinking_deep',
+  searching:'search',
+  speaking:'talk',
+  success:'approve',
+  error:'confused'
+});
+
+function normalizeGestureForSlot(slot,gesture){
+  const value=String(gesture||'');
+  return GESTURE_SLOT_MAP[value]===slot?value:SLOT_DEFAULT_GESTURE[slot];
+}
+
 function clamp(value,min,max){ return Math.max(min,Math.min(max,value)); }
 function round(value,places=5){
   const p=10**places;
@@ -110,7 +125,8 @@ function buildVariants(slot,gestures,base){
   const count=AVATAR_VARIANT_COUNTS[slot]||2;
   const offset=hash32(`${base.id}|${slot}|offset`)%list.length;
   return Array.from({length:count},(_,index)=>{
-    const gesture=String(list[(index+offset)%list.length]||'idle');
+    const rawGesture=String(list[(index+offset)%list.length]||SLOT_DEFAULT_GESTURE[slot]||'idle');
+    const gesture=normalizeGestureForSlot(slot,rawGesture);
     const {motion,fingerprint}=normalizeMotion(base,slot,index,gesture);
     const durationSeed=seededUnit(`${base.id}|${slot}|${index}`,'duration');
     const spanSeed=seededUnit(`${base.id}|${slot}|${index}`,'span');
@@ -210,7 +226,15 @@ export function selectAvatarVariant(library,requestedGesture,options={}){
   const max=Math.max(min,Number(variant.durationMs?.[1])||4200);
   let durationMs=min+((options.random?.()??Math.random())*(max-min));
   if(options.reduced)durationMs=Math.max(durationMs,library.reducedMotion?.minDurationMs||3600);
-  return {...variant,slot,durationMs:Math.round(durationMs)};
+
+  // Preserve the exact semantic gesture requested by the director. Avatar
+  // libraries may vary motion DNA, timing and FX, but must not change intent
+  // (e.g. question -> celebrate, idle -> scan, reply -> wave).
+  const exactGesture=normalizedRequested!=='idle'&&GESTURE_SLOT_MAP[normalizedRequested]===slot
+    ?normalizedRequested
+    :variant.gesture;
+
+  return {...variant,gesture:exactGesture,slot,durationMs:Math.round(durationMs)};
 }
 
 export function validateAvatarLibrary(library){
