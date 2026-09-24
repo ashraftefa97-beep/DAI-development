@@ -152,3 +152,19 @@ test('renderer hard-gates hand draw calls even if pose alpha is stale',()=>{
   assert.match(draw,/alpha:q\.ra\*plan\.handScale\*handIntent/);
   assert.match(draw,/if\(handIntent>\.01&&plan\.handScale>\.01\)\{/);
 });
+
+
+test('long ambient idle never auto-selects hand or locomotion gestures',()=>{
+  const blocked=new Set(['stretch','side_stretch','roam_walk']);
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    for(let i=0;i<32;i++){
+      const r=(i+.25)/32;
+      const variant=chooseAvatarAnimation(avatar,'idle',{
+        random:()=>r,
+        allowSleepyIdle:true
+      });
+      assert.ok(variant,`${avatar}: missing long-idle variant`);
+      assert.ok(!blocked.has(variant.gesture),`${avatar}: automatic idle selected ${variant.gesture}`);
+    }
+  }
+});
