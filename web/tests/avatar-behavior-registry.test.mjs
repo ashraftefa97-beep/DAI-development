@@ -14,8 +14,8 @@ import {
 const catalogText=fs.readFileSync(new URL('../src/avatarCatalog.ts',import.meta.url),'utf8');
 const avatarIds=[...catalogText.matchAll(/\{id:'([^']+)'/g)].map(match=>match[1]);
 
-test('all 25 avatars own independent behavior profiles',()=>{
-  assert.equal(avatarIds.length,25);
+test('all 24 avatars own independent behavior profiles',()=>{
+  assert.equal(avatarIds.length,24);
   assert.deepEqual(validateAvatarBehaviorProfiles(avatarIds),[]);
   assert.deepEqual(Object.keys(AVATAR_BEHAVIOR_PROFILES).sort(),[...avatarIds].sort());
 
@@ -113,7 +113,7 @@ test('same search command produces meaningfully different real motion trajectori
     assert.ok(!signatures.has(sig),`${id}: duplicates ${signatures.get(sig)} search trajectory`);
     signatures.set(sig,id);
   }
-  assert.equal(signatures.size,25);
+  assert.equal(signatures.size,24);
 });
 
 
