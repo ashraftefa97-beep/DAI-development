@@ -3,8 +3,9 @@ import { clamp } from './motion.mjs';
 import { getAvatarVisualDNA } from './avatarVisualDNA.mjs';
 import { createAnimationPlan } from './animationDirector.mjs';
 import { stabilizeRenderedHands, avatarSwapEnvelope, sanitizePoseForRender } from './renderStabilizer.mjs';
-import { avatarAllowsLegacyAccessory } from './avatarBehaviorRegistry.mjs';
+import { avatarAllowsLegacyAccessory, avatarAllowsHandGesture } from './avatarBehaviorRegistry.mjs';
 import { renderAvatarStateFx } from './avatarStateFx.mjs';
+import { handIntentScale } from './poseGuard.mjs';
 const rad = a => a * Math.PI / 180;
 function lightTheme(c) {
   return c.canvas?.ownerDocument?.documentElement?.dataset?.daiTheme === 'light';
@@ -922,13 +923,22 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
+  const allowHands=avatarAllowsHandGesture(avatar,requestedGesture);
+  const handIntent=handIntentScale({
+    requestedGesture,
+    activeGesture:m.gesture||requestedGesture,
+    gestureTime:m.gestureTime||0,
+    allowHands
+  });
   const renderedHands=stabilizeRenderedHands(
-    {x:q.lx-handBias,y:q.ly-handLift,alpha:q.la*plan.handScale},
-    {x:q.rx+handBias,y:q.ry-handLift,alpha:q.ra*plan.handScale},
+    {x:q.lx-handBias,y:q.ly-handLift,alpha:q.la*plan.handScale*handIntent},
+    {x:q.rx+handBias,y:q.ry-handLift,alpha:q.ra*plan.handScale*handIntent},
     {mode:plan.mode,reduced:plan.reduced}
   );
-  hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
-  hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
+  if(handIntent>.01&&plan.handScale>.01){
+    hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
+    hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
+  }
   if(plan.overlays.listen)listen(c,m);
   if(plan.overlays.personality)personality(c,m);
 
