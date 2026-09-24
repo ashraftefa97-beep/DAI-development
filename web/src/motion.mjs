@@ -2,7 +2,7 @@ import { product } from './product.mjs';
 import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
 import { requestAnimationTransition, animationModeForGesture } from './animationDirector.mjs';
 import { applyEmotionToPose } from './emotionDirector.mjs';
-import { guardPose, guardInterpolatedPose } from './poseGuard.mjs';
+import { guardPose, guardInterpolatedPose, handsShouldRest } from './poseGuard.mjs';
 import { applyAvatarChoreography } from './avatarChoreography.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -50,6 +50,7 @@ export class DaiMotion {
     this.avatarSwapUntil = 0;
     this.animationLockUntil = 0;
     this.pendingGesture = null;
+    this.lastMeaningfulAt = 0;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
@@ -78,7 +79,8 @@ export class DaiMotion {
       random:this.random,
       reduced:this.reduced,
       lastId:this.avatarVariantLastBySlot[this.avatarVariantSlot]||'',
-      excludeIds:this.avatarVariantRecentIds
+      excludeIds:this.avatarVariantRecentIds,
+      allowSleepyIdle:requestedGesture==='idle'&&(this.elapsed-this.lastMeaningfulAt)>=55
     });
     const candidate=selection&&gestures.includes(selection.gesture)?selection.gesture:requestedGesture;
     const changed=this.gesture!==candidate||force;
@@ -128,6 +130,7 @@ export class DaiMotion {
     const externalChanged=this.requestedGesture!==requested;
     this.pendingGesture=null;
     this.requestedGesture=requested;
+    if(requested!=='idle')this.lastMeaningfulAt=this.elapsed;
     this.animationLockUntil=this.elapsed+(transition.lockMs||0)/1000;
     this._applyAvatarVariant(requested,true);
 
@@ -633,6 +636,8 @@ export class DaiMotion {
     const accessory=p.rod>.03?'fishing':p.wand>.03?'wand':p.hat>.03?'hat':null;
     guardPose(p,{
       mode:animationModeForGesture(this.requestedGesture),
+      requestedGesture:this.requestedGesture,
+      activeGesture:this.gesture,
       accessory,
       reduced:this.reduced
     });
@@ -834,6 +839,8 @@ export class DaiMotion {
     const liveAccessory=this.pose.rod>.03?'fishing':this.pose.wand>.03?'wand':this.pose.hat>.03?'hat':null;
     guardInterpolatedPose(this.pose,{
       mode:animationModeForGesture(this.requestedGesture),
+      requestedGesture:this.requestedGesture,
+      activeGesture:this.gesture,
       accessory:liveAccessory,
       reduced:this.reduced
     });
