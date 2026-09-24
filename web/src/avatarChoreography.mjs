@@ -227,10 +227,17 @@ export function applyAvatarChoreography(p,m){
       break;
     }
     case 'pro':{
-      faceOnly(p,a*.8*k,b*1.2*k,-1*k,0);
-      if(s==='listening'||s==='thinking'||s==='searching')showRight(p,.72*k,116,24+b*9,-12+a*5);
-      if(s==='success')showLeft(p,.48,-112,34,-18);
-      p.brow=clamp((p.brow||0)+.12*k,0,1.2);
+      // Formal, composed posture: less sway than Classic, slightly taller
+      // stance and a restrained presentation hand even while idle.
+      faceOnly(p,a*.34*k,b*.46*k,-2.0*k,0);
+      p.bob=(p.bob||0)*.18;
+      p.smile=clamp((p.smile||0)-.085*k,-.35,1.2);
+      p.brow=clamp((p.brow||0)+.18*k,0,1.2);
+      p.sx=1-.006*k;
+      p.sy=1+.009*k;
+      if(s==='idle')showRight(p,.30,120,62,-8);
+      if(s==='listening'||s==='thinking'||s==='searching')showRight(p,.74*k,116,24+b*8,-12+a*4);
+      if(s==='success')showLeft(p,.50,-112,34,-18);
       break;
     }
     case 'hologram':{
