@@ -4,6 +4,7 @@ import { requestAnimationTransition, animationModeForGesture } from './animation
 import { applyEmotionToPose } from './emotionDirector.mjs';
 import { guardPose, guardInterpolatedPose, handsShouldRest } from './poseGuard.mjs';
 import { applyAvatarChoreography } from './avatarChoreography.mjs';
+import { applyAvatarBehaviorToPose, avatarAllowsHandGesture } from './avatarBehaviorRegistry.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -72,6 +73,11 @@ export class DaiMotion {
     this.avatarSwapUntil=this.elapsed+(this.reduced?.12:.26);
     this.avatarVariantStartedAt=this.elapsed;
     this.avatarVariantUntil=0;
+    this.pose.hat=0;
+    this.pose.wand=0;
+    this.pose.rod=0;
+    this.pose.la=0;
+    this.pose.ra=0;
     this._applyAvatarVariant(this.requestedGesture,true);
   }
   _applyAvatarVariant(requestedGesture,force=false) {
@@ -230,8 +236,8 @@ export class DaiMotion {
       if(!this.reduced) p.bob+=Math.sin(t*3)*this.audio*2.5;
     } else if(active==='search'||active==='found') {
       const sweep=this.reduced?0:Math.sin(e*2);
-      set({la:1,lx:-111-sweep*5,ly:65-39*enter,lr:-24+sweep*8,hat:1,wand:1,tilt:-4+sweep*3,gaze_x:-7+sweep*2,gaze_y:-5,left:.65,right:.78,smile:.14});
-      if(active==='found') set({happy:1,smile:1,mouth:.26,cheek:.8,tilt:-3,sy:1.03,bob:-5,gaze_y:-2});
+      set({hat:0,wand:0,tilt:-2+sweep*1.2,gaze_x:sweep*4,gaze_y:-4,left:.72,right:.82,smile:.16});
+      if(active==='found') set({happy:1,smile:.88,mouth:.18,cheek:.62,tilt:-2,sy:1.015,bob:-2,gaze_y:-2});
     } else if(active==='talk'||this.state==='talking') {
       let beat=this.voice;
       if(!this.voiceDriven) {
@@ -628,6 +634,7 @@ export class DaiMotion {
     }
 
     applyAvatarChoreography(p,this);
+    applyAvatarBehaviorToPose(p,this);
     applyEmotionToPose(p,this);
 
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
@@ -639,6 +646,7 @@ export class DaiMotion {
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
       gestureTime:this.gestureTime,
+      allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture),
       accessory,
       reduced:this.reduced
     });
@@ -832,7 +840,8 @@ export class DaiMotion {
       mode:animationModeForGesture(this.requestedGesture),
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
-      gestureTime:this.gestureTime
+      gestureTime:this.gestureTime,
+      allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture)
     });
     for(const key of Object.keys(this.pose)) {
       const rate=this.reduced
@@ -855,6 +864,7 @@ export class DaiMotion {
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
       gestureTime:this.gestureTime,
+      allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture),
       accessory:liveAccessory,
       reduced:this.reduced
     });
