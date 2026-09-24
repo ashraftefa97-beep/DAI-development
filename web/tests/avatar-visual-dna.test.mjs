@@ -8,8 +8,8 @@ const catalogText=fs.readFileSync(new URL('../src/avatarCatalog.ts',import.meta.
 const draw=fs.readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
 const catalogIds=[...catalogText.matchAll(/\{id:'([^']+)'/g)].map(match=>match[1]);
 
-test('all 24 avatars have unique visual DNA',()=>{
-  assert.equal(catalogIds.length,24);
+test('all 25 avatars have unique visual DNA',()=>{
+  assert.equal(catalogIds.length,25);
   assert.deepEqual(validateAvatarVisualDNA(catalogIds),[]);
   assert.deepEqual(Object.keys(AVATAR_VISUAL_DNA).sort(),[...catalogIds].sort());
 
@@ -17,7 +17,7 @@ test('all 24 avatars have unique visual DNA',()=>{
     const dna=AVATAR_VISUAL_DNA[id];
     return [dna.eye,dna.mouth,dna.hand,dna.handMark,dna.signature].join('|');
   });
-  assert.equal(new Set(fingerprints).size,24);
+  assert.equal(new Set(fingerprints).size,25);
 });
 
 test('renderer uses structural avatar differences, not palette-only changes',()=>{
