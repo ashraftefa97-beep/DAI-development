@@ -1,6 +1,8 @@
 import { product } from './product.mjs';
 import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
-import { requestAnimationTransition } from './animationDirector.mjs';
+import { requestAnimationTransition, animationModeForGesture } from './animationDirector.mjs';
+import { applyEmotionToPose } from './emotionDirector.mjs';
+import { guardPose } from './poseGuard.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -48,6 +50,7 @@ export class DaiMotion {
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
     this.speechMood = 'neutral';
+    this.speechMoodIntensity = .65;
     this.nextBlink = 2.5; this.blinkTime = 1;
     this.nextIdle = 3.5; this.idleUntil = 0; this.idleAction = 'look'; this.idleSide = 1;
     this.pointer = {x:0,y:0}; this.mouseInside = this.dragging = false;
@@ -145,9 +148,10 @@ export class DaiMotion {
     this.voiceTarget=active?value:0;
     if(!active)this.voice=0;
   }
-  setSpeechMood(mood='neutral') {
+  setSpeechMood(mood='neutral', intensity=.65) {
     const allowed=new Set(['neutral','warm','happy','curious','calm','serious']);
     this.speechMood=allowed.has(mood)?mood:'neutral';
+    this.speechMoodIntensity=clamp(Number(intensity)||.65,.15,1);
   }
   burst(x,y,count=14) {
     if (this.reduced) return;
@@ -615,8 +619,18 @@ export class DaiMotion {
       }
     }
 
+    applyEmotionToPose(p,this);
+
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
     if(this.reduced) set({bob:0,sx:1,sy:1});
+
+    const accessory=p.rod>.03?'fishing':p.wand>.03?'wand':p.hat>.03?'hat':null;
+    guardPose(p,{
+      mode:animationModeForGesture(this.requestedGesture),
+      accessory,
+      reduced:this.reduced
+    });
+
     return p;
   }
 
