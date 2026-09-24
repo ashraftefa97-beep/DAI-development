@@ -1302,6 +1302,7 @@ export default function GithubApp(){
     onEnd?:()=>void
   ){
     if(!supabase||!supabaseUrl||!supabasePublishableKey)return false;
+    const clientSupabase=supabase;
     const spoken=cleanForSpeech(text).slice(0,2800);
     if(!spoken)return false;
 
@@ -1346,7 +1347,7 @@ export default function GithubApp(){
         }
 
         if(attempt>1){
-          const refreshed=await supabase.auth.refreshSession();
+          const refreshed=await clientSupabase.auth.refreshSession();
           token=refreshed.data.session?.access_token||token;
         }
 
@@ -2365,7 +2366,7 @@ export default function GithubApp(){
       }
 
       if(attempt>1){
-        const refreshed=await supabase.auth.refreshSession();
+        const refreshed=await clientSupabase.auth.refreshSession();
         token=refreshed.data.session?.access_token||token;
       }
 
@@ -2415,7 +2416,9 @@ export default function GithubApp(){
       }
     });
 
-    const reader=response.body.getReader();
+    const responseBody=response.body;
+    if(!responseBody)throw new DaiSupervisorError('STREAM_BODY_MISSING','stream body missing',{retryable:true});
+    const reader=responseBody.getReader();
     const decoder=new TextDecoder();
     let buffer='';
     let conversationId=activeIdRef.current;
@@ -3924,6 +3927,7 @@ export default function GithubApp(){
 
   async function startLiveVoice(reconnecting=false){
     if(!supabase||loadingData||sending||voiceSessionActiveRef.current)return;
+    const clientSupabase=supabase;
     if(!navigator.mediaDevices?.getUserMedia){
       setErrorText('المتصفح ده مش بيدعم المحادثة الصوتية.');
       return;
@@ -3976,7 +3980,7 @@ export default function GithubApp(){
       liveOutputAnalyserRef.current=null;
 
       const data=await runSupervised('live-token',async()=>{
-        const result=await supabase.functions.invoke('live-token',{body:{}});
+        const result=await clientSupabase.functions.invoke('live-token',{body:{}});
         if(result.error||!result.data?.token){
           throw new DaiSupervisorError(
             'LIVE_TOKEN',
@@ -4362,6 +4366,7 @@ export default function GithubApp(){
 
   async function processVoiceNote(blob:Blob,mimeType:string){
     if(!supabase)return;
+    const clientSupabase=supabase;
     resetSupervisorHealth('transcription');
     setVoiceNoteProcessing(true);
     setVoiceNotice('ضي بتفهم التسجيل…');
@@ -4372,7 +4377,7 @@ export default function GithubApp(){
 
       const audioBase64=await blobToBase64(blob);
       const data=await runSupervised('transcription',async()=>{
-        const result=await supabase.functions.invoke('transcribe-voice',{
+        const result=await clientSupabase.functions.invoke('transcribe-voice',{
           body:{audioBase64,mimeType:mimeType||blob.type||'audio/webm'}
         });
         if(result.error){
