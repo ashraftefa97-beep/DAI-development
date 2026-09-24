@@ -5143,19 +5143,6 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
     12px 7px 0 -3px rgba(255,255,255,.88),
     0 -2px 8px rgba(255,255,255,.20);
 }
-.dai-avatar-preview .bonney-nika::before,
-.dai-avatar-preview .bonney-nika::after {
-  content:'';
-  position:absolute;
-  top:2px;
-  width:7px;
-  height:7px;
-  border:1.4px solid #ffd56f;
-  border-radius:50%;
-  opacity:.85;
-}
-.dai-avatar-preview .bonney-nika::before { left:-6px; }
-.dai-avatar-preview .bonney-nika::after { right:-6px; }
 .dai-avatar-choice.bonney_nika.active { border-color:rgba(239,151,216,.42); }
 .classic-shell[data-avatar="bonney_nika"] .classic-logo-stage::after {
   background:radial-gradient(ellipse at center,rgba(255,255,255,.17) 0%,rgba(241,160,220,.08) 42%,rgba(255,211,103,.035) 58%,transparent 77%);
