@@ -42,8 +42,7 @@ export const AVATAR_BEHAVIOR_PROFILES=Object.freeze({
   galaxy:profile('galaxy','counter-orbit','starMap','cosmicThought','novaBurst','starCollapse',{tempo:.88,tiltAmp:2.4,gazeAmp:4.4,bobAmp:1.3,scaleAmp:.008,phase:7.7}),
   desert:profile('desert','dune-sway','duneCompass','sandThought','sunDuneBurst','sandFade',{tempo:.66,tiltAmp:2.3,gazeAmp:3.1,bobAmp:1.2,scaleAmp:.007,phase:8.0}),
   lavender:profile('lavender','butterfly-flutter','butterflyTrail','flutterThought','flowerBurst','petalFade',{tempo:1.2,tiltAmp:2.7,gazeAmp:4.0,bobAmp:1.6,scaleAmp:.009,phase:8.4}),
-  matrix:profile('matrix','quantized-code','codeGrid','codeThought','codeSuccess','codeError',{tempo:2.35,tiltAmp:2.4,gazeAmp:6.3,bobAmp:.25,scaleAmp:.002,phase:8.8}),
-  bonney_nika:profile('bonney_nika','freedom-cloud','nikaCloudSearch','nikaCloudThought','nikaJoyBurst','nikaCloudDrop',{tempo:1.32,tiltAmp:3.5,gazeAmp:5.4,bobAmp:2.2,scaleAmp:.012,phase:9.35})
+  matrix:profile('matrix','quantized-code','codeGrid','codeThought','codeSuccess','codeError',{tempo:2.35,tiltAmp:2.4,gazeAmp:6.3,bobAmp:.25,scaleAmp:.002,phase:8.8})
 });
 
 export function getAvatarBehaviorProfile(id='classic'){
