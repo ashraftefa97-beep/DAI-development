@@ -1,6 +1,6 @@
 export const DAI_AVATAR_IDS = [
   'classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint',
-  'aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix'
+  'aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix','bonney_nika'
 ] as const;
 
 export type DaiAvatarStyle = typeof DAI_AVATAR_IDS[number];
@@ -37,7 +37,8 @@ export const DAI_AVATAR_OPTIONS: readonly DaiAvatarOption[] = [
   {id:'galaxy',label:'Galaxy',desc:'نيلي ووردي ونجوم تدور حول الشخصية',previewMark:'avatar-new-mark galaxy'},
   {id:'desert',label:'Desert',desc:'رملي وعنبر بحركة موج حر ناعمة',previewMark:'avatar-new-mark desert'},
   {id:'lavender',label:'Lavender',desc:'لافندر ووردي بجزيئات طافية',previewMark:'avatar-new-mark lavender'},
-  {id:'matrix',label:'Matrix',desc:'أخضر داكن بخطوط رقمية متحركة',previewMark:'avatar-new-mark matrix'}
+  {id:'matrix',label:'Matrix',desc:'أخضر داكن بخطوط رقمية متحركة',previewMark:'avatar-new-mark matrix'},
+  {id:'bonney_nika',label:'Bonney Nika',desc:'ستايل مستوحى من بوني بهيئة نيكا — سحب بيضاء وطاقة مرحة ولمسات ذهبية',previewMark:'avatar-new-mark bonney-nika'}
 ];
 
 const DAI_AVATAR_STYLE_SET = new Set<string>(DAI_AVATAR_IDS);
