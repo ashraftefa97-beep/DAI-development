@@ -249,6 +249,25 @@ export function applyAvatarChoreography(p,m){
       break;
     }
   }
+
+  // Give every idle recipe a visibly distinct stance without changing the
+  // avatar's core motif. This prevents a library from having many IDs that
+  // collapse into the same pose after quantization/smoothing.
+  if(s==='idle'){
+    const idleStep=((v-1)%8)-3.5;
+    const secondary=((v*3)%7)-3;
+    p.gaze_x=(p.gaze_x||0)+idleStep*.58*k;
+    p.tilt=(p.tilt||0)+secondary*.46*k;
+    if((p.la||0)>.08){
+      p.ly=(p.ly||72)+(((v%4)-1.5)*2.8*k);
+      p.lr=(p.lr||-10)+idleStep*.8*k;
+    }
+    if((p.ra||0)>.08){
+      p.ry=(p.ry||72)+((((v+2)%4)-1.5)*2.8*k);
+      p.rr=(p.rr||10)-idleStep*.8*k;
+    }
+  }
+
   return p;
 }
 
