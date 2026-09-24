@@ -67,28 +67,6 @@ type DaiPhaseScene = {
   settleMs?:number;
 };
 
-const DAI_PHASE_PRIORITY:Record<DaiCorePhase,number>={
-  idle:0,
-  listening:72,
-  understanding:56,
-  searching:60,
-  working:62,
-  preparing:70,
-  responding:78,
-  speaking:90,
-  complete:96,
-  error:100
-};
-const DAI_PHASE_MIN_HOLD_MS:Partial<Record<DaiCorePhase,number>>={
-  listening:180,
-  understanding:300,
-  searching:320,
-  working:320,
-  preparing:180,
-  responding:180,
-  speaking:250
-};
-
 const DAI_PHASE_SCENES:Record<DaiCorePhase,DaiPhaseScene>={
   idle:{sonic:'idle',steps:[{after:0,state:'idle'}]},
   listening:{sonic:'listening',steps:[{after:0,state:'listen'}]},
@@ -899,18 +877,10 @@ export default function GithubApp(){
   ){
     const previous=corePhaseRef.current;
     const now=performance.now();
-    const previousAge=now-corePhaseStartedAtRef.current;
     if(!options.force&&previous===phase)return;
 
-    const previousHold=DAI_PHASE_MIN_HOLD_MS[previous]||0;
-    if(
-      !options.force &&
-      DAI_PHASE_PRIORITY[phase]<DAI_PHASE_PRIORITY[previous] &&
-      previousAge<previousHold
-    )return;
-
-    const locked=Date.now()<animationLockUntilRef.current;
-    if(locked&&phase!=='error'&&phase!=='speaking'&&!options.force)return;
+    // The real DAI phase is authoritative. Never hold a newer phase behind
+    // animation priority, minimum dwell time, or a manual-animation lock.
 
     if(corePhaseTimerRef.current){
       window.clearTimeout(corePhaseTimerRef.current);
@@ -938,8 +908,8 @@ export default function GithubApp(){
     const baseScene=DAI_PHASE_SCENES[phase];
     const scene=semanticPhaseScene(phase,semanticMotionRef.current,baseScene) as DaiPhaseScene;
 
-    // One priority manager owns both soundtrack and animation. A fast response
-    // compresses intermediate beats instead of flashing several states at once.
+    // Core phase owns soundtrack + animation. Visual smoothing happens inside
+    // the motion engine; phase timing never delays the real DAI state.
     daiSfx.setDucked(phase==='speaking');
     daiSfx.setScene(scene.sonic,{cue:!options.silent});
 
@@ -962,7 +932,6 @@ export default function GithubApp(){
 
     const applyStep=(state:DaiState)=>{
       if(corePhaseRef.current!==phase)return;
-      if(Date.now()<animationLockUntilRef.current&&phase!=='error'&&phase!=='speaking')return;
       setDaiState(state);
     };
 
