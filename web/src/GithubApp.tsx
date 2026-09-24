@@ -91,65 +91,15 @@ const DAI_PHASE_MIN_HOLD_MS:Partial<Record<DaiCorePhase,number>>={
 
 const DAI_PHASE_SCENES:Record<DaiCorePhase,DaiPhaseScene>={
   idle:{sonic:'idle',steps:[{after:0,state:'idle'}]},
-  listening:{
-    sonic:'listening',
-    steps:[
-      {after:0,state:'curious'},
-      {after:230,state:'listen'}
-    ]
-  },
-  understanding:{
-    sonic:'thinking',
-    steps:[
-      {after:0,state:'curious'},
-      {after:280,state:'thinking_deep'}
-    ]
-  },
-  searching:{
-    sonic:'searching',
-    steps:[
-      {after:0,state:'focus'},
-      {after:300,state:'search'}
-    ]
-  },
-  working:{
-    sonic:'working',
-    steps:[
-      {after:0,state:'focus'},
-      {after:280,state:'working'}
-    ]
-  },
-  preparing:{
-    sonic:'preparing',
-    steps:[
-      {after:0,state:'response_ready'},
-      {after:430,state:'voicewait'}
-    ]
-  },
-  responding:{
-    sonic:'responding',
-    steps:[
-      {after:0,state:'response_ready'},
-      {after:420,state:'reply'}
-    ]
-  },
+  listening:{sonic:'listening',steps:[{after:0,state:'listen'}]},
+  understanding:{sonic:'thinking',steps:[{after:0,state:'thinking_deep'}]},
+  searching:{sonic:'searching',steps:[{after:0,state:'search'}]},
+  working:{sonic:'working',steps:[{after:0,state:'working'}]},
+  preparing:{sonic:'preparing',steps:[{after:0,state:'response_ready'}]},
+  responding:{sonic:'responding',steps:[{after:0,state:'reply'}]},
   speaking:{sonic:'speaking',steps:[{after:0,state:'talk'}]},
-  complete:{
-    sonic:'complete',
-    steps:[
-      {after:0,state:'nod_yes'},
-      {after:620,state:'idle'}
-    ],
-    settleMs:760
-  },
-  error:{
-    sonic:'error',
-    steps:[
-      {after:0,state:'error'},
-      {after:1120,state:'idle'}
-    ],
-    settleMs:1180
-  }
+  complete:{sonic:'complete',steps:[{after:0,state:'nod_yes'}],settleMs:760},
+  error:{sonic:'error',steps:[{after:0,state:'error'}],settleMs:1180}
 };
 type ProAnimationSpec = {
   id:string;
@@ -1623,100 +1573,10 @@ export default function GithubApp(){
   },[proAnimations]);
 
   useEffect(()=>{
-    if(reduced||experiencePreset==='minimal'||renderQuality==='low'||sending||voiceSessionActive||daiState!=='idle')return;
-    const actions:DaiState[]=experiencePreset==='calm'
-      ? ['cozy_sway','relax','breathe','wait_patient']
-      : ['cozy_sway','look_around','relax','breathe','wait_patient','peek','sway'];
-    const delay=(experiencePreset==='calm'?18000:12000)+Math.floor(Math.random()*(experiencePreset==='calm'?12000:10000));
-    const id=window.setTimeout(()=>{
-      if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
-      const recent=recentAutoAnimationsRef.current.map(item=>item.id);
-      const pool=actions.filter(state=>!recent.includes('ambient:'+state));
-      const next=(pool.length?pool:actions)[Math.floor(Math.random()*(pool.length?pool.length:actions.length))]||'relax';
-      recentAutoAnimationsRef.current.push({id:'ambient:'+next,at:Date.now()});
-      recentAutoAnimationsRef.current=recentAutoAnimationsRef.current
-        .filter(item=>Date.now()-item.at<50000)
-        .slice(-5);
-      animate(next,2200+Math.floor(Math.random()*1200));
-    },delay);
-    return()=>window.clearTimeout(id);
-  },[reduced,experiencePreset,renderQuality,sending,voiceSessionActive,daiState]);
-
-  useEffect(()=>{
-    window.clearTimeout(behaviorCycleTimerRef.current);
-    behaviorCycleTimerRef.current=undefined;
-
-    if(animationAudioBusy()||Date.now()<animationLockUntilRef.current||experiencePreset==='minimal')return;
-
-    let sequence:DaiState[]=[];
-    let interval=3200;
-
-    if(researching){
-      sequence=['search','scan','focus'];
-      interval=3800;
-    }else if(codeEnginePhase==='loading'){
-      sequence=['loading','focus'];
-      interval=3400;
-    }else if(codeEnginePhase==='coding'){
-      sequence=['code_focus','type_fast','working'];
-      interval=3600;
-    }else if(generalEnginePhase==='loading'){
-      sequence=['loading','thought_orbit'];
-      interval=3600;
-    }else if(generalEnginePhase==='thinking'){
-      sequence=['thinking_deep','thought_orbit','focus'];
-      interval=4100;
-    }else if(imageGenerating){
-      sequence=['brainstorm','lightbulb_pop','focus'];
-      interval=4000;
-    }else if(voiceNoteProcessing){
-      sequence=['listen','thinking_deep'];
-      interval=3600;
-    }else if(sending&&!streamingText){
-      sequence=['thinking_deep','focus','thought_orbit'];
-      interval=3900;
-    }
-
-    if(!sequence.length)return;
-
-    const qualityFactor=renderQuality==='low'?1.42:renderQuality==='medium'?1.18:1;
-    const presetFactor=experiencePreset==='calm'?1.28:1;
-    interval=Math.round(interval*qualityFactor*presetFactor);
-
-    let index=0;
-    const apply=()=>{
-      if(animationAudioBusy()||Date.now()<animationLockUntilRef.current)return;
-      if(!['searching','understanding','working'].includes(corePhaseRef.current))return;
-      const next=sequence[index%sequence.length]||'focus';
-      setDaiState(next);
-      index++;
-      behaviorCycleTimerRef.current=window.setTimeout(apply,interval);
-    };
-
-    behaviorCycleTimerRef.current=window.setTimeout(apply,Math.round(1800*presetFactor));
-    return()=>{
-      window.clearTimeout(behaviorCycleTimerRef.current);
-      behaviorCycleTimerRef.current=undefined;
-    };
-  },[
-    researching,
-    codeEnginePhase,
-    generalEnginePhase,
-    imageGenerating,
-    voiceNoteProcessing,
-    sending,
-    streamingText,
-    voiceSessionStatus,
-    speakingMessageId,
-    experiencePreset,
-    renderQuality
-  ]);
-
-  useEffect(()=>{
     if(plan!=='professional'||!proAnimations||sending||animationAudioBusy())return;
     const pending=pendingAutoAnimationRef.current;
     if(!pending||Date.now()<animationCooldownUntilRef.current)return;
-    const id=window.setTimeout(()=>executeSelectedAnimation(pending,'auto'),220);
+    const id=window.setTimeout(()=>executeSelectedAnimation(pending,'explicit'),220);
     return()=>window.clearTimeout(id);
   },[
     plan,
@@ -2731,10 +2591,8 @@ export default function GithubApp(){
               setVoiceNotice('صوت ضي ما اشتغلش؛ الرد ظاهر كتابة.');
             }
           })();
-          void chooseContextAnimation(text,assistantMessage.content);
         }else{
           revealAssistant(assistantMessage);
-          void chooseContextAnimation(text,assistantMessage.content);
         }
         return;
       }
@@ -3787,8 +3645,6 @@ export default function GithubApp(){
     }
     if(userText&&looksLikeAnimationRequest(userText)){
       void handleExplicitAnimationRequest(userText);
-    }else if(userText&&daiText){
-      void chooseContextAnimation(userText,daiText);
     }
     liveInputTranscriptRef.current='';
     liveOutputTranscriptRef.current='';
