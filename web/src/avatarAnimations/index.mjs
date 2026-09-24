@@ -22,6 +22,7 @@ import galaxy from './libraries/galaxy.mjs';
 import desert from './libraries/desert.mjs';
 import lavender from './libraries/lavender.mjs';
 import matrix from './libraries/matrix.mjs';
+import bonney_nika from './libraries/bonney_nika.mjs';
 import { selectAvatarVariant, validateAvatarLibrary, shouldAutoCycleAvatarSlot } from './runtime.mjs';
 
 export const AVATAR_ANIMATION_LIBRARIES=Object.freeze({
@@ -48,7 +49,8 @@ export const AVATAR_ANIMATION_LIBRARIES=Object.freeze({
   galaxy,
   desert,
   lavender,
-  matrix
+  matrix,
+  bonney_nika
 });
 
 export function getAvatarAnimationLibrary(id='classic'){
