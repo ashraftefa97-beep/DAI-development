@@ -119,7 +119,8 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
       break;
     case 'wave':
       faceOnly(p,sin(t*.92+phase)*.58,cos(t*.72+phase)*.94,.50,sin(t*.92+phase)*.22);
-      p.cheek=clamp((p.cheek||0)+.035,0,1.2);
+      p.smile=clamp((p.smile||0)+.045,-.35,1.2);
+      p.cheek=clamp((p.cheek||0)+.060,0,1.2);
       break;
     case 'radiant':
       faceOnly(p,a*.72,b*.68,-.60,Math.max(0,c)*.30);
