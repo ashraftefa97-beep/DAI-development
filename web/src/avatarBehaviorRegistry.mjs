@@ -74,7 +74,8 @@ export function applyAvatarBehaviorToPose(p,m){
     p.sx=(Number(p.sx)||1)+Math.abs(wave)*profile.scaleAmp;
     p.sy=(Number(p.sy)||1)-Math.abs(wave)*profile.scaleAmp*.65;
 
-    if(profile.legacySearchProps){
+    const magicSearch=profile.legacySearchProps&&['search','found'].includes(gesture);
+    if(magicSearch){
       const wandPhase=clamp(1-Math.max(0,t-2.0)/.34,0,1);
       p.hat=1;
       p.wand=wandPhase;
@@ -84,7 +85,9 @@ export function applyAvatarBehaviorToPose(p,m){
       p.ly=26;
       p.lr=-24+sweep*8;
     }else{
-      // Search for non-Classic avatars is intentionally face/body led.
+      // Scan/detect/scout and all non-Classic search states stay face/body led.
+      p.hat=0;
+      p.wand=0;
       p.la=0;
       p.ra=0;
     }
@@ -103,7 +106,9 @@ export function avatarAllowsLegacyAccessory(id,kind,gesture=''){
 export function avatarAllowsHandGesture(id,gesture=''){
   const value=String(gesture||'idle');
   const profile=getAvatarBehaviorProfile(id);
-  if(['search','scan','detect','scout','found'].includes(value))return Boolean(profile.searchHand);
+  if(['search','scan','detect','scout','found'].includes(value)){
+    return Boolean(profile.searchHand)&&['search','found'].includes(value);
+  }
   return true;
 }
 
