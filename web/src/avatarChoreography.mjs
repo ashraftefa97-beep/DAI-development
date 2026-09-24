@@ -53,6 +53,27 @@ function subtleSpeaking(p,id,t,phase){
   const a=.35+.08*(id%3);
   faceOnly(p,sin(t*.8+phase)*a,cos(t*.55+phase)*.8,sin(t*.7+phase)*.18,sin(t*1.1+phase)*.08);
 }
+const SPEECH_STANCES=Object.freeze({
+  servo:{gazeY:-.34,smile:-.025,brow:.045},
+  phase:{gazeY:-.42,smile:-.020,brow:.055},
+  ribbon:{gazeY:-.32,smile:.035,cheek:.030},
+  ember:{gazeY:-.38,smile:.035,brow:.045},
+  zigzag:{gazeY:-.30,smile:-.030,brow:.060},
+  orbit:{gazeY:.32,cheek:.035,brow:.025},
+  heartbeat:{gazeY:-.32,smile:-.025,brow:.045},
+  cosmic:{gazeY:.34,cheek:.025,smile:.020},
+  code:{gazeY:-.34,smile:-.025,brow:.060}
+});
+
+function applySpeechStance(p,style){
+  const stance=SPEECH_STANCES[style];
+  if(!stance)return;
+  p.gaze_y=(p.gaze_y||0)+(stance.gazeY||0);
+  p.smile=clamp((p.smile||0)+(stance.smile||0),-.35,1.2);
+  p.cheek=clamp((p.cheek||0)+(stance.cheek||0),0,1.2);
+  p.brow=clamp((p.brow||0)+(stance.brow||0),-.35,1.25);
+}
+
 function applySpeakingChoreography(p,avatar,v,t,phase){
   const style=AVATAR_CHOREOGRAPHY_DNA[avatar]?.speech||'balanced';
   const a=sin(t*(.72+(v%5)*.08)+phase);
@@ -163,6 +184,7 @@ function applySpeakingChoreography(p,avatar,v,t,phase){
     default:
       subtleSpeaking(p,v,t,phase);
   }
+  applySpeechStance(p,style);
 }
 
 export function applyAvatarChoreography(p,m){
