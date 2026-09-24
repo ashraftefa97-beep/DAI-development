@@ -60,22 +60,11 @@ export function animationModeForGesture(gesture='idle'){
 }
 
 export function requestAnimationTransition(currentGesture,nextGesture,context={}){
-  const currentMode=animationModeForGesture(currentGesture);
   const nextMode=animationModeForGesture(nextGesture);
-  const currentPriority=DAI_ANIMATION_PRIORITIES[currentMode]||0;
-  const nextPriority=DAI_ANIMATION_PRIORITIES[nextMode]||0;
-  const now=Number(context.now)||0;
-  const lockedUntil=Number(context.lockedUntil)||0;
-  const voiceActive=Boolean(context.voiceActive);
 
-  if(nextMode==='error')return {accept:true,mode:nextMode,lockMs:650};
-  if(currentMode==='speaking'&&voiceActive&&nextMode!=='error'&&nextPriority<currentPriority){
-    return {accept:false,mode:currentMode,lockMs:0};
-  }
-  if(now<lockedUntil&&nextPriority<currentPriority){
-    return {accept:false,mode:currentMode,lockMs:0};
-  }
-
+  // Core DAI state is authoritative. Never delay a real state change because
+  // an older animation has a higher priority or a lock still running.
+  // Visual continuity is handled by pose smoothing + variant crossfade.
   const lockMs=
     nextMode==='success'?480:
     nextMode==='error'?650:
