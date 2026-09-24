@@ -838,7 +838,7 @@ export class DaiMotion {
       const v=this.random()*100;
       const quietFor=this.elapsed-this.lastMeaningfulAt;
       this.idleAction=quietFor>=55
-        ?(v<40?'look':v<68?'smile':v<88?'tilt':v<95?'stretch':'sleepy')
+        ?(v<42?'look':v<72?'smile':v<92?'tilt':'sleepy')
         :(v<50?'look':v<80?'smile':'tilt');
       this.idleSide=this.random()<.5?-1:1;
       const quietFactor=(this.quality==='low'?1.55:this.quality==='medium'?1.22:1)*(quietFor<55?1.18:1);
