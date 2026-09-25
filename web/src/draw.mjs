@@ -637,8 +637,8 @@ function premiumMouthFinish(c,m,avatar,theme,faceShape,q){
   c.shadowBlur=6+material.depth*5;
   if(q.mouth>.055){
     const speechWide=clamp(q.mouthWide||0,0,1);
-    const mw=faceShape.speechBase+q.smile*6+speechWide*13;
-    const mh=4+q.mouth*29;
+    const mw=faceShape.speechBase+q.smile*5+speechWide*18;
+    const mh=3+q.mouth*35;
     path(c,'M'+(-mw*.36)+' '+(53+mh*.18)+' Q0 '+(55+mh*.42)+' '+(mw*.36)+' '+(53+mh*.18),null,material.specular,.7);
   }else if(!['digital','segment','code'].includes(getAvatarVisualDNA(avatar).mouth)){
     path(c,'M-10 52 Q0 55 10 52',null,material.specular,.65);
@@ -1152,8 +1152,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
 
   if(q.mouth>.055) {
     const speechWide=clamp(q.mouthWide||0,0,1);
-    const mw=faceShape.speechBase+q.smile*6+speechWide*13;
-    const mh=4+q.mouth*29;
+    const mw=faceShape.speechBase+q.smile*5+speechWide*18;
+    const mh=3+q.mouth*35;
     const upperCurve=53+speechWide*2.2;
     const mouthGradient=c.createLinearGradient(0,50,0,58+mh);
     mouthGradient.addColorStop(0,theme.mouth);
