@@ -289,3 +289,19 @@ test('premium hand rendering uses material gradient and highlight pass',()=>{
   assert.match(draw,/createLinearGradient\(-20,-24,22,24\)/);
   assert.match(draw,/material\.specular/);
 });
+
+
+test('lip sync has visible syllable articulation',()=>{
+  assert.match(motion,/voiceAccent/);
+  assert.match(motion,/speechOpen\*1\.02/);
+  assert.match(motion,/syllable\*\.24/);
+  assert.match(draw,/speechWide\*18/);
+  assert.match(draw,/q\.mouth\*35/);
+});
+
+test('voice envelope updates quickly enough for visible lip sync',()=>{
+  assert.match(app,/\(rms-\.0018\)\*14/);
+  assert.match(app,/mapped>smooth \? \.66 : \.34/);
+  assert.match(app,/now-lastEmit>=20/);
+  assert.match(app,/\(pcmRms-\.0018\)\*14/);
+});
