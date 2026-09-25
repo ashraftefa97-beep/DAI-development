@@ -5,6 +5,7 @@ import { applyEmotionToPose } from './emotionDirector.mjs';
 import { guardPose, guardInterpolatedPose, handsShouldRest } from './poseGuard.mjs';
 import { applyAvatarChoreography } from './avatarChoreography.mjs';
 import { applyAvatarBehaviorToPose, avatarAllowsHandGesture } from './avatarBehaviorRegistry.mjs';
+import { applyActiveMotionPolish } from './motionPolish.mjs';
 // Ported from the 2026-09-20 DaiFace reference. Units: seconds and desktop stage pixels.
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const ease = t => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
@@ -651,6 +652,7 @@ export class DaiMotion {
     applyAvatarChoreography(p,this);
     applyAvatarBehaviorToPose(p,this);
     applyEmotionToPose(p,this);
+    applyActiveMotionPolish(p,this);
 
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
     if(this.reduced) set({bob:0,sx:1,sy:1});
@@ -838,17 +840,26 @@ export class DaiMotion {
       allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture)
     });
     for(const key of Object.keys(this.pose)) {
+      const activeMode=animationModeForGesture(this.requestedGesture);
       const rate=this.reduced
         ? 22
         : restingHands&&['la','ra'].includes(key)
-          ? 20
+          ? 22
           : speechFace&&key==='mouth'
-            ? 24
+            ? 30
             : speechFace&&key==='mouthWide'
-              ? 18
-              : ['left','right','gaze_x','gaze_y'].includes(key)
-                ? 10
-                : 6.2;
+              ? 24
+              : ['gaze_x','gaze_y'].includes(key)
+                ? 16
+                : ['left','right','brow','smile','cheek'].includes(key)
+                  ? 12
+                  : ['tilt','bob'].includes(key)
+                    ? (activeMode==='idle'?8.5:11.5)
+                    : ['sx','sy'].includes(key)
+                      ? 9.5
+                      : ['la','ra','lx','ly','rx','ry','lr','rr'].includes(key)
+                        ? 10.5
+                        : 8.2;
       this.pose[key]=mix(this.pose[key],target[key],rate);
     }
 
