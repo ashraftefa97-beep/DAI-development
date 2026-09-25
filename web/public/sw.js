@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v17-20260925-dark-header';
+const CACHE_NAME = 'dai-web-v18-20260925-iphone-watch-bridge';
 const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
@@ -61,6 +61,28 @@ self.addEventListener('fetch', event => {
         }
         return response;
       }).catch(() => Response.error());
+    })
+  );
+});
+
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL('./', self.registration.scope).href;
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ('focus' in client) {
+          try {
+            const url = new URL(client.url);
+            if (url.origin === self.location.origin) {
+              void client.navigate(target);
+              return client.focus();
+            }
+          } catch {}
+        }
+      }
+      return clients.openWindow ? clients.openWindow(target) : undefined;
     })
   );
 });
