@@ -108,7 +108,7 @@ export class DaiMotion {
       this.avatarVariantMotion=selection.motion||null;
       this.avatarPreviousVariantMotion=previousMotion;
       this.avatarVariantBlendStartedAt=this.elapsed;
-      this.avatarVariantBlendUntil=this.elapsed+(changed?.24:.38);
+      this.avatarVariantBlendUntil=this.elapsed+(changed?.42:.58);
       this.avatarVariantAccent=selection.accent||'pulse';
       this.avatarVariantPersonality=selection.personality||this.avatarStyle;
       this.avatarVariantReducedIntensity=Number(selection.reducedIntensity)||.22;
@@ -125,7 +125,7 @@ export class DaiMotion {
       this.avatarPreviousVariantMotion=this.avatarVariantMotion?{...this.avatarVariantMotion}:null;
       this.avatarVariantMotion=null;
       this.avatarVariantBlendStartedAt=this.elapsed;
-      this.avatarVariantBlendUntil=this.elapsed+.18;
+      this.avatarVariantBlendUntil=this.elapsed+.32;
       this.avatarVariantAccent='pulse';
       this.avatarVariantPersonality=this.avatarStyle;
       this.avatarVariantReducedIntensity=.22;
@@ -967,7 +967,25 @@ export class DaiMotion {
         continue;
       }
 
-      if(['la','ra','lx','ly','rx','ry','lr','rr','hat','wand','rod','fish','listen','heart','notes','bulb','sleep'].includes(key)){
+      if(['la','ra'].includes(key)){
+        // Limb visibility should appear quickly, while the limb path itself
+        // keeps physical inertia. This prevents a "teleporting hand" look.
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],16);
+        continue;
+      }
+      if(['lx','ly','rx','ry'].includes(key)){
+        // Liquid limb endpoints keep a little under-damped follow-through.
+        // The target remains semantic; only the travel between poses becomes
+        // continuous, soft and organic.
+        springStep(key,target[key],2.75,.68);
+        continue;
+      }
+      if(['lr','rr'].includes(key)){
+        springStep(key,target[key],2.45,.66);
+        continue;
+      }
+      if(['hat','wand','rod','fish','listen','heart','notes','bulb','sleep'].includes(key)){
         this.poseVelocity[key]=0;
         this.pose[key]=mix(this.pose[key],target[key],11.5);
         continue;
@@ -978,11 +996,11 @@ export class DaiMotion {
         continue;
       }
       if(['tilt','bob'].includes(key)){
-        springStep(key,target[key],activeMode==='idle'?2.05:2.75,.82);
+        springStep(key,target[key],activeMode==='idle'?1.72:2.28,activeMode==='speaking'?.82:.74);
         continue;
       }
       if(['sx','sy'].includes(key)){
-        springStep(key,target[key],2.15,.88);
+        springStep(key,target[key],1.82,.80);
         continue;
       }
       if(['left','right','brow','smile','cheek','happy'].includes(key)){
