@@ -23,8 +23,8 @@ test('mobile shell honors safe areas',()=>{
 test('live voice has adaptive barge-in and provider VAD',()=>{
   assert.match(app,/liveNoiseFloorRef/);
   assert.match(app,/automaticActivityDetection/);
-  assert.match(app,/silenceDurationMs:320/);
+  assert.match(app,/silenceDurationMs:260/);
   assert.match(app,/transitionCorePhase\('speaking'/);
   assert.match(app,/functions\/v1\/tts-stream/);
-  assert.match(app,/const chunkSamples=640/);
+  assert.match(app,/const chunkSamples=320/);
 });
