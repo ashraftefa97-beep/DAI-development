@@ -448,20 +448,12 @@ export default function MarketingPage(){
 
       <div className='dai-mkt-buddy-column' data-reveal>
         <div className='dai-mkt-buddy-shadow'/>
-        <div className='dai-mkt-buddy' ref={buddyRef}>
-          <span className='dai-mkt-buddy-fin fin-left' aria-hidden='true'/>
-          <span className='dai-mkt-buddy-fin fin-right' aria-hidden='true'/>
-          <span className='dai-mkt-buddy-ring ring-a' aria-hidden='true'/>
-          <span className='dai-mkt-buddy-ring ring-b' aria-hidden='true'/>
-          <span className='dai-mkt-buddy-scanline' aria-hidden='true'/>
-          <div className='dai-mkt-buddy-topline'>
-            <span>DAI</span>
-            <i/>
-          </div>
+        <div className='dai-mkt-buddy dai-mkt-buddy-classic' ref={buddyRef}>
+          <div className='dai-mkt-classic-halo halo-a' aria-hidden='true'/>
+          <div className='dai-mkt-classic-halo halo-b' aria-hidden='true'/>
           <div className='dai-mkt-face-stage'>
             <DaiFace state={heroState} avatar='classic' quality='high'/>
           </div>
-          <div className='dai-mkt-buddy-base'><span/><span/></div>
         </div>
         <div className='dai-mkt-floating-card card-a'><Sparkles size={16}/><span>24 avatars</span></div>
         <div className='dai-mkt-floating-card card-b'><Mic size={16}/><span>Voice</span></div>
@@ -622,8 +614,8 @@ export default function MarketingPage(){
         <p>{extra.action.body}</p>
       </div>
       <div className='dai-mkt-action-grid'>
-        {(['listen','search','happy'] as DaiState[]).map((state,index)=><div key={state} data-reveal>
-          <DaiFace state={state} avatar={index===1?'cyber':index===2?'sakura':'classic'} quality='high'/>
+        {(['listen','search','happy'] as DaiState[]).map((state)=><div key={state} data-reveal>
+          <DaiFace state={state} avatar='classic' quality='high'/>
           <span>{state}</span>
         </div>)}
       </div>
