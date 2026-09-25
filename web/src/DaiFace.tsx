@@ -14,8 +14,22 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
   useEffect(()=>{ motion.current.setQuality(quality); },[quality]);
   useEffect(()=>{
     const onVoice=(event:Event)=>{
-      const detail=(event as CustomEvent<{level?:number;active?:boolean}>).detail||{};
-      motion.current.setVoiceLevel(detail.level||0,detail.active!==false);
+      const detail=(event as CustomEvent<{
+        level?:number;
+        active?:boolean;
+        wide?:number;
+        round?:number;
+        accent?:number;
+      }>).detail||{};
+      motion.current.setVoiceLevel(
+        detail.level||0,
+        detail.active!==false,
+        {
+          wide:detail.wide||0,
+          round:detail.round||0,
+          accent:detail.accent||0
+        }
+      );
     };
     const onMood=(event:Event)=>{
       const detail=(event as CustomEvent<{mood?:string;intensity?:number}>).detail||{};
