@@ -218,3 +218,28 @@ test('semantic gestures are routed into avatar libraries deterministically',()=>
 test('every semantic scene gesture has an avatar animation slot',()=>assert.match(motion,/gesture/i));
 test('reassuring user wording is not classified as a problem',()=>assert.match(director,/error|failure/i));
 test('every semantic phase resolves to one stable gesture',()=>assert.match(director,/gesture/i));
+
+
+test('audio v2 keeps voice, foley and ambience behavior separated',()=>{
+  assert.match(daiSfx,/PRESET_PROFILE/);
+  assert.match(daiSfx,/confirmationGain/);
+  assert.match(daiSfx,/ambienceGain/);
+  assert.match(daiSfx,/speechPriority/);
+});
+
+test('audio v2 blocks repeats overlap and clipping',()=>{
+  assert.match(daiSfx,/CUE_COOLDOWN_MS/);
+  assert.match(daiSfx,/duplicatePrevented/);
+  assert.match(daiSfx,/overlapPrevented/);
+  assert.match(daiSfx,/clippingPrevented/);
+});
+
+test('audio v2 preserves short desktop command confirmation',()=>{
+  assert.match(app,/playConfirmation/);
+  assert.match(daiSfx,/playConfirmation/);
+});
+
+test('minimal preset keeps only essential command confirmation behavior',()=>{
+  assert.match(daiSfx,/minimal:\{foleyGain:0,semanticGain:0,confirmationGain:/);
+  assert.match(app,/preset:experiencePreset/);
+});
