@@ -529,6 +529,11 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <ShieldCheck className='h-4 w-4' />
               <span>بيانات حسابك محمية، ومحادثاتك لا تظهر لأي مستخدم آخر.</span>
             </div>
+
+            <a className='auth-intro-link' href='?intro=1'>
+              <Sparkles className='h-4 w-4' />
+              تعرف على ضي والتجربة الجديدة
+            </a>
           </section>
         </div>
       </main>
