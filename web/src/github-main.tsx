@@ -2,13 +2,16 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import GithubApp from './GithubApp';
 import AuthGate from './AuthGate';
+import MarketingPage from './MarketingPage';
 import './index.css';
+
+const introMode=new URLSearchParams(window.location.search).get('intro')==='1';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <AuthGate>
-      <GithubApp />
-    </AuthGate>
+    {introMode
+      ? <MarketingPage />
+      : <AuthGate><GithubApp /></AuthGate>}
   </React.StrictMode>
 );
 
