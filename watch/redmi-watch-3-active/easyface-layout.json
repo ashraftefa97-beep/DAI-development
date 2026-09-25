@@ -1,0 +1,89 @@
+{
+  "target": "Redmi Watch 3 Active",
+  "resolution": {
+    "width": 240,
+    "height": 280
+  },
+  "preview": {
+    "width": 156,
+    "height": 182
+  },
+  "notes": [
+    "Place all second frames behind the clock widgets.",
+    "Use DataSrc=Second with indexes 0..59.",
+    "Use RGB full-screen frames for maximum compatibility."
+  ],
+  "layers": [
+    {
+      "type": "ImageList",
+      "name": "dai_second_motion",
+      "x": 0,
+      "y": 0,
+      "width": 240,
+      "height": 280,
+      "dataSource": "Second",
+      "images": "images/second_00.png..second_59.png",
+      "indexes": "0..59"
+    },
+    {
+      "type": "DigitalNumber",
+      "name": "hour_high",
+      "x": 45,
+      "y": 18,
+      "width": 26,
+      "height": 44,
+      "dataSource": "HourHigh",
+      "digits": "images/digits_big/0.png..9.png"
+    },
+    {
+      "type": "DigitalNumber",
+      "name": "hour_low",
+      "x": 74,
+      "y": 18,
+      "width": 26,
+      "height": 44,
+      "dataSource": "HourLow",
+      "digits": "images/digits_big/0.png..9.png"
+    },
+    {
+      "type": "Image",
+      "name": "colon",
+      "x": 106,
+      "y": 18,
+      "width": 12,
+      "height": 44,
+      "image": "images/digits_big/colon.png"
+    },
+    {
+      "type": "DigitalNumber",
+      "name": "minute_high",
+      "x": 124,
+      "y": 18,
+      "width": 26,
+      "height": 44,
+      "dataSource": "MinuteHigh",
+      "digits": "images/digits_big/0.png..9.png"
+    },
+    {
+      "type": "DigitalNumber",
+      "name": "minute_low",
+      "x": 153,
+      "y": 18,
+      "width": 26,
+      "height": 44,
+      "dataSource": "MinuteLow",
+      "digits": "images/digits_big/0.png..9.png"
+    },
+    {
+      "type": "DigitalNumber",
+      "name": "battery",
+      "x": 192,
+      "y": 248,
+      "width": 14,
+      "height": 20,
+      "dataSource": "Battery",
+      "digits": "images/digits_small/0.png..9.png",
+      "digitsCount": 3
+    }
+  ]
+}
