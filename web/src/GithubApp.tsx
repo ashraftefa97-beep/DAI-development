@@ -1248,9 +1248,20 @@ export default function GithubApp(){
     }));
   }
 
-  function emitVoiceMotion(level:number,active=true){
+  function emitVoiceMotion(
+    level:number,
+    active=true,
+    shape:{wide?:number;round?:number;accent?:number}={}
+  ){
+    const clamp01=(value:number)=>Math.max(0,Math.min(1,Number(value)||0));
     window.dispatchEvent(new CustomEvent('dai:voice-level',{
-      detail:{level:Math.max(0,Math.min(1,level)),active}
+      detail:{
+        level:clamp01(level),
+        active,
+        wide:clamp01(shape.wide||0),
+        round:clamp01(shape.round||0),
+        accent:clamp01(shape.accent||0)
+      }
     }));
   }
 
@@ -3573,45 +3584,109 @@ export default function GithubApp(){
   ){
     if(!samples.length||sampleRate<=0)return;
     const windowSamples=Math.max(1,Math.round(sampleRate*.020));
-    const levels:number[]=[];
-    let maxRms=0;
+    const frames:Array<{
+      energy:number;
+      zcr:number;
+      diff:number;
+      peak:number;
+    }>=[];
+    let maxEnergy=0;
 
     for(let offset=0;offset<samples.length;offset+=windowSamples){
       const end=Math.min(samples.length,offset+windowSamples);
       let sum=0;
+      let diffSum=0;
       let peak=0;
+      let crossings=0;
+      let previous=samples[offset]||0;
+
       for(let i=offset;i<end;i++){
         const value=samples[i];
         const abs=Math.abs(value);
         sum+=value*value;
         if(abs>peak)peak=abs;
+
+        if(i>offset){
+          const d=value-previous;
+          diffSum+=d*d;
+          if((value>=0)!==(previous>=0))crossings++;
+        }
+        previous=value;
       }
-      const rms=Math.sqrt(sum/Math.max(1,end-offset));
-      maxRms=Math.max(maxRms,rms);
-      levels.push(Math.max(rms,peak*.28));
+
+      const count=Math.max(1,end-offset);
+      const rms=Math.sqrt(sum/count);
+      const diffRms=Math.sqrt(diffSum/Math.max(1,count-1));
+      const energy=Math.max(rms,peak*.24);
+      maxEnergy=Math.max(maxEnergy,energy);
+
+      frames.push({
+        energy,
+        zcr:crossings/Math.max(1,count-1),
+        diff:diffRms,
+        peak
+      });
     }
 
-    let previous=0;
+    let previousRelative=0;
     const safeRate=Math.max(.05,playbackRate);
-    levels.forEach((energy,index)=>{
-      const rms=energy;
-      const absolute=Math.pow(Math.max(0,Math.min(1,(rms-.0012)*19)),.42);
-      const relative=maxRms>.003
-        ? Math.pow(Math.max(0,Math.min(1,(rms/maxRms-.045)/.82)),.58)
-        : 0;
-      const transient=Math.max(0,relative-previous);
-      const level=Math.max(
-        absolute*.72,
-        relative*.96,
-        Math.min(1,relative+transient*.42)
+
+    frames.forEach((frame,index)=>{
+      const absolute=Math.pow(
+        Math.max(0,Math.min(1,(frame.energy-.0009)*25)),
+        .38
       );
-      previous=relative;
+      const relative=maxEnergy>.0025
+        ? Math.pow(
+            Math.max(0,Math.min(1,(frame.energy/maxEnergy-.025)/.82)),
+            .52
+          )
+        :0;
+
+      const transient=Math.max(0,relative-previousRelative);
+      const level=Math.max(
+        absolute*.78,
+        relative,
+        Math.min(1,relative+transient*.52)
+      );
+
+      // Crude phoneme-like features from time-domain PCM:
+      // high zero-crossing / derivative energy => wider consonant shape;
+      // low-frequency sustained energy => rounder vowel shape.
+      const brightness=Math.max(
+        0,
+        Math.min(
+          1,
+          frame.diff/Math.max(.0004,frame.energy*2.15)
+        )
+      );
+      const zcrShape=Math.max(0,Math.min(1,(frame.zcr-.025)/.22));
+      const wide=Math.max(
+        0,
+        Math.min(1,zcrShape*.62+brightness*.46+transient*.30)
+      );
+      const round=Math.max(
+        0,
+        Math.min(
+          1,
+          relative*(1-wide*.72)*(1-brightness*.42)
+        )
+      );
+
+      previousRelative=relative;
 
       const sampleOffset=index*windowSamples;
       const seconds=(sampleOffset/sampleRate)/safeRate;
       const delay=Math.max(0,(startAt-ctx.currentTime+seconds)*1000);
+
       window.setTimeout(()=>{
-        if(isActive())emitVoiceMotion(level,true);
+        if(isActive()){
+          emitVoiceMotion(level,true,{
+            wide,
+            round,
+            accent:Math.min(1,transient*2.2)
+          });
+        }
       },delay);
     });
   }
