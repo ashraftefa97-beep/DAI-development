@@ -320,7 +320,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v14-20260925-showpiece/);
+  assert.match(sw,/dai-web-v15-20260925-product-flow/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
@@ -395,7 +395,7 @@ test('landing page uses varied visual chapters instead of one repeated layout',(
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v14-20260925-showpiece/);
+  assert.match(sw,/dai-web-v15-20260925-product-flow/);
 });
 
 
@@ -413,4 +413,32 @@ test('hero buddy is a layered showpiece instead of a plain square',()=>{
   assert.match(marketingCss,/border-radius:47% 53% 43% 57%/);
   assert.match(marketingCss,/conic-gradient/);
   assert.match(marketingCss,/mktShellGlow/);
+});
+
+
+test('landing mirrors the product-story flow with original DAI sections',()=>{
+  for(const token of [
+    'dai-mkt-chat-story',
+    'dai-mkt-software',
+    'dai-mkt-toolkit',
+    'dai-mkt-inside',
+    'dai-mkt-system',
+    'dai-mkt-action',
+    'dai-mkt-plans',
+    'dai-mkt-updates',
+    'dai-mkt-faq'
+  ]) assert.match(marketingPage,new RegExp(token));
+});
+
+test('landing has responsive dashboard plans updates and FAQ',()=>{
+  assert.match(marketingCss,/dai-mkt-dashboard/);
+  assert.match(marketingCss,/dai-mkt-plan-grid/);
+  assert.match(marketingCss,/dai-mkt-update-strip/);
+  assert.match(marketingCss,/dai-mkt-faq-list/);
+  assert.match(marketingCss,/@media\(max-width:700px\)/);
+});
+
+test('full landing release refreshes service worker cache',()=>{
+  const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
+  assert.match(sw,/dai-web-v15-20260925-product-flow/);
 });
