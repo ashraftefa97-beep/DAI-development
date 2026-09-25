@@ -287,22 +287,40 @@ export class DaiMotion {
       const phrase=this.reduced?0:Math.sin(e*.82);
       const micro=this.reduced?0:Math.sin(e*1.55+.7);
 
+      const moodI=clamp(this.speechMoodIntensity,.15,1);
+      const blend=(base,value)=>base+(value-base)*moodI;
       let speechSmile=.44;
       let speechCheek=.12;
       let speechLeft=.94;
       let speechRight=.96;
       let speechTilt=phrase*.55;
+      let speechBrow=.025+syllable*.06;
 
       if(this.speechMood==='warm') {
-        speechSmile=.64; speechCheek=.24; speechLeft=.88; speechRight=.91; speechTilt=-1.2+phrase*.45;
+        speechSmile=blend(.44,.66); speechCheek=blend(.12,.27);
+        speechLeft=blend(.94,.87); speechRight=blend(.96,.90);
+        speechTilt=blend(phrase*.55,-1.25+phrase*.42);
+        speechBrow=blend(speechBrow,.035+syllable*.055);
       } else if(this.speechMood==='happy') {
-        speechSmile=.80; speechCheek=.42; speechLeft=.80; speechRight=.83; speechTilt=-1.7+phrase*.55;
+        speechSmile=blend(.44,.84); speechCheek=blend(.12,.46);
+        speechLeft=blend(.94,.79); speechRight=blend(.96,.82);
+        speechTilt=blend(phrase*.55,-1.9+phrase*.52);
+        speechBrow=blend(speechBrow,.065+syllable*.075);
       } else if(this.speechMood==='curious') {
-        speechSmile=.38; speechCheek=.10; speechLeft=1.02; speechRight=.80; speechTilt=3.2+phrase*.65;
+        speechSmile=blend(.44,.36); speechCheek=blend(.12,.10);
+        speechLeft=blend(.94,1.04); speechRight=blend(.96,.79);
+        speechTilt=blend(phrase*.55,3.4+phrase*.62);
+        speechBrow=blend(speechBrow,.14+syllable*.05);
       } else if(this.speechMood==='calm') {
-        speechSmile=.40; speechCheek=.10; speechLeft=.86; speechRight=.88; speechTilt=-.7+phrase*.30;
+        speechSmile=blend(.44,.39); speechCheek=blend(.12,.09);
+        speechLeft=blend(.94,.86); speechRight=blend(.96,.88);
+        speechTilt=blend(phrase*.55,-.75+phrase*.28);
+        speechBrow=blend(speechBrow,.015);
       } else if(this.speechMood==='serious') {
-        speechSmile=.18; speechCheek=.04; speechLeft=.90; speechRight=.92; speechTilt=phrase*.22;
+        speechSmile=blend(.44,.16); speechCheek=blend(.12,.035);
+        speechLeft=blend(.94,.90); speechRight=blend(.96,.92);
+        speechTilt=blend(phrase*.55,phrase*.18);
+        speechBrow=blend(speechBrow,.16+syllable*.035);
       }
 
       set({
@@ -310,6 +328,7 @@ export class DaiMotion {
         right:speechRight,
         smile:speechSmile,
         cheek:speechCheek,
+        brow:clamp(speechBrow,-.2,1.1),
         mouth:clamp(speechOpen*1.02+syllable*.16,0,1.08),
         mouthWide,
         tilt:speechTilt,
