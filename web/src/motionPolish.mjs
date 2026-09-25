@@ -9,6 +9,29 @@ function phaseFrom(value=''){
   return (hash/HASH_MOD)*Math.PI*2;
 }
 
+function fract(value){return value-Math.floor(value);}
+function hash01(value){
+  return fract(Math.sin(value*12.9898+78.233)*43758.5453123);
+}
+function smoothNoise(time,seed,speed=1){
+  const x=time*speed+seed;
+  const i=Math.floor(x);
+  const f=x-i;
+  const u=f*f*(3-2*f);
+  const a=hash01(i+seed*17.13)*2-1;
+  const b=hash01(i+1+seed*17.13)*2-1;
+  return a+(b-a)*u;
+}
+function microSaccade(time,seed,rate=.55){
+  const hold=Math.max(.32,1/rate);
+  const slot=Math.floor(time/hold);
+  const local=(time-slot*hold)/hold;
+  const target=(hash01(slot+seed*31.7)*2-1);
+  const previous=(hash01(slot-1+seed*31.7)*2-1);
+  const settle=1-Math.pow(1-clamp(local*3.1,0,1),3);
+  return previous+(target-previous)*settle;
+}
+
 function motionMode(m){
   const gesture=String(m?.requestedGesture||m?.gesture||'idle');
   if(gesture==='talk'||gesture==='reply'||m?.state==='talking')return 'speaking';
@@ -64,19 +87,22 @@ export function applyActiveMotionPolish(p,m){
   const energy=(MODE_ENERGY[mode]||.55)*quality;
   const gazeEnergy=(MODE_GAZE[mode]||.55)*quality;
 
-  // Incommensurate frequencies prevent the mechanical "same beat forever" feel.
+  // Incommensurate frequencies + smooth noise prevent the mechanical
+  // "same beat forever" feel while keeping motion deterministic.
   const slow=
-    Math.sin(t*(.34+.08*tempo)+phase)+
-    .42*Math.sin(t*(.61+.05*tempo)+phase*.47);
+    smoothNoise(t,phase*.37,.24+.045*tempo)+
+    .34*Math.sin(t*(.43+.04*tempo)+phase*.47);
   const mid=
-    Math.sin(t*(.88+.19*tempo)+phase*.73)+
-    .31*Math.cos(t*(1.31+.11*tempo)+phase*1.27);
+    smoothNoise(t,phase*.71,.56+.06*tempo)+
+    .24*Math.cos(t*(1.07+.07*tempo)+phase*1.27);
   const fine=
-    Math.sin(t*(1.74+.23*tempo)+phase*1.61)+
-    .24*Math.sin(t*(2.47+.17*tempo)+phase*.29);
+    smoothNoise(t,phase*1.19,1.35+.14*tempo)+
+    .16*Math.sin(t*(2.21+.13*tempo)+phase*.29);
   const breathe=
     Math.sin(t*(.58+.035*tempo)+phase*.31)+
-    .28*Math.sin(t*(.29+.02*tempo)+phase*1.13);
+    .20*smoothNoise(t,phase*.53,.24);
+  const saccadeX=microSaccade(t,phase*.11,.66+.10*tempo);
+  const saccadeY=microSaccade(t+.37,phase*.19,.48+.07*tempo);
 
   const enter=clamp(t/.42,0,1);
   const settle=.72+.28*enter;
@@ -89,9 +115,9 @@ export function applyActiveMotionPolish(p,m){
 
   // Eyes should feel observant, not locked to one direction.
   p.gaze_x=(Number(p.gaze_x)||0)+
-    (slow*.34+mid*.15)*profile.gazeAmp*gazeEnergy;
+    (slow*.20+mid*.08+saccadeX*.34)*profile.gazeAmp*gazeEnergy;
   p.gaze_y=(Number(p.gaze_y)||0)+
-    (Math.cos(t*(.43+.07*tempo)+phase*.91)*.24+fine*.045)*
+    (saccadeY*.18+fine*.035)*
     Math.min(3.6,profile.gazeAmp*.52)*gazeEnergy;
 
   // Tiny facial life. Keep the amplitude low enough that the authored emotion
@@ -101,15 +127,15 @@ export function applyActiveMotionPolish(p,m){
 
   if(mode==='listening'){
     // Listening is active attention: eyes lead, head follows slightly later.
-    p.gaze_x+=(Math.sin(t*(1.07+.10*tempo)+phase)*.55)*gazeEnergy;
-    p.tilt+=(Math.sin(t*.62+phase*.54)*.38)*energy;
+    p.gaze_x+=(saccadeX*.74+mid*.10)*gazeEnergy;
+    p.tilt+=(slow*.30+saccadeX*.08)*energy;
     p.left=clamp((Number(p.left)||1)+Math.max(0,Math.sin(t*.55+phase))*.018*energy,.05,1.35);
     p.right=clamp((Number(p.right)||1)+Math.max(0,Math.cos(t*.57+phase))*.018*energy,.05,1.35);
   }else if(mode==='thinking'||mode==='searching'||mode==='working'){
     // Busy modes use a quicker eye layer and a slower body layer.
-    p.gaze_x+=(Math.sin(t*(1.42+.14*tempo)+phase)*.52)*gazeEnergy;
-    p.gaze_y-=Math.max(0,Math.sin(t*(.77+.05*tempo)+phase*.8))*.24*gazeEnergy;
-    p.brow=clamp((Number(p.brow)||0)+Math.sin(t*.71+phase)*.035*energy,-.35,1.25);
+    p.gaze_x+=(saccadeX*.62+fine*.08)*gazeEnergy;
+    p.gaze_y-=Math.max(0,saccadeY)*.20*gazeEnergy;
+    p.brow=clamp((Number(p.brow)||0)+(fine*.022+saccadeY*.010)*energy,-.35,1.25);
   }else if(mode==='speaking'){
     // Speech remains face-led. Real voice amplitude adds gentle emphasis,
     // while hands stay untouched and therefore at rest.
