@@ -729,12 +729,51 @@ function drawHandMark(c,mark,style){
 function hand(c,x,y,rotation,opacity,mirror,grip,avatar='classic') {
   if(opacity<.01)return;
   const dna=getAvatarVisualDNA(avatar);
+  const isLight=lightTheme(c);
+  const material=avatarMaterialProfile(avatar,isLight);
   c.save();c.translate(x,y);c.rotate(rad(rotation));c.scale(mirror?-1:1,1);c.globalAlpha=opacity;
   const d=handPathForStyle(dna.hand,grip);
+  const hp=new Path2D(d);
   const style=handTheme(c,avatar);
-  c.save();c.shadowColor=style.glow;c.shadowBlur=avatar==='hologram'||avatar==='cyber'||avatar==='matrix'?11:6;
-  path(c,d,dna.hand==='wire'?null:style.fill,style.outer,dna.hand==='wire'?3.2:8);c.restore();
-  path(c,d,null,style.edge,dna.hand==='digital'||dna.hand==='angular'?2:2.4);
+
+  c.save();
+  c.shadowColor=style.glow;
+  c.shadowBlur=avatar==='hologram'||avatar==='cyber'||avatar==='matrix'?12:7;
+  if(dna.hand!=='wire'){
+    const g=c.createLinearGradient(-20,-24,22,24);
+    g.addColorStop(0,material.specular);
+    g.addColorStop(.16,style.fill);
+    g.addColorStop(.72,style.fill);
+    g.addColorStop(1,style.palm);
+    c.globalAlpha=.96;
+    c.fillStyle=g;
+    c.fill(hp);
+  }
+  c.strokeStyle=style.outer;
+  c.lineWidth=dna.hand==='wire'?3.2:6.6;
+  c.stroke(hp);
+  c.restore();
+
+  c.save();
+  c.globalAlpha=.92;
+  c.strokeStyle=style.edge;
+  c.lineWidth=dna.hand==='digital'||dna.hand==='angular'?1.7:2.0;
+  c.stroke(hp);
+  c.restore();
+
+  if(dna.hand!=='wire'){
+    c.save();
+    c.clip(hp);
+    c.globalAlpha=.16+material.gloss*.08;
+    const shine=c.createLinearGradient(-15,-18,16,18);
+    shine.addColorStop(0,material.specular);
+    shine.addColorStop(.42,'rgba(255,255,255,0)');
+    shine.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=shine;
+    c.fillRect(-30,-34,60,68);
+    c.restore();
+  }
+
   drawHandMark(c,dna.handMark,style);
   c.restore();
 }
@@ -1107,17 +1146,27 @@ export function drawDai(c,m,w,h,avatar='classic') {
   }
 
   const cheekAlpha=(isLight?112:78)*q.cheek*theme.cheekBoost/255;
-  ellipse(c,-82,40,faceShape.cheekX,faceShape.cheekY,`rgba(${theme.cheek},${cheekAlpha})`);
-  ellipse(c,82,40,faceShape.cheekX,faceShape.cheekY,`rgba(${theme.cheek},${cheekAlpha})`);
+  const cheekColor='rgba('+theme.cheek+','+cheekAlpha+')';
+  light(c,-82,40,Math.max(faceShape.cheekX,faceShape.cheekY)*1.45,cheekColor,faceShape.cheekX*1.16,faceShape.cheekY*1.22);
+  light(c,82,40,Math.max(faceShape.cheekX,faceShape.cheekY)*1.45,cheekColor,faceShape.cheekX*1.16,faceShape.cheekY*1.22);
 
   if(q.mouth>.055) {
     const speechWide=clamp(q.mouthWide||0,0,1);
     const mw=faceShape.speechBase+q.smile*6+speechWide*13;
     const mh=4+q.mouth*29;
     const upperCurve=53+speechWide*2.2;
-    const shape=path(c,`M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*.53} ${54+mh} ${-mw*.53} ${54+mh} ${-mw/2} 52`,theme.mouth);
+    const mouthGradient=c.createLinearGradient(0,50,0,58+mh);
+    mouthGradient.addColorStop(0,theme.mouth);
+    mouthGradient.addColorStop(.72,theme.mouth);
+    mouthGradient.addColorStop(1,'rgba(22,12,28,.78)');
+    const shape=path(c,`M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*.53} ${54+mh} ${-mw*.53} ${54+mh} ${-mw/2} 52`,mouthGradient);
     c.save();c.clip(shape);
-    ellipse(c,1.5,53.5+mh,mw*.39,mh*.27,theme.tongue);
+    const tongueGradient=c.createLinearGradient(0,53,0,56+mh);
+    tongueGradient.addColorStop(0,theme.tongue);
+    tongueGradient.addColorStop(1,'rgba(255,255,255,.18)');
+    ellipse(c,1.5,53.5+mh,mw*.39,mh*.27,tongueGradient);
+    c.globalAlpha=.18;
+    path(c,`M${-mw*.30} ${53+mh*.18} Q0 ${54+mh*.34} ${mw*.30} ${53+mh*.18}`,null,'rgba(255,255,255,.82)',.75);
     c.restore();
   } else {
     drawRestMouth(c,m,avatar,theme,faceShape,q);
