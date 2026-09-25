@@ -57,6 +57,8 @@ export class DaiMotion {
     this.lastMeaningfulAt = 0;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
+    this.voiceWide=this.voiceWideTarget=0;
+    this.voiceRound=this.voiceRoundTarget=0;
     this.voiceAccent = 0;
     this.speechMood = 'neutral';
     this.speechMoodIntensity = .65;
@@ -166,17 +168,23 @@ export class DaiMotion {
     if(this.quality==='low')this.particles=this.particles.slice(-10);
     else if(this.quality==='medium')this.particles=this.particles.slice(-22);
   }
-  setVoiceLevel(level=0, active=true) {
+  setVoiceLevel(level=0, active=true, shape={}) {
     const value=clamp(Number(level)||0,0,1);
     const previous=this.voiceTarget;
     this.voiceDriven=Boolean(active);
     this.voiceTarget=active?value:0;
+    this.voiceWideTarget=active?clamp(Number(shape?.wide)||0,0,1):0;
+    this.voiceRoundTarget=active?clamp(Number(shape?.round)||0,0,1):0;
     if(active){
-      // Preserve fast syllable/consonant attacks instead of smoothing them away.
       const attack=Math.max(0,value-previous);
-      this.voiceAccent=Math.max(this.voiceAccent,attack);
+      const accent=clamp(Number(shape?.accent)||0,0,1);
+      this.voiceAccent=Math.max(this.voiceAccent,attack,accent);
     }else{
       this.voice=0;
+      this.voiceWide=0;
+      this.voiceWideTarget=0;
+      this.voiceRound=0;
+      this.voiceRoundTarget=0;
       this.voiceAccent=0;
     }
   }
@@ -201,7 +209,7 @@ export class DaiMotion {
     const [left,right,lw,rw,smile,mouth,tilt,cheek]=expressions[this.state];
     const p={left,right,lw,rw,smile,mouth,tilt,cheek,happy:this.state==='happy'?1:0,
       gaze_x:0,gaze_y:0,sx:1,sy:1,bob:0,lx:-118,ly:72,rx:118,ry:72,la:0,ra:0,lr:-10,rr:10,
-      mouthWide:0,hat:0,wand:0,listen:0,rod:0,fish:0,brow:0,heart:0,notes:0,bulb:0,sleep:0};
+      mouthWide:0,mouthRound:0,hat:0,wand:0,listen:0,rod:0,fish:0,brow:0,heart:0,notes:0,bulb:0,sleep:0};
     const set = values => Object.assign(p, values);
     let active=this.gesture;
     if(this.state==='idle' && active==='idle' && this.elapsed<this.idleUntil) {
@@ -279,8 +287,17 @@ export class DaiMotion {
       // mouth briefly, making consonant/word attacks readable.
       const speechOpen=beat<.022?0:Math.pow(clamp((beat-.022)/.50,0,1),.48);
       const syllable=clamp(this.voiceAccent*2.15,0,1);
+      const phonemeWide=clamp(this.voiceWide,0,1);
+      const phonemeRound=clamp(this.voiceRound,0,1);
       const mouthWide=clamp(
-        speechOpen*(.74-.16*speechOpen)+syllable*.24,
+        speechOpen*(.34+.58*phonemeWide)+
+        syllable*.20-
+        phonemeRound*.12,
+        0,
+        1
+      );
+      const mouthRound=clamp(
+        phonemeRound*(.70+.30*speechOpen),
         0,
         1
       );
@@ -329,8 +346,9 @@ export class DaiMotion {
         smile:speechSmile,
         cheek:speechCheek,
         brow:clamp(speechBrow,-.2,1.1),
-        mouth:clamp(speechOpen*1.02+syllable*.16,0,1.08),
+        mouth:clamp(speechOpen*1.08+syllable*.20,0,1.12),
         mouthWide,
+        mouthRound,
         tilt:speechTilt,
         gaze_x:phrase*.72,
         gaze_y:-.8+micro*.18,
@@ -866,9 +884,16 @@ export class DaiMotion {
     this.blinkTime+=elapsedDt;
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
-    this.voice=mix(this.voice,this.voiceTarget,26); this.audio=mix(this.audio,this.audioTarget,12);
-    this.voiceAccent*=Math.exp(-dt*13.5);
-    if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*3.0);
+    this.voice=mix(this.voice,this.voiceTarget,30);
+    this.voiceWide=mix(this.voiceWide,this.voiceWideTarget,24);
+    this.voiceRound=mix(this.voiceRound,this.voiceRoundTarget,20);
+    this.audio=mix(this.audio,this.audioTarget,12);
+    this.voiceAccent*=Math.exp(-dt*14.5);
+    if(this.voiceDriven){
+      this.voiceTarget*=Math.exp(-dt*3.4);
+      this.voiceWideTarget*=Math.exp(-dt*5.0);
+      this.voiceRoundTarget*=Math.exp(-dt*4.2);
+    }
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
     const speechFace=this.gesture==='talk'||this.state==='talking';
@@ -933,7 +958,12 @@ export class DaiMotion {
       }
       if(speechFace&&key==='mouthWide'){
         this.poseVelocity[key]=0;
-        this.pose[key]=mix(this.pose[key],target[key],34);
+        this.pose[key]=mix(this.pose[key],target[key],36);
+        continue;
+      }
+      if(speechFace&&key==='mouthRound'){
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],30);
         continue;
       }
 
