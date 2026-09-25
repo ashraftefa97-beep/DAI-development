@@ -303,5 +303,19 @@ test('voice envelope updates quickly enough for visible lip sync',()=>{
   assert.match(app,/\(rms-\.0018\)\*14/);
   assert.match(app,/mapped>smooth \? \.66 : \.34/);
   assert.match(app,/now-lastEmit>=20/);
-  assert.match(app,/\(pcmRms-\.0018\)\*14/);
+});
+
+test('streamed and live speech drive lips from exact PCM windows',()=>{
+  assert.match(app,/function schedulePcmLipSync/);
+  assert.match(app,/sampleRate\*\.020/);
+  assert.match(app,/schedulePcmLipSync\(\s*samples,\s*rate,/);
+  assert.match(app,/schedulePcmLipSync\(\s*samples,\s*sampleRate,/);
+  assert.match(app,/relative\*\.96/);
+});
+
+
+test('cache version changes with lip sync release',()=>{
+  const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
+  assert.match(sw,/dai-web-v10-20260925-lipsync/);
+  assert.match(app,/DAI_WEB_VERSION='1\.9\.1'/);
 });
