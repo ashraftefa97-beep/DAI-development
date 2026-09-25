@@ -1281,8 +1281,8 @@ export default function GithubApp(){
         energy+=sample*sample;
       }
       const rms=Math.sqrt(energy/Math.max(1,data.length));
-      const raw=Math.max(0,Math.min(1,(rms-.008)*4.8));
-      const mapped=Math.pow(raw,.76);
+      const raw=Math.max(0,Math.min(1,(rms-.003)*9.5));
+      const mapped=Math.pow(raw,.58);
       smooth+=(mapped>smooth ? .48 : .20)*(mapped-smooth);
 
       if(now-lastEmit>=28){
@@ -3627,6 +3627,17 @@ export default function GithubApp(){
     liveNextPlayTimeRef.current=startAt+buffer.duration;
     liveOutputSourcesRef.current.add(source);
 
+    // Seed lip-sync directly from the PCM chunk as well as the analyser. This
+    // keeps the mouth visibly reactive on browsers/devices with weak analyser RMS.
+    const pcmRms=audioRms(samples);
+    const pcmLevel=Math.pow(Math.max(0,Math.min(1,(pcmRms-.0025)*10)),.58);
+    const lipDelay=Math.max(0,(startAt-ctx.currentTime)*1000);
+    window.setTimeout(()=>{
+      if(voiceSessionActiveRef.current&&liveOutputSourcesRef.current.has(source)){
+        emitVoiceMotion(pcmLevel,true);
+      }
+    },lipDelay);
+
     if(liveSpeechMotionRafRef.current===undefined){
       emitSpeechMood(liveOutputTranscriptRef.current);
       startVoiceMotionTracking(
@@ -3669,7 +3680,7 @@ export default function GithubApp(){
     const ctx=new AudioContextCtor();
     await ctx.resume();
     const source=ctx.createMediaStreamSource(stream);
-    const processor=ctx.createScriptProcessor(1024,1,1);
+    const processor=ctx.createScriptProcessor(512,1,1);
     const silent=ctx.createGain();
     silent.gain.value=0;
 
@@ -3739,8 +3750,8 @@ export default function GithubApp(){
       combined.set(resampled,previous.length);
 
       // Smaller packets reduce microphone-to-model latency without flooding the socket.
-      // 640 samples at 16 kHz = 40 ms for faster turn streaming.
-      const chunkSamples=640;
+      // 320 samples at 16 kHz = 20 ms for lower microphone-to-model latency.
+      const chunkSamples=320;
       let offset=0;
       while(offset+chunkSamples<=combined.length){
         const packet=combined.slice(offset,offset+chunkSamples);
@@ -4282,8 +4293,9 @@ export default function GithubApp(){
             : 'جنس المستخدم غير محدد؛ تجنبي افتراض الجنس قدر الإمكان. ';
 
         const systemText=
-          'أنت ضي، مساعدة صوتية أنثوية ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
-          'اتكلمي بالعربية المصرية بشكل طبيعي ومرن ومختصر، بصوت أنثوي خفيف وواضح وبسرعة محادثة نشيطة. حافظي على نفس طبقة الصوت وهوية المتكلمة من أول الرد لآخره، وما تخليش آخر الجمل ينزل لصوت غليظ. كحوار عادي مش رد خدمة عملاء. '+
+          'أنتِ ضي، مساعدة صوتية أنثى دائمًا، ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
+          'هويتك أنتِ أنثى في كل الحالات، وجنس المستخدم يحدد فقط طريقة مخاطبته هو ولا يغير هويتك. لما تتكلمي عن نفسك استخدمي المؤنث فقط مثل: جاهزة، موجودة، مستعدة، مبسوطة، آسفة. ممنوع تقولي عن نفسك: جاهز، موجود، مستعد، مبسوط، آسف. '+
+          'اتكلمي بالعربية المصرية بشكل طبيعي ومرن ومختصر، بصوت أنثوي خفيف وواضح وبسرعة محادثة نشيطة. ابدئي الرد فورًا بأول جملة قصيرة ومباشرة ثم كمّلي طبيعي. حافظي على نفس طبقة الصوت وهوية المتكلمة من أول الرد لآخره، وما تخليش آخر الجمل ينزل لصوت غليظ. كحوار عادي مش رد خدمة عملاء. '+
           'ما تبدأيش كل رد بتحية أو باسم المستخدم. استخدمي الاسم الأول أحيانًا فقط لما يضيف ود أو وضوح، وما تستخدميش الاسم الكامل في الرد. '+
           'لو المستخدم قال «إزيك» أو سلّم عليكي، ردي بتحية طبيعية قصيرة ومتنوعة بدل جملة محفوظة. '+
           'تجنبي عبارات آلية متكررة زي «أقدر أساعدك بإيه النهارده؟» إلا لو السياق فعلًا محتاج سؤال متابعة. '+
@@ -4320,8 +4332,8 @@ export default function GithubApp(){
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-                prefixPaddingMs:80,
-                silenceDurationMs:320
+                prefixPaddingMs:60,
+                silenceDurationMs:260
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
