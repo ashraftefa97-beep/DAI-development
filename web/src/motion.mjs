@@ -255,7 +255,9 @@ export class DaiMotion {
       // Mouth motion is driven only by real voice energy. Text responses use
       // the reply state, so a stopped voice must never leave synthetic speech.
       const visualFallback=this.reduced?0:(.16+.10*(.5+.5*Math.sin(e*8.4)));
-      let beat=this.voiceDriven?this.voice:visualFallback;
+      // Fallback only while real speech is marked active. The mouth must close
+      // immediately when speech tracking ends.
+      let beat=this.voiceDriven?Math.max(this.voice,visualFallback):0;
       beat=clamp(beat,0,1);
 
       // Gate tiny room/noise energy so the mouth actually closes between words.
