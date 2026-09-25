@@ -457,14 +457,6 @@ export default function MarketingPage(){
       </div>
     </section>
 
-    <section className='dai-mkt-motion-strip' aria-label='DAI capabilities'>
-      <div className='dai-mkt-motion-track'>
-        <span>VOICE</span><i/> <span>SEARCH</span><i/> <span>TOOLS</span><i/> <span>MOTION</span><i/>
-        <span>24 AVATARS</span><i/> <span>10 LANGUAGES</span><i/> <span>VOICE</span><i/> <span>SEARCH</span><i/>
-        <span>TOOLS</span><i/> <span>MOTION</span><i/> <span>24 AVATARS</span><i/> <span>10 LANGUAGES</span>
-      </div>
-    </section>
-
     <section className='dai-mkt-buddy-demo' id='product'>
       <div className='dai-mkt-demo-copy' data-reveal>
         <span className='dai-mkt-eyebrow'>{copy.buddy.label}</span>
