@@ -318,9 +318,9 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 });
 
 
-test('cache version changes with articulated speech release',()=>{
+test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v12-20260925-articulation/);
+  assert.match(sw,/dai-web-v13-20260925-landing-v2/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
