@@ -41,9 +41,20 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
     let w=600,h=420,frame=0,last=performance.now(),lastDraw=0,dragTotal=0,px=0,py=0;
     const resize=()=>{
       const rect=node.getBoundingClientRect(); w=rect.width;h=rect.height;
-      const dprCap=quality==='high'?2:quality==='medium'?1.6:1.25;
+      // Premium supersampling keeps curved eyes, mouth strokes and tiny avatar
+      // signatures crisp on Retina/HiDPI screens without changing CSS size.
+      const area=w*h;
+      const dprCap=quality==='high'
+        ? (area<=360000?3:2.5)
+        : quality==='medium'
+          ? (area<=360000?2.2:1.9)
+          : 1.5;
       const dpr=Math.min(devicePixelRatio||1,dprCap);
-      node.width=Math.round(w*dpr);node.height=Math.round(h*dpr);c.setTransform(dpr,0,0,dpr,0,0);
+      node.width=Math.max(1,Math.round(w*dpr));
+      node.height=Math.max(1,Math.round(h*dpr));
+      c.setTransform(dpr,0,0,dpr,0,0);
+      c.imageSmoothingEnabled=true;
+      c.imageSmoothingQuality='high';
       drawDai(c,m,w,h,avatar);
     };
     const observer=new ResizeObserver(resize);observer.observe(node);resize();
