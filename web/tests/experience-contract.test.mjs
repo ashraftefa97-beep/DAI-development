@@ -293,10 +293,12 @@ test('premium hand rendering uses material gradient and highlight pass',()=>{
 
 test('lip sync has visible syllable articulation',()=>{
   assert.match(motion,/voiceAccent/);
-  assert.match(motion,/speechOpen\*1\.02/);
-  assert.match(motion,/syllable\*\.24/);
-  assert.match(draw,/speechWide\*18/);
-  assert.match(draw,/q\.mouth\*35/);
+  assert.match(motion,/speechOpen\*1\.08/);
+  assert.match(motion,/syllable\*\.20/);
+  assert.match(motion,/voiceWideTarget/);
+  assert.match(motion,/voiceRoundTarget/);
+  assert.match(draw,/speechWide\*23/);
+  assert.match(draw,/q\.mouth\*39/);
 });
 
 test('voice envelope updates quickly enough for visible lip sync',()=>{
