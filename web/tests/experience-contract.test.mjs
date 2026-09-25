@@ -314,10 +314,10 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 });
 
 
-test('cache version changes with presence release',()=>{
+test('cache version changes with articulated speech release',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v11-20260925-presence/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.0'/);
+  assert.match(sw,/dai-web-v12-20260925-articulation/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
 
@@ -354,4 +354,21 @@ test('voice prompts require conversational breath groups and non-robotic deliver
   assert.match(fullVoice,/مجموعات تنفّس قصيرة/);
   assert.match(streamVoice,/مش بتقري سكريبت/);
   assert.match(fullVoice,/مش بتقري نص محفوظ/);
+});
+
+
+test('speech articulation has jaw width and roundness channels',()=>{
+  assert.match(app,/shape:\{wide\?:number;round\?:number;accent\?:number\}/);
+  assert.match(app,/zcrShape/);
+  assert.match(app,/brightness/);
+  assert.match(motion,/voiceWideTarget/);
+  assert.match(motion,/voiceRoundTarget/);
+  assert.match(motion,/mouthRound/);
+});
+
+test('rendered speaking mouth visibly changes silhouette',()=>{
+  assert.match(draw,/speechRound/);
+  assert.match(draw,/speechWide\*23/);
+  assert.match(draw,/q\.mouth\*39/);
+  assert.match(draw,/speechRound\*8\.5/);
 });
