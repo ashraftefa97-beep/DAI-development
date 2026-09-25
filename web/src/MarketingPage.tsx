@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, Sparkles, TimerReset, WandSparkles, Zap } from 'lucide-react';
+import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Globe2, Laptop2, Layers3, MessageCircle, MonitorSmartphone, Search, ShieldCheck, TimerReset, WandSparkles, Zap } from 'lucide-react';
 import DaiFace, { type DaiState } from './DaiFace';
 import './marketing.css';
 
