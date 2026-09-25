@@ -6020,3 +6020,27 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
     min-height:50px;
   }
 }
+
+
+.auth-intro-link {
+  margin-top: 12px;
+  min-height: 42px;
+  border-radius: 13px;
+  border: 1px solid rgba(246,169,193,.14);
+  background: rgba(246,169,193,.045);
+  color: #d8c4cf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 800;
+  transition: .2s ease;
+}
+.auth-intro-link:hover {
+  color: #fff0f5;
+  border-color: rgba(246,169,193,.28);
+  background: rgba(246,169,193,.08);
+  transform: translateY(-1px);
+}
