@@ -102,11 +102,11 @@ export function createAnimationPlan(m,context={}){
   const width=Math.max(0,Number(context?.width)||0);
   const compact=width>0&&width<=640;
   const modeDensity=
-    mode==='speaking'?.58:
-    mode==='listening'?.70:
-    mode==='thinking'||mode==='searching'||mode==='working'?.76:
-    mode==='success'?1.06:
-    mode==='error'?.82:
+    mode==='speaking'?.70:
+    mode==='listening'?.84:
+    mode==='thinking'||mode==='searching'||mode==='working'?.88:
+    mode==='success'?1.08:
+    mode==='error'?.86:
     1;
   const qualityDensity=quality==='high'?1:quality==='medium'?.82:.62;
   const compactDensity=compact?.82:1;
