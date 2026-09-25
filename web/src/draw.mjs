@@ -583,6 +583,48 @@ function premiumFaceAtmosphere(c,m,avatar,theme,isLight){
   c.restore();
 }
 
+function premiumFaceVolume(c,m,avatar,isLight){
+  const material=avatarMaterialProfile(avatar,isLight);
+  const group=material.group;
+  const alpha=
+    group==='tech'?.085:
+    group==='refined'?.070:
+    group==='cosmic'?.082:
+    group==='warm'?.078:
+    group==='fluid'?.074:
+    .072;
+
+  c.save();
+  c.globalAlpha=alpha;
+
+  const body=c.createRadialGradient(-22,-34,8,0,-4,124);
+  body.addColorStop(0,isLight?'rgba(255,255,255,.84)':'rgba(255,255,255,.28)');
+  body.addColorStop(.42,material.glow);
+  body.addColorStop(.78,isLight?'rgba(255,255,255,.08)':'rgba(20,14,28,.20)');
+  body.addColorStop(1,'rgba(0,0,0,0)');
+  ellipse(c,0,-2,111,101,body);
+
+  c.globalCompositeOperation='screen';
+  c.globalAlpha*=.72;
+  const rim=c.createLinearGradient(-108,-70,108,78);
+  rim.addColorStop(0,material.specular);
+  rim.addColorStop(.22,'rgba(255,255,255,0)');
+  rim.addColorStop(.78,'rgba(255,255,255,0)');
+  rim.addColorStop(1,material.glow);
+  ellipse(c,0,-2,108,98,rim);
+
+  if(group==='tech'){
+    c.globalAlpha*=.68;
+    line(c,-86,-46,86,-46,material.specular,.55);
+    line(c,-78,72,78,72,material.glow,.45);
+  }else if(group==='cosmic'){
+    c.globalAlpha*=.52;
+    star(c,-84,-63,1.7,material.specular,m.reduced?0:m.elapsed*8);
+    star(c,91,49,1.3,material.specular,m.reduced?0:-m.elapsed*6);
+  }
+  c.restore();
+}
+
 function drawEyeFinish(c,eyePath,w,h,avatar,material,happy){
   if(happy>.86)return;
   const visibility=(1-happy)*material.gloss;
@@ -1107,6 +1149,7 @@ export function drawDai(c,m,w,h,avatar='classic') {
   if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
   if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
   renderAvatarStateFx(c,m,avatar,theme,plan);
+  premiumFaceVolume(c,m,avatar,isLight);
 
   const requestedGesture=String(m.requestedGesture||m.gesture||'idle');
   if(plan.accessory==='hat'&&avatarAllowsLegacyAccessory(avatar,'hat',requestedGesture))hat(c,m);
@@ -1140,8 +1183,13 @@ export function drawDai(c,m,w,h,avatar='classic') {
   eye(c,m,spacing,q.right,q.rw,q.happy,2,avatar);
 
   if(faceShape.browStroke>0){
+    const material=avatarMaterialProfile(avatar,isLight);
     for(const [x,dy] of [[-spacing,3],[spacing,-3]]) {
+      c.save();
+      c.shadowColor=material.glow;
+      c.shadowBlur=3.5;
       path(c,`M${x-13} ${-73+dy} Q${x} ${-79+dy} ${x+13} ${-73+dy}`,null,theme.brow,faceShape.browStroke);
+      c.restore();
     }
   }
 
