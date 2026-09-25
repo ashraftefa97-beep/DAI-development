@@ -769,6 +769,76 @@ function drawHandMark(c,mark,style){
   if(mark==='flower'){ star(c,0,5,3.6,col,45);ellipse(c,0,5,1.2,1.2,col);return; }
   if(mark==='code'){ line(c,-7,1,-2,1,col,1);line(c,1,4,7,4,col,1);line(c,-5,8,4,8,col,1);return; }
 }
+function liquidLimb(c,m,x,y,rotation,opacity,mirror,avatar='classic') {
+  if(opacity<.01)return;
+  const style=handTheme(c,avatar);
+  const side=mirror?-1:1;
+  const anchorX=side*101;
+  const anchorY=34;
+  const t=Number(m?.elapsed||0);
+  const dx=x-anchorX;
+  const dy=y-anchorY;
+  const travel=Math.hypot(dx,dy);
+  const bend=Math.max(17,Math.min(44,travel*.34));
+  const sway=Math.sin(t*.82+(mirror?1.6:.2))*3.2;
+  const c1x=anchorX+side*(18+sway);
+  const c1y=anchorY+dy*.24-Math.cos(t*.67)*2.2;
+  const c2x=x-side*bend;
+  const c2y=y-dy*.10+sway*.45;
+
+  const curve=(endX,endY,alpha,width,stroke,blur=0)=>{
+    c.save();
+    c.globalAlpha=opacity*alpha;
+    c.strokeStyle=stroke;
+    c.lineWidth=width;
+    c.lineCap='round';
+    c.lineJoin='round';
+    if(blur){
+      c.shadowColor=style.glow;
+      c.shadowBlur=blur;
+    }
+    c.beginPath();
+    c.moveTo(anchorX,anchorY);
+    c.bezierCurveTo(c1x,c1y,c2x,c2y,endX,endY);
+    c.stroke();
+    c.restore();
+  };
+
+  // A faint lagging ribbon gives the limb a fluid trail without adding
+  // a second rigid hand shape.
+  if(!m?.reduced){
+    const lag=6+Math.min(9,travel*.055);
+    const lagX=x-side*lag;
+    const lagY=y+Math.sin(t*1.08+(mirror?.9:2.2))*4.2;
+    curve(lagX,lagY,.13,13.5,style.glow,9);
+  }
+
+  curve(x,y,.22,18,style.glow,12);
+  curve(x,y,.90,9.2,style.edge,5);
+  curve(x,y,.58,4.2,style.palm,0);
+
+  // Rounded tip: intentionally no fingers, palm or visible elbow.
+  c.save();
+  c.translate(x,y);
+  c.rotate(rad(rotation));
+  c.globalAlpha=opacity*.96;
+  c.shadowColor=style.glow;
+  c.shadowBlur=9;
+  const tip=c.createRadialGradient(-2,-3,1,0,0,11);
+  tip.addColorStop(0,style.edge);
+  tip.addColorStop(.54,style.palm);
+  tip.addColorStop(1,style.fill);
+  c.fillStyle=tip;
+  c.beginPath();
+  c.ellipse(0,0,7.4,10.4,0,0,Math.PI*2);
+  c.fill();
+  c.globalAlpha=opacity*.62;
+  c.strokeStyle=style.edge;
+  c.lineWidth=1.4;
+  c.stroke();
+  c.restore();
+}
+
 function hand(c,x,y,rotation,opacity,mirror,grip,avatar='classic') {
   if(opacity<.01)return;
   const dna=getAvatarVisualDNA(avatar);
@@ -1172,8 +1242,14 @@ export function drawDai(c,m,w,h,avatar='classic') {
     {mode:plan.mode,reduced:plan.reduced}
   );
   if(handIntent>.01&&plan.handScale>.01){
-    hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
-    hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
+    const needsGrip=plan.accessory==='wand'||plan.accessory==='fishing';
+    if(needsGrip){
+      hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
+      hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
+    }else{
+      liquidLimb(c,m,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,avatar);
+      liquidLimb(c,m,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,avatar);
+    }
   }
   if(plan.overlays.listen)listen(c,m);
   if(plan.overlays.personality)personality(c,m);
