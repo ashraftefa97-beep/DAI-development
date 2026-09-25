@@ -1372,11 +1372,6 @@ export default function GithubApp(){
         analyser.connect(ctx.destination);
         speechAnalyserRef.current=analyser;
         emitSpeechMood(spoken);
-        startVoiceMotionTracking(
-          analyser,
-          speechMotionRafRef,
-          ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.size>0
-        );
 
         const reader=response.body.getReader();
         const decoder=new TextDecoder();
@@ -1413,6 +1408,14 @@ export default function GithubApp(){
             const startAt=Math.max(ctx.currentTime+.008,nextStart||0);
             source.start(startAt);
             nextStart=startAt+(buffer.duration/Math.max(.01,voiceRate));
+            schedulePcmLipSync(
+              samples,
+              rate,
+              startAt,
+              ctx,
+              ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.has(source),
+              voiceRate
+            );
 
             if(!started){
               started=true;
@@ -3559,6 +3562,60 @@ export default function GithubApp(){
     return Math.sqrt(sum/samples.length);
   }
 
+
+  function schedulePcmLipSync(
+    samples:Float32Array,
+    sampleRate:number,
+    startAt:number,
+    ctx:AudioContext,
+    isActive:()=>boolean,
+    playbackRate=1
+  ){
+    if(!samples.length||sampleRate<=0)return;
+    const windowSamples=Math.max(1,Math.round(sampleRate*.020));
+    const levels:number[]=[];
+    let maxRms=0;
+
+    for(let offset=0;offset<samples.length;offset+=windowSamples){
+      const end=Math.min(samples.length,offset+windowSamples);
+      let sum=0;
+      let peak=0;
+      for(let i=offset;i<end;i++){
+        const value=samples[i];
+        const abs=Math.abs(value);
+        sum+=value*value;
+        if(abs>peak)peak=abs;
+      }
+      const rms=Math.sqrt(sum/Math.max(1,end-offset));
+      maxRms=Math.max(maxRms,rms);
+      levels.push(Math.max(rms,peak*.28));
+    }
+
+    let previous=0;
+    const safeRate=Math.max(.05,playbackRate);
+    levels.forEach((energy,index)=>{
+      const rms=energy;
+      const absolute=Math.pow(Math.max(0,Math.min(1,(rms-.0012)*19)),.42);
+      const relative=maxRms>.003
+        ? Math.pow(Math.max(0,Math.min(1,(rms/maxRms-.045)/.82)),.58)
+        : 0;
+      const transient=Math.max(0,relative-previous);
+      const level=Math.max(
+        absolute*.72,
+        relative*.96,
+        Math.min(1,relative+transient*.42)
+      );
+      previous=relative;
+
+      const sampleOffset=index*windowSamples;
+      const seconds=(sampleOffset/sampleRate)/safeRate;
+      const delay=Math.max(0,(startAt-ctx.currentTime+seconds)*1000);
+      window.setTimeout(()=>{
+        if(isActive())emitVoiceMotion(level,true);
+      },delay);
+    });
+  }
+
   function base64PcmToFloat32(base64:string){
     const binary=atob(base64);
     const bytes=new Uint8Array(binary.length);
@@ -3636,24 +3693,20 @@ export default function GithubApp(){
     liveNextPlayTimeRef.current=startAt+buffer.duration;
     liveOutputSourcesRef.current.add(source);
 
-    // Seed lip-sync directly from the PCM chunk as well as the analyser. This
-    // keeps the mouth visibly reactive on browsers/devices with weak analyser RMS.
-    const pcmRms=audioRms(samples);
-    const pcmLevel=Math.pow(Math.max(0,Math.min(1,(pcmRms-.0018)*14)),.48);
-    const lipDelay=Math.max(0,(startAt-ctx.currentTime)*1000);
-    window.setTimeout(()=>{
-      if(voiceSessionActiveRef.current&&liveOutputSourcesRef.current.has(source)){
-        emitVoiceMotion(pcmLevel,true);
-      }
-    },lipDelay);
+    // Drive lip sync from the exact PCM being scheduled for playback.
+    // 20 ms windows preserve syllable attacks/closures that browser analyser
+    // smoothing can hide, so mouth motion stays visibly locked to the audio.
+    schedulePcmLipSync(
+      samples,
+      sampleRate,
+      startAt,
+      ctx,
+      ()=>voiceSessionActiveRef.current&&liveOutputSourcesRef.current.has(source),
+      1
+    );
 
     if(liveSpeechMotionRafRef.current===undefined){
       emitSpeechMood(liveOutputTranscriptRef.current);
-      startVoiceMotionTracking(
-        analyser,
-        liveSpeechMotionRafRef,
-        ()=>voiceSessionActiveRef.current&&liveOutputSourcesRef.current.size>0
-      );
     }
 
     source.onended=()=>{
