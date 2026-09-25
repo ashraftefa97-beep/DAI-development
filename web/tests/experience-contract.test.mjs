@@ -262,6 +262,7 @@ test('speaking polish remains face-led with real voice emphasis',()=>{
 });
 
 test('animation cadence stays smooth across quality tiers',()=>{
-  assert.match(app,/quality='high'/);
-  assert.match(readFileSync(new URL('../src/DaiFace.tsx',import.meta.url),'utf8'),/quality==='low'\?27:quality==='medium'\?17:0/);
+  const daiFace=readFileSync(new URL('../src/DaiFace.tsx',import.meta.url),'utf8');
+  assert.match(daiFace,/quality='high'/);
+  assert.match(daiFace,/quality==='low'\?27:quality==='medium'\?17:0/);
 });
