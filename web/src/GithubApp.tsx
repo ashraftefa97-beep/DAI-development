@@ -470,14 +470,19 @@ export default function GithubApp(){
 
   useEffect(()=>{
     const effectiveMode:DaiSfxMode=
-      experiencePreset==='minimal'?'silent':
       experiencePreset==='calm'?'soft':
+      experiencePreset==='minimal'?'soft':
       sfxMode;
     const effectiveVolume=
-      experiencePreset==='calm'?sfxVolume*.76:
-      experiencePreset==='minimal'?0:
+      experiencePreset==='calm'?sfxVolume*.82:
+      experiencePreset==='minimal'?sfxVolume*.68:
       sfxVolume;
-    daiSfx.configure({enabled:sfxEnabled,volume:effectiveVolume,mode:effectiveMode});
+    daiSfx.configure({
+      enabled:sfxEnabled,
+      volume:effectiveVolume,
+      mode:effectiveMode,
+      preset:experiencePreset
+    });
     try{
       localStorage.setItem('dai-sfx-enabled',sfxEnabled?'1':'0');
       localStorage.setItem('dai-sfx-volume',String(sfxVolume));
@@ -3425,6 +3430,10 @@ export default function GithubApp(){
     let desktopActionResult='';
     if(predictedCommand&&desktopMode){
       desktopActionResult=await runDesktopCommand(text);
+      if(desktopActionResult){
+        const failed=/(?:مقدرتش|تعذر|خطأ|لم يتم|فشل|غير متاح)/i.test(desktopActionResult);
+        daiSfx.playConfirmation(failed?'error':'success');
+      }
     }
 
     if(!fromVoice){
@@ -4886,7 +4895,11 @@ export default function GithubApp(){
           'Dropped '+runtimePerf.droppedFrames,
           'SFX '+audio.activeVoices+'/'+audio.maxConcurrent,
           'Audio '+audio.contextState,
-          audio.droppedCueCount?'Dropped cues '+audio.droppedCueCount:null
+          audio.droppedCueCount?'Dropped cues '+audio.droppedCueCount:null,
+          audio.overlapPrevented?'Overlap blocked '+audio.overlapPrevented:null,
+          audio.duplicatePrevented?'Repeats blocked '+audio.duplicatePrevented:null,
+          audio.clippingPrevented?'Clipping blocked '+audio.clippingPrevented:null,
+          audio.suppressedDuringSpeech?'Speech-protected '+audio.suppressedDuringSpeech:null
         ].filter(Boolean).join(' · ')
       });
     }
@@ -5410,7 +5423,7 @@ export default function GithubApp(){
               <label><span>النمط اليدوي</span><select value={sfxMode} onChange={e=>setSfxMode(e.target.value as DaiSfxMode)} disabled={!sfxEnabled||experiencePreset!=='cinematic'}><option value='soft'>هادئ</option><option value='normal'>سينمائي</option><option value='silent'>بدون مؤثرات</option></select></label>
               <label><span>المستوى · {Math.round(sfxVolume*100)}%</span><input type='range' min='0' max='1' step='.05' value={sfxVolume} disabled={!sfxEnabled||sfxMode==='silent'||experiencePreset==='minimal'} onChange={e=>setSfxVolume(Number(e.target.value))}/></label>
             </div>
-            <small className='dai-sfx-preset-note'>{experiencePreset==='cinematic'?'النمط السينمائي يستخدم إعداداتك اليدوية.':experiencePreset==='calm'?'النمط الهادئ يقلل المؤثرات والمستوى تلقائيًا.':'Minimal يوقف المؤثرات الخلفية ويحافظ على الصوت الأساسي فقط.'}</small>
+            <small className='dai-sfx-preset-note'>{experiencePreset==='cinematic'?'سينمائي: مكتبة المؤثرات كاملة مع توزيع ديناميكي ومنع التداخل.':experiencePreset==='calm'?'هادئ: مؤثرات أقل، تكرار أبطأ وخلفية أخف.':'Minimal: بدون خلفية أو Foley؛ يحتفظ فقط بتأكيدات الأوامر القصيرة.'}</small>
             <button
               className='dai-sfx-preview'
               disabled={!sfxEnabled||sfxMode==='silent'||experiencePreset==='minimal'}
