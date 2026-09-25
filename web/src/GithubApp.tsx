@@ -127,6 +127,11 @@ type DesktopAction =
 
 declare global {
   interface Window {
+    AndroidWatchBridge?: {
+      pushState: (state:string) => void;
+      pushMessage?: (text:string) => void;
+      connectWatch?: () => void;
+    };
     daiDesktop?: {
       isDesktop: boolean;
       platform?: string;
@@ -899,6 +904,15 @@ export default function GithubApp(){
     catch{return 'المتصفح';}
   }
 
+  function pushWatchBridgeState(phase:DaiCorePhase){
+    try{
+      window.dispatchEvent(new CustomEvent('dai:core-phase',{detail:{phase,at:Date.now()}}));
+      window.AndroidWatchBridge?.pushState(phase);
+    }catch(error){
+      console.debug('DAI Watch Bridge state push skipped',error);
+    }
+  }
+
   function animate(state:DaiState,duration=2200){
     const protectedPhase=corePhaseRef.current;
     if(!['idle','complete'].includes(protectedPhase))return;
@@ -943,6 +957,7 @@ export default function GithubApp(){
 
     corePhaseRef.current=phase;
     corePhaseStartedAtRef.current=now;
+    pushWatchBridgeState(phase);
     const baseScene=DAI_PHASE_SCENES[phase];
     const scene=semanticPhaseScene(phase,semanticMotionRef.current,baseScene) as DaiPhaseScene;
 
@@ -994,6 +1009,7 @@ export default function GithubApp(){
           corePhaseRef.current='idle';
           corePhaseStartedAtRef.current=performance.now();
           workPhaseStartedAtRef.current=0;
+          pushWatchBridgeState('idle');
           daiSfx.setDucked(false);
           daiSfx.setScene('idle',{cue:false});
           setDaiState('idle');
