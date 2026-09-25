@@ -1,0 +1,45 @@
+name: Build DAI Watch Lite assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'watch/redmi-watch-3-active/**'
+      - '.github/workflows/redmi3-active-watchface.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install image generator
+        run: python -m pip install --disable-pip-version-check pillow
+      - name: Generate Redmi Watch 3 Active pack
+        working-directory: watch/redmi-watch-3-active
+        run: python generate_assets.py
+      - name: Validate dimensions and frame count
+        working-directory: watch/redmi-watch-3-active
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          root=Path('dist')
+          frames=sorted((root/'images').glob('second_*.png'))
+          assert len(frames)==60, len(frames)
+          for p in frames:
+              assert Image.open(p).size==(240,280), (p,Image.open(p).size)
+          assert Image.open(root/'preview.png').size==(156,182)
+          print('DAI Watch Lite validation passed')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DAI-Watch-Redmi3Active
+          path: watch/redmi-watch-3-active/dist/DAI_Watch_Redmi3Active_Assets.zip
+          if-no-files-found: error
