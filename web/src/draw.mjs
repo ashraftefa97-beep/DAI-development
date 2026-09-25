@@ -679,8 +679,9 @@ function premiumMouthFinish(c,m,avatar,theme,faceShape,q){
   c.shadowBlur=6+material.depth*5;
   if(q.mouth>.055){
     const speechWide=clamp(q.mouthWide||0,0,1);
-    const mw=faceShape.speechBase+q.smile*5+speechWide*18;
-    const mh=3+q.mouth*35;
+    const speechRound=clamp(q.mouthRound||0,0,1);
+    const mw=(faceShape.speechBase+q.smile*5+speechWide*23)*(1-speechRound*.31);
+    const mh=2.5+q.mouth*39+speechRound*8.5;
     path(c,'M'+(-mw*.36)+' '+(53+mh*.18)+' Q0 '+(55+mh*.42)+' '+(mw*.36)+' '+(53+mh*.18),null,material.specular,.7);
   }else if(!['digital','segment','code'].includes(getAvatarVisualDNA(avatar).mouth)){
     path(c,'M-10 52 Q0 55 10 52',null,material.specular,.65);
@@ -1198,21 +1199,28 @@ export function drawDai(c,m,w,h,avatar='classic') {
   light(c,-82,40,Math.max(faceShape.cheekX,faceShape.cheekY)*1.45,cheekColor,faceShape.cheekX*1.16,faceShape.cheekY*1.22);
   light(c,82,40,Math.max(faceShape.cheekX,faceShape.cheekY)*1.45,cheekColor,faceShape.cheekX*1.16,faceShape.cheekY*1.22);
 
-  if(q.mouth>.055) {
+  if(q.mouth>.045) {
     const speechWide=clamp(q.mouthWide||0,0,1);
-    const mw=faceShape.speechBase+q.smile*5+speechWide*18;
-    const mh=3+q.mouth*35;
-    const upperCurve=53+speechWide*2.2;
+    const speechRound=clamp(q.mouthRound||0,0,1);
+    const baseWidth=faceShape.speechBase+q.smile*5+speechWide*23;
+    const mw=baseWidth*(1-speechRound*.31);
+    const mh=2.5+q.mouth*39+speechRound*8.5;
+    const upperCurve=52.5+speechWide*2.8-speechRound*1.3;
     const mouthGradient=c.createLinearGradient(0,50,0,58+mh);
     mouthGradient.addColorStop(0,theme.mouth);
     mouthGradient.addColorStop(.72,theme.mouth);
     mouthGradient.addColorStop(1,'rgba(22,12,28,.78)');
-    const shape=path(c,`M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*.53} ${54+mh} ${-mw*.53} ${54+mh} ${-mw/2} 52`,mouthGradient);
+    const lowerBulge=.50+speechRound*.16;
+    const shape=path(
+      c,
+      `M${-mw/2} 52 Q0 ${upperCurve} ${mw/2} 52 C${mw*lowerBulge} ${54+mh} ${-mw*lowerBulge} ${54+mh} ${-mw/2} 52`,
+      mouthGradient
+    );
     c.save();c.clip(shape);
     const tongueGradient=c.createLinearGradient(0,53,0,56+mh);
     tongueGradient.addColorStop(0,theme.tongue);
     tongueGradient.addColorStop(1,'rgba(255,255,255,.18)');
-    ellipse(c,1.5,53.5+mh,mw*.39,mh*.27,tongueGradient);
+    ellipse(c,1.5,53.5+mh,mw*(.36-speechRound*.05),mh*(.25+speechRound*.03),tongueGradient);
     c.globalAlpha=.18;
     path(c,`M${-mw*.30} ${53+mh*.18} Q0 ${54+mh*.34} ${mw*.30} ${53+mh*.18}`,null,'rgba(255,255,255,.82)',.75);
     c.restore();
