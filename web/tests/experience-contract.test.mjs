@@ -320,7 +320,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v15-20260925-product-flow/);
+  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
@@ -395,7 +395,7 @@ test('landing page uses varied visual chapters instead of one repeated layout',(
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v15-20260925-product-flow/);
+  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
 });
 
 
@@ -406,13 +406,15 @@ test('landing uses Lemon and requested Narsol typography',()=>{
   assert.match(marketingCss,/--dai-font-ar:'Narsol','Norsal'/);
 });
 
-test('hero buddy is a layered showpiece instead of a plain square',()=>{
-  assert.match(marketingPage,/dai-mkt-buddy-fin/);
-  assert.match(marketingPage,/dai-mkt-buddy-ring/);
-  assert.match(marketingPage,/dai-mkt-buddy-scanline/);
-  assert.match(marketingCss,/border-radius:47% 53% 43% 57%/);
-  assert.match(marketingCss,/conic-gradient/);
-  assert.match(marketingCss,/mktShellGlow/);
+test('public introduction features Classic DAI without an artificial device shell',()=>{
+  const faces=[...marketingPage.matchAll(/<DaiFace[^>]*avatar='([^']+)'/g)].map(match=>match[1]);
+  assert.ok(faces.length>=5);
+  assert.ok(faces.every(avatar=>avatar==='classic'));
+  assert.ok(!marketingPage.includes('dai-mkt-buddy-fin'));
+  assert.ok(!marketingPage.includes('dai-mkt-buddy-ring'));
+  assert.ok(!marketingPage.includes('dai-mkt-buddy-scanline'));
+  assert.match(marketingCss,/dai-mkt-buddy-classic/);
+  assert.match(marketingCss,/background:transparent/);
 });
 
 
@@ -440,5 +442,12 @@ test('landing has responsive dashboard plans updates and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v15-20260925-product-flow/);
+  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
+});
+
+
+test('classic intro removes discarded shell decoration',()=>{
+  assert.match(marketingCss,/dai-mkt-buddy-fin,[\s\S]*display:none!important/);
+  assert.match(marketingCss,/mktClassicBreath/);
+  assert.match(marketingCss,/mktClassicOrbit/);
 });
