@@ -17,6 +17,8 @@ const voiceLive=app;
 const supervisor=readFileSync(new URL('../src/requestSupervisor.ts',import.meta.url),'utf8');
 const diagnostics=app;
 const daiSfx=readFileSync(new URL('../src/daiSfx.ts',import.meta.url),'utf8');
+const marketingPage=readFileSync(new URL('../src/MarketingPage.tsx',import.meta.url),'utf8');
+const marketingCss=readFileSync(new URL('../src/marketing.css',import.meta.url),'utf8');
 
 // Experience contracts intentionally assert stable architecture/user-facing invariants,
 // not incidental implementation details.
@@ -373,4 +375,25 @@ test('rendered speaking mouth visibly changes silhouette',()=>{
   assert.match(draw,/speechWide\*23/);
   assert.match(draw,/q\.mouth\*39/);
   assert.match(draw,/speechRound\*8\.5/);
+});
+
+
+test('landing hero has Arabic-safe typography and no Latin negative tracking',()=>{
+  assert.match(marketingPage,/data-locale=\{locale\}/);
+  assert.match(marketingCss,/data-locale='ar'.*dai-mkt-hero h1/s);
+  assert.match(marketingCss,/letter-spacing:0/);
+  assert.match(marketingCss,/line-height:1\.18/);
+});
+
+test('landing page uses varied visual chapters instead of one repeated layout',()=>{
+  assert.match(marketingPage,/dai-mkt-motion-strip/);
+  assert.match(marketingPage,/dai-mkt-flow-index/);
+  assert.match(marketingCss,/grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
+  assert.match(marketingCss,/dai-mkt-card:nth-child\(1\).*grid-column:span 7/s);
+  assert.match(marketingCss,/dai-mkt-languages[\s\S]*#17151b/);
+});
+
+test('landing cache refresh ships with visual redesign',()=>{
+  const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
+  assert.match(sw,/dai-web-v13-20260925-landing-v2/);
 });
