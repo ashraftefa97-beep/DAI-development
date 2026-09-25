@@ -1,0 +1,404 @@
+.dai-marketing-page{
+  --mkt-ink:#16151a;
+  --mkt-cream:#f4efe7;
+  --mkt-cream-2:#ebe4d8;
+  --mkt-pink:#f2a7bf;
+  --mkt-pink-2:#ffd6e2;
+  --mkt-lilac:#b79ad8;
+  --mkt-dark:#15141a;
+  --mkt-muted:#6f6b73;
+  height:100dvh;
+  overflow-y:auto;
+  overflow-x:hidden;
+  background:var(--mkt-cream);
+  color:var(--mkt-ink);
+  scroll-behavior:smooth;
+  font-family:var(--font-identity);
+}
+.dai-marketing-page *{box-sizing:border-box}
+.dai-marketing-page a{color:inherit;text-decoration:none}
+.dai-marketing-page button,.dai-marketing-page select{font:inherit}
+.dai-mkt-nav{
+  position:sticky;
+  top:0;
+  z-index:80;
+  min-height:74px;
+  padding:0 clamp(18px,4vw,64px);
+  display:flex;
+  align-items:center;
+  gap:26px;
+  background:rgba(244,239,231,.82);
+  border-bottom:1px solid rgba(22,21,26,.08);
+  backdrop-filter:blur(18px);
+}
+.dai-mkt-brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.dai-mkt-brand img{width:38px;height:38px;object-fit:contain;filter:drop-shadow(0 7px 16px rgba(140,77,108,.14))}
+.dai-mkt-brand strong{display:block;font-size:15px;line-height:1}
+.dai-mkt-brand small{display:block;margin-top:4px;font-size:10px;color:#8f6678}
+.dai-mkt-links{display:flex;align-items:center;gap:24px;margin-inline-start:auto}
+.dai-mkt-links a{font-size:12px;font-weight:700;color:#615d65;transition:color .2s ease}
+.dai-mkt-links a:hover{color:var(--mkt-ink)}
+.dai-mkt-actions{display:flex;align-items:center;gap:8px}
+.dai-mkt-language{
+  height:38px;
+  padding:0 10px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  border:1px solid rgba(22,21,26,.10);
+  border-radius:999px;
+  background:rgba(255,255,255,.50);
+}
+.dai-mkt-language select{border:0;background:transparent;outline:0;color:#48434b;font-size:11px;cursor:pointer}
+.dai-mkt-open,.dai-mkt-hero-cta .primary,.dai-mkt-final button{
+  border:0;
+  border-radius:999px;
+  background:var(--mkt-ink);
+  color:#fff9fb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  cursor:pointer;
+  font-weight:800;
+  transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s ease,background .22s ease;
+}
+.dai-mkt-open{height:40px;padding:0 16px;font-size:11px}
+.dai-mkt-open:hover,.dai-mkt-hero-cta .primary:hover,.dai-mkt-final button:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(22,21,26,.18);background:#25222b}
+
+.dai-mkt-hero{
+  min-height:calc(100dvh - 74px);
+  display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(380px,.95fr);
+  align-items:center;
+  gap:clamp(36px,7vw,110px);
+  padding:clamp(54px,8vw,110px) clamp(24px,6vw,96px);
+  position:relative;
+  isolation:isolate;
+}
+.dai-mkt-hero::before{
+  content:'';
+  position:absolute;
+  width:42vw;
+  height:42vw;
+  min-width:420px;
+  min-height:420px;
+  inset-inline-end:-14vw;
+  top:-8vw;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(242,167,191,.28),rgba(183,154,216,.13) 46%,transparent 70%);
+  filter:blur(12px);
+  z-index:-1;
+}
+.dai-mkt-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:18px;
+  color:#8a6474;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.dai-mkt-hero h1{
+  margin:0;
+  max-width:780px;
+  font-size:clamp(48px,6.9vw,104px);
+  line-height:.96;
+  letter-spacing:-.055em;
+  font-weight:900;
+}
+.dai-mkt-hero h1 span{display:block}
+.dai-mkt-hero h1 .accent{
+  margin-top:8px;
+  color:#b6708b;
+  background:linear-gradient(120deg,#b66d89,#9669b6 62%,#655f8d);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.dai-mkt-hero-copy>p{
+  margin:28px 0 0;
+  max-width:640px;
+  color:#666169;
+  font-size:clamp(16px,1.5vw,21px);
+  line-height:1.75;
+}
+.dai-mkt-hero-cta{display:flex;align-items:center;gap:10px;margin-top:30px;flex-wrap:wrap}
+.dai-mkt-hero-cta .primary{min-height:50px;padding:0 21px}
+.dai-mkt-hero-cta .secondary{
+  min-height:50px;padding:0 18px;
+  display:inline-flex;align-items:center;
+  border:1px solid rgba(22,21,26,.12);
+  border-radius:999px;
+  background:rgba(255,255,255,.34);
+  font-weight:800;
+  font-size:13px;
+}
+.dai-mkt-note{display:flex;align-items:center;gap:8px;margin-top:18px;color:#827d84;font-size:10px}
+.dai-mkt-note i{width:7px;height:7px;border-radius:50%;background:#79ad74;box-shadow:0 0 0 5px rgba(121,173,116,.10)}
+
+.dai-mkt-buddy-column{min-height:560px;position:relative;display:grid;place-items:center}
+.dai-mkt-buddy-shadow{
+  position:absolute;
+  width:min(360px,70%);
+  height:46px;
+  bottom:54px;
+  border-radius:50%;
+  background:rgba(42,29,39,.22);
+  filter:blur(22px);
+}
+.dai-mkt-buddy{
+  position:relative;
+  width:min(430px,86vw);
+  aspect-ratio:1/1;
+  border-radius:34% 34% 31% 31% / 32% 32% 28% 28%;
+  background:
+    radial-gradient(circle at 44% 30%,rgba(245,209,224,.10),transparent 30%),
+    linear-gradient(145deg,#211d29,#111016 66%,#0d0c10);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:
+    0 34px 80px rgba(48,30,42,.24),
+    inset 0 1px 0 rgba(255,255,255,.10),
+    inset 0 -22px 34px rgba(0,0,0,.28);
+  overflow:visible;
+  will-change:transform;
+}
+.dai-mkt-buddy::before{
+  content:'';
+  position:absolute;
+  inset:-16px;
+  border-radius:36%;
+  border:1px solid rgba(183,154,216,.18);
+  pointer-events:none;
+}
+.dai-mkt-buddy-topline{
+  position:absolute;
+  z-index:5;
+  top:18px;
+  inset-inline:24px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  color:rgba(255,255,255,.40);
+  font-size:10px;
+  letter-spacing:.15em;
+}
+.dai-mkt-buddy-topline i{width:8px;height:8px;border-radius:50%;background:#8cd48b;box-shadow:0 0 0 5px rgba(140,212,139,.08)}
+.dai-mkt-face-stage{position:absolute;inset:42px 22px 20px;overflow:hidden;border-radius:31%}
+.dai-mkt-face-stage .dai-canvas{width:100%;height:100%}
+.dai-mkt-buddy-base{
+  position:absolute;
+  bottom:-26px;
+  left:50%;
+  transform:translateX(-50%);
+  width:118px;height:34px;
+  display:flex;
+  justify-content:center;
+  gap:20px;
+  pointer-events:none;
+}
+.dai-mkt-buddy-base span{width:30px;height:30px;border-radius:50%;background:#17131b;box-shadow:inset 0 2px 0 rgba(255,255,255,.08),0 8px 15px rgba(0,0,0,.22)}
+.dai-mkt-floating-card{
+  position:absolute;
+  display:flex;align-items:center;gap:8px;
+  min-height:40px;
+  padding:0 13px;
+  border-radius:999px;
+  background:rgba(255,255,255,.82);
+  color:#4d4650;
+  border:1px solid rgba(22,21,26,.08);
+  box-shadow:0 14px 34px rgba(64,49,60,.10);
+  backdrop-filter:blur(12px);
+  font-size:11px;font-weight:800;
+  animation:mktFloat 4.8s ease-in-out infinite;
+}
+.dai-mkt-floating-card svg{color:#b16e88}
+.dai-mkt-floating-card.card-a{top:16%;inset-inline-start:-2%;animation-delay:-.4s}
+.dai-mkt-floating-card.card-b{top:55%;inset-inline-end:-7%;animation-delay:-1.9s}
+.dai-mkt-floating-card.card-c{bottom:14%;inset-inline-start:0;animation-delay:-3s}
+
+.dai-mkt-buddy-demo{
+  margin:0 clamp(18px,4vw,64px);
+  padding:clamp(34px,5vw,70px);
+  border-radius:42px;
+  background:#17151b;
+  color:#f8f2f5;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:42px;
+  align-items:end;
+}
+.dai-mkt-buddy-demo .dai-mkt-eyebrow{color:#d899b3}
+.dai-mkt-demo-copy h2,.dai-mkt-section-head h2,.dai-mkt-personality-copy h2,.dai-mkt-control-card h2,.dai-mkt-final h2{
+  margin:0;
+  font-size:clamp(34px,4.6vw,68px);
+  line-height:1.02;
+  letter-spacing:-.045em;
+}
+.dai-mkt-demo-copy p,.dai-mkt-section-head p,.dai-mkt-personality-copy>p,.dai-mkt-control-card p,.dai-mkt-final p{
+  margin:18px 0 0;
+  max-width:650px;
+  color:#9f98a5;
+  font-size:15px;
+  line-height:1.8;
+}
+.dai-mkt-demo-controls{display:grid;gap:8px}
+.dai-mkt-demo-controls button{
+  min-height:58px;
+  padding:0 17px;
+  display:flex;align-items:center;gap:14px;
+  border-radius:17px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.035);
+  color:#bdb5c1;
+  cursor:pointer;text-align:start;
+  transition:.22s ease;
+}
+.dai-mkt-demo-controls button span{font-size:10px;color:#6f6874}
+.dai-mkt-demo-controls button:hover,.dai-mkt-demo-controls button.active{background:#2a2029;border-color:rgba(242,167,191,.22);color:#fff}
+.dai-mkt-demo-controls button.active span{color:#f2a7bf}
+
+.dai-mkt-flow,.dai-mkt-languages,.dai-mkt-control{padding:clamp(80px,10vw,150px) clamp(24px,6vw,96px)}
+.dai-mkt-section-head{max-width:790px}
+.dai-mkt-section-head p{color:#747078}
+.dai-mkt-card-grid{margin-top:48px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.dai-mkt-card{
+  min-height:290px;
+  padding:26px;
+  border-radius:28px;
+  background:rgba(255,255,255,.52);
+  border:1px solid rgba(22,21,26,.07);
+  display:flex;flex-direction:column;
+  transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s ease;
+}
+.dai-mkt-card:hover{transform:translateY(-6px);box-shadow:0 22px 50px rgba(79,57,69,.10)}
+.dai-mkt-card>span{font-size:11px;color:#ae7288;font-weight:900}
+.dai-mkt-card h3{margin:auto 0 10px;font-size:24px;letter-spacing:-.03em}
+.dai-mkt-card p{margin:0;color:#716c74;font-size:13px;line-height:1.75}
+
+.dai-mkt-personality{
+  min-height:780px;
+  padding:clamp(70px,8vw,120px) clamp(24px,6vw,96px);
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  align-items:center;
+  gap:clamp(36px,7vw,100px);
+  background:#e9e0d5;
+}
+.dai-mkt-personality-visual{position:relative;min-height:560px;display:grid;place-items:center;isolation:isolate}
+.dai-mkt-personality-face{
+  width:min(500px,82vw);
+  aspect-ratio:1/1;
+  position:relative;
+  z-index:3;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.46),rgba(255,255,255,.10) 52%,transparent 68%);
+}
+.dai-mkt-personality-face .dai-canvas{width:100%;height:100%}
+.dai-mkt-orbit{position:absolute;border-radius:50%;border:1px solid rgba(105,79,96,.15);z-index:1}
+.dai-mkt-orbit::after{content:'';position:absolute;width:13px;height:13px;border-radius:50%;background:#b98198;top:50%;left:-6px;box-shadow:0 0 0 7px rgba(185,129,152,.08)}
+.dai-mkt-orbit.orbit-one{width:74%;aspect-ratio:1;animation:mktOrbit 16s linear infinite}
+.dai-mkt-orbit.orbit-two{width:92%;aspect-ratio:1;animation:mktOrbit 26s linear infinite reverse}
+.dai-mkt-personality-copy ul,.dai-mkt-control-card ul{list-style:none;padding:0;margin:28px 0 0;display:grid;gap:12px}
+.dai-mkt-personality-copy li,.dai-mkt-control-card li{display:flex;align-items:center;gap:10px;color:#5e5961;font-size:13px}
+.dai-mkt-personality-copy li svg,.dai-mkt-control-card li svg{color:#a86982;flex:0 0 auto}
+
+.dai-mkt-languages{background:#f7f3ed}
+.dai-mkt-language-cloud{margin-top:38px;display:flex;flex-wrap:wrap;gap:9px}
+.dai-mkt-language-cloud button{
+  min-height:44px;padding:0 16px;border-radius:999px;
+  border:1px solid rgba(22,21,26,.10);
+  background:#fff;color:#625c65;cursor:pointer;font-weight:800;
+  transition:.2s ease;
+}
+.dai-mkt-language-cloud button:hover,.dai-mkt-language-cloud button.active{background:#17151b;color:#fff;border-color:#17151b;transform:translateY(-2px)}
+
+.dai-mkt-control{padding-top:0;background:#f7f3ed}
+.dai-mkt-control-card{
+  padding:clamp(34px,5vw,70px);
+  border-radius:38px;
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:40px;
+  background:linear-gradient(135deg,#ead6de,#ddd2ea);
+  border:1px solid rgba(92,63,80,.08);
+}
+.dai-mkt-control-card p{color:#655e66}
+.dai-mkt-control-card ul{margin:0;align-content:center}
+.dai-mkt-control-card li{
+  min-height:48px;padding:0 14px;border-radius:14px;
+  background:rgba(255,255,255,.38);
+  border:1px solid rgba(255,255,255,.36);
+}
+
+.dai-mkt-final{
+  margin:clamp(18px,4vw,64px);
+  min-height:420px;
+  border-radius:42px;
+  padding:54px 24px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  background:#16151a;color:#fff;
+  position:relative;overflow:hidden;
+}
+.dai-mkt-final::before{
+  content:'';
+  position:absolute;
+  width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(242,167,191,.18),transparent 66%);
+  top:-250px;
+}
+.dai-mkt-final>svg{color:#f1aac0;margin-bottom:18px;position:relative}
+.dai-mkt-final h2{max-width:720px;position:relative}
+.dai-mkt-final p{max-width:560px;position:relative}
+.dai-mkt-final button{position:relative;margin-top:26px;min-height:50px;padding:0 21px;background:#f0a6bd;color:#23161d}
+.dai-mkt-final button:hover{background:#ffd2df;color:#23161d}
+
+.dai-mkt-footer{
+  padding:24px clamp(24px,6vw,96px) 32px;
+  display:flex;justify-content:space-between;gap:16px;
+  color:#7c777e;font-size:10px;
+}
+
+[data-reveal]{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+[data-reveal].is-visible{opacity:1;transform:translateY(0)}
+
+@keyframes mktFloat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-9px) rotate(1deg)}}
+@keyframes mktOrbit{to{transform:rotate(360deg)}}
+
+@media(max-width:1000px){
+  .dai-mkt-links{display:none}
+  .dai-mkt-hero{grid-template-columns:1fr;min-height:auto;padding-top:70px}
+  .dai-mkt-buddy-column{min-height:520px}
+  .dai-mkt-card-grid{grid-template-columns:repeat(2,1fr)}
+  .dai-mkt-personality{grid-template-columns:1fr}
+  .dai-mkt-personality-copy{max-width:760px}
+}
+@media(max-width:700px){
+  .dai-mkt-nav{min-height:64px;padding:0 12px;gap:8px}
+  .dai-mkt-brand small{display:none}
+  .dai-mkt-language{padding:0 8px}
+  .dai-mkt-language select{max-width:88px}
+  .dai-mkt-open{padding:0 12px}
+  .dai-mkt-hero{padding:48px 16px 64px;gap:28px}
+  .dai-mkt-hero h1{font-size:clamp(46px,15vw,72px)}
+  .dai-mkt-buddy-column{min-height:420px}
+  .dai-mkt-buddy{width:min(330px,84vw)}
+  .dai-mkt-floating-card.card-a{inset-inline-start:0}
+  .dai-mkt-floating-card.card-b{inset-inline-end:0}
+  .dai-mkt-buddy-demo{margin:0 10px;padding:34px 20px;border-radius:28px;grid-template-columns:1fr;gap:26px}
+  .dai-mkt-flow,.dai-mkt-languages,.dai-mkt-control{padding:76px 16px}
+  .dai-mkt-card-grid{grid-template-columns:1fr}
+  .dai-mkt-card{min-height:230px}
+  .dai-mkt-personality{padding:70px 16px;grid-template-columns:1fr;min-height:auto}
+  .dai-mkt-personality-visual{min-height:390px}
+  .dai-mkt-control{padding-top:0}
+  .dai-mkt-control-card{grid-template-columns:1fr;padding:30px 20px;border-radius:28px}
+  .dai-mkt-final{margin:10px;border-radius:28px;min-height:360px}
+  .dai-mkt-footer{padding:22px 16px 28px;flex-direction:column}
+}
+@media(prefers-reduced-motion:reduce){
+  .dai-mkt-floating-card,.dai-mkt-orbit{animation:none!important}
+  [data-reveal]{opacity:1;transform:none;transition:none}
+}
