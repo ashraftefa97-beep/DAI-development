@@ -908,6 +908,39 @@ export default function GithubApp(){
     try{
       window.dispatchEvent(new CustomEvent('dai:core-phase',{detail:{phase,at:Date.now()}}));
       window.AndroidWatchBridge?.pushState(phase);
+
+      // iPhone / iOS bridge: once enabled from the dedicated watch page,
+      // mirror DAI's real core state through an iOS notification. Mi Fitness
+      // can mirror normal iPhone notifications to Redmi Watch 3 Active.
+      if(
+        typeof navigator!=='undefined' &&
+        'serviceWorker' in navigator &&
+        typeof Notification!=='undefined' &&
+        Notification.permission==='granted' &&
+        localStorage.getItem('dai-watch-iphone-bridge')==='1'
+      ){
+        const labels:Record<DaiCorePhase,string>={
+          idle:'ضي جاهزة',
+          listening:'ضي بتسمعك',
+          understanding:'ضي فهمت وبتحلل',
+          searching:'ضي بتدور على المعلومة',
+          working:'ضي بتنفذ',
+          preparing:'ضي بتجهز الرد',
+          responding:'ضي بترد',
+          speaking:'ضي بتتكلم',
+          complete:'ضي خلصت',
+          error:'حصل خطأ من ضي'
+        };
+        void navigator.serviceWorker.ready
+          .then(registration=>registration.showNotification('ضي',{
+            body:labels[phase],
+            tag:'dai-watch-state',
+            icon:'./dai-logo.svg',
+            badge:'./dai-logo.svg',
+            data:{phase,url:'./'}
+          }))
+          .catch(()=>undefined);
+      }
     }catch(error){
       console.debug('DAI Watch Bridge state push skipped',error);
     }
