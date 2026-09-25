@@ -446,8 +446,7 @@ export default function MarketingPage(){
         </div>
       </div>
 
-      <div className='dai-mkt-buddy-column' data-reveal>
-        <div className='dai-mkt-buddy-shadow'/>
+      <div className='dai-mkt-buddy-column dai-mkt-buddy-column-classic' data-reveal>
         <div className='dai-mkt-buddy dai-mkt-buddy-classic' ref={buddyRef}>
           <div className='dai-mkt-classic-halo halo-a' aria-hidden='true'/>
           <div className='dai-mkt-classic-halo halo-b' aria-hidden='true'/>
@@ -455,9 +454,6 @@ export default function MarketingPage(){
             <DaiFace state={heroState} avatar='classic' quality='high'/>
           </div>
         </div>
-        <div className='dai-mkt-floating-card card-a'><Sparkles size={16}/><span>24 avatars</span></div>
-        <div className='dai-mkt-floating-card card-b'><Mic size={16}/><span>Voice</span></div>
-        <div className='dai-mkt-floating-card card-c'><Search size={16}/><span>Search</span></div>
       </div>
     </section>
 
