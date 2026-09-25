@@ -167,7 +167,17 @@ class DaiSfxEngine {
   setDucked(value:boolean){
     if(this.ducked===value)return;
     this.ducked=value;
-    this.refreshAmbience(value?90:180);
+
+    if(value){
+      // Speech owns the mix. Kill any pending/active Foley immediately so
+      // nothing competes with DAI's voice, then fade the ambience to silence.
+      this.clearTransientVoices();
+      this.refreshAmbience(55);
+      return;
+    }
+
+    // Bring the ambience back gently only after speech has fully ended.
+    this.refreshAmbience(240);
   }
 
   async unlock(){
@@ -229,13 +239,13 @@ class DaiSfxEngine {
   }
 
   private baseGain(){
-    return Math.max(0,Math.min(1,this.volume*this.modeGain()*(this.ducked?.20:1)));
+    return Math.max(0,Math.min(1,this.volume*this.modeGain()*(this.ducked?0:1)));
   }
 
   private ambienceGain(state=this.ambienceState){
     const profile=BED_PROFILE[state];
     if(!profile||!this.enabled||this.mode==='silent'||!this.unlocked||this.lifecycleSuspended)return 0;
-    const duck=this.ducked?.08:1;
+    const duck=this.ducked?0:1;
     return Math.max(0,Math.min(.11,this.volume*this.modeGain()*profile.gain*duck));
   }
 
@@ -313,7 +323,7 @@ class DaiSfxEngine {
   }
 
   private startEvent(event:DaiMotionAudioEvent,source:'motion'|'semantic'='motion'){
-    if(!this.unlocked||!this.enabled||this.mode==='silent'||this.lifecycleSuspended)return null;
+    if(!this.unlocked||!this.enabled||this.mode==='silent'||this.lifecycleSuspended||this.ducked||this.lastSonicState==='speaking')return null;
     if(!(event.cue in this.bank))return null;
 
     const cue=event.cue as Cue;
@@ -429,7 +439,19 @@ class DaiSfxEngine {
   }
 
   private clearTransientVoices(){
-    this.clearTransientVoices();
+    for(const timer of this.stateTimers)window.clearTimeout(timer);
+    this.stateTimers=[];
+
+    for(const item of this.active){
+      try{
+        const current=Number(item.howl.volume(item.id))||0;
+        item.howl.fade(current,0,45,item.id);
+        window.setTimeout(()=>{ try{item.howl.stop(item.id);}catch{} },55);
+      }catch{
+        try{item.howl.stop(item.id);}catch{}
+      }
+    }
+    this.active=[];
   }
 
   stopAll(){
