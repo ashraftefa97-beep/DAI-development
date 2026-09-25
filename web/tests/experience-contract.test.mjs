@@ -266,3 +266,26 @@ test('animation cadence stays smooth across quality tiers',()=>{
   assert.match(daiFace,/quality='high'/);
   assert.match(daiFace,/quality==='low'\?27:quality==='medium'\?17:0/);
 });
+
+
+test('premium avatar renderer covers every visual style',()=>{
+  const premiumBlock=draw.match(/PREMIUM_MATERIAL_GROUPS=Object\.freeze\(\{([\s\S]*?)\}\);\nfunction avatarMaterialProfile/)?.[1]||'';
+  for(const id of ['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix']){
+    assert.ok(premiumBlock.includes("'"+id+"'"),id+' missing premium material');
+  }
+  assert.match(draw,/drawEyeFinish/);
+  assert.match(draw,/premiumFaceAtmosphere/);
+  assert.match(draw,/premiumMouthFinish/);
+});
+
+test('premium avatar rendering uses HiDPI supersampling and high smoothing',()=>{
+  const daiFace=readFileSync(new URL('../src/DaiFace.tsx',import.meta.url),'utf8');
+  assert.match(daiFace,/area<=360000\?3:2\.5/);
+  assert.match(daiFace,/imageSmoothingQuality='high'/);
+});
+
+test('premium hand rendering uses material gradient and highlight pass',()=>{
+  assert.match(draw,/const hp=new Path2D/);
+  assert.match(draw,/createLinearGradient\(-20,-24,22,24\)/);
+  assert.match(draw,/material\.specular/);
+});
