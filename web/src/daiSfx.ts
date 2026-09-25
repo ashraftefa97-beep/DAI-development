@@ -1,6 +1,7 @@
 import { Howl, Howler } from 'howler';
 
 export type DaiSfxMode = 'soft' | 'normal' | 'silent';
+export type DaiAudioPreset = 'cinematic' | 'calm' | 'minimal';
 export type DaiSonicState =
   | 'idle'
   | 'wake'
@@ -32,6 +33,11 @@ export type DaiSfxStats = {
   contextState:string;
   scene:DaiSonicState;
   lifecycleSuspended:boolean;
+  speechPriority:boolean;
+  overlapPrevented:number;
+  clippingPrevented:number;
+  duplicatePrevented:number;
+  suppressedDuringSpeech:number;
 };
 
 type Cue =
@@ -86,7 +92,21 @@ const CUE_FILES:Record<Cue,string[]>={
 };
 
 const MASTER_CEILING=.62;
-const MAX_SIMULTANEOUS_VOICES=4;
+
+const PRESET_PROFILE:Record<DaiAudioPreset,{
+  foleyGain:number;
+  semanticGain:number;
+  confirmationGain:number;
+  ambienceGain:number;
+  maxVoices:number;
+  cooldownScale:number;
+}> = {
+  cinematic:{foleyGain:1,semanticGain:.90,confirmationGain:.76,ambienceGain:1,maxVoices:4,cooldownScale:1},
+  calm:{foleyGain:.52,semanticGain:.50,confirmationGain:.58,ambienceGain:.48,maxVoices:2,cooldownScale:1.35},
+  minimal:{foleyGain:0,semanticGain:0,confirmationGain:.42,ambienceGain:0,maxVoices:1,cooldownScale:1.8}
+};
+
+// Static per-cue normalization keeps unlike source files at a consistent perceived level.
 const CUE_TRIM:Record<Cue,number>={
   swish:.78,
   fabric:.72,
@@ -104,6 +124,41 @@ const CUE_TRIM:Record<Cue,number>={
   computer:.52
 };
 
+
+const CUE_COOLDOWN_MS:Record<Cue,number>={
+  swish:190,
+  fabric:220,
+  step:170,
+  key:150,
+  page:320,
+  water:260,
+  mech:180,
+  ratchet:210,
+  breath:420,
+  clap:320,
+  click:145,
+  bell:520,
+  glass:260,
+  computer:240
+};
+
+const CUE_RATE_VARIANTS:Record<Cue,number[]>={
+  swish:[.96,1,1.04],
+  fabric:[.97,1.02],
+  step:[.96,1.03],
+  key:[.98,1.03],
+  page:[.98,1.02],
+  water:[.96,1.04],
+  mech:[.95,1.02],
+  ratchet:[.96,1.03],
+  breath:[.98,1.01],
+  clap:[.98,1.02],
+  click:[.97,1.04],
+  bell:[.98,1.02],
+  glass:[.97,1.03],
+  computer:[.97,1.02]
+};
+
 const BED_PROFILE:Partial<Record<DaiSonicState,{gain:number;rate:number}>>={
   thinking:{gain:.040,rate:.93},
   searching:{gain:.052,rate:1.00},
@@ -116,18 +171,25 @@ class DaiSfxEngine {
   private enabled=true;
   private volume=.84;
   private mode:DaiSfxMode='normal';
+  private preset:DaiAudioPreset='cinematic';
   private unlocked=false;
   private ducked=false;
   private lifecycleSuspended=false;
-  private active:Array<{howl:Howl;id:number;source:'motion'|'semantic'}>=[];
+  private active:Array<{howl:Howl;id:number;source:'motion'|'semantic'|'confirmation';priority:number}>=[];
   private maxConcurrent=0;
   private resumeCount=0;
   private suspendCount=0;
   private droppedCueCount=0;
+  private overlapPrevented=0;
+  private clippingPrevented=0;
+  private duplicatePrevented=0;
+  private suppressedDuringSpeech=0;
   private lastVariant=new Map<Cue,number>();
+  private lastRateVariant=new Map<Cue,number>();
   private previewTimers:number[]=[];
   private stateTimers:number[]=[];
   private lastMotionAt=new Map<Cue,number>();
+  private lastCueAt=new Map<Cue,number>();
   private lastSonicState:DaiSonicState='idle';
   private lastSonicAt=0;
 
@@ -153,10 +215,11 @@ class DaiSfxEngine {
     ])
   ) as Record<Cue,Howl[]>;
 
-  configure(config:{enabled:boolean;volume:number;mode:DaiSfxMode}){
+  configure(config:{enabled:boolean;volume:number;mode:DaiSfxMode;preset?:DaiAudioPreset}){
     this.enabled=config.enabled;
     this.volume=Math.max(0,Math.min(1,config.volume));
     this.mode=config.mode;
+    this.preset=config.preset||'cinematic';
     if(!this.enabled||this.mode==='silent'){
       this.stopAll();
       return;
@@ -229,7 +292,12 @@ class DaiSfxEngine {
       droppedCueCount:this.droppedCueCount,
       contextState:String(Howler.ctx?.state||'unavailable'),
       scene:this.ambienceState,
-      lifecycleSuspended:this.lifecycleSuspended
+      lifecycleSuspended:this.lifecycleSuspended,
+      speechPriority:this.ducked,
+      overlapPrevented:this.overlapPrevented,
+      clippingPrevented:this.clippingPrevented,
+      duplicatePrevented:this.duplicatePrevented,
+      suppressedDuringSpeech:this.suppressedDuringSpeech
     };
   }
 
@@ -238,15 +306,20 @@ class DaiSfxEngine {
     return this.mode==='soft'?.68:1;
   }
 
-  private baseGain(){
-    return Math.max(0,Math.min(1,this.volume*this.modeGain()*(this.ducked?0:1)));
+  private baseGain(source:'motion'|'semantic'|'confirmation'='motion'){
+    const profile=PRESET_PROFILE[this.preset];
+    const bus=
+      source==='confirmation'?profile.confirmationGain:
+      source==='semantic'?profile.semanticGain:
+      profile.foleyGain;
+    return Math.max(0,Math.min(1,this.volume*this.modeGain()*bus*(this.ducked?0:1)));
   }
 
   private ambienceGain(state=this.ambienceState){
     const profile=BED_PROFILE[state];
     if(!profile||!this.enabled||this.mode==='silent'||!this.unlocked||this.lifecycleSuspended)return 0;
     const duck=this.ducked?0:1;
-    return Math.max(0,Math.min(.11,this.volume*this.modeGain()*profile.gain*duck));
+    return Math.max(0,Math.min(.11,this.volume*this.modeGain()*PRESET_PROFILE[this.preset].ambienceGain*profile.gain*duck));
   }
 
   private refreshAmbience(fadeMs=220){
@@ -312,6 +385,20 @@ class DaiSfxEngine {
     return variants[index];
   }
 
+  private rateVariant(cue:Cue){
+    const values=CUE_RATE_VARIANTS[cue]||[1];
+    if(values.length===1)return values[0];
+    const previous=this.lastRateVariant.get(cue)??-1;
+    let index=Math.floor(Math.random()*values.length);
+    if(index===previous)index=(index+1)%values.length;
+    this.lastRateVariant.set(cue,index);
+    return values[index];
+  }
+
+  private sourcePriority(source:'motion'|'semantic'|'confirmation'){
+    return source==='confirmation'?3:source==='semantic'?2:1;
+  }
+
   private motionEventGain(cue:Cue){
     if(this.lastSonicState==='speaking')return 0;
     if(['thinking','searching','working','preparing'].includes(this.lastSonicState)){
@@ -322,43 +409,68 @@ class DaiSfxEngine {
     return 1;
   }
 
-  private startEvent(event:DaiMotionAudioEvent,source:'motion'|'semantic'='motion'){
-    if(!this.unlocked||!this.enabled||this.mode==='silent'||this.lifecycleSuspended||this.ducked||this.lastSonicState==='speaking')return null;
+  private startEvent(event:DaiMotionAudioEvent,source:'motion'|'semantic'|'confirmation'='motion'){
+    if(!this.unlocked||!this.enabled||this.mode==='silent'||this.lifecycleSuspended)return null;
+    if(this.ducked||this.lastSonicState==='speaking'){
+      this.suppressedDuringSpeech++;
+      return null;
+    }
     if(!(event.cue in this.bank))return null;
 
     const cue=event.cue as Cue;
+    const now=performance.now();
+    const cooldown=Math.round(CUE_COOLDOWN_MS[cue]*PRESET_PROFILE[this.preset].cooldownScale);
+    const last=this.lastCueAt.get(cue)||0;
+    if(now-last<cooldown){
+      this.duplicatePrevented++;
+      return null;
+    }
+
     if(source==='motion'){
-      const now=performance.now();
       const previous=this.lastMotionAt.get(cue)||0;
-      if(now-previous<145)return null;
+      if(now-previous<Math.max(145,cooldown*.72)){
+        this.duplicatePrevented++;
+        return null;
+      }
       this.lastMotionAt.set(cue,now);
     }
+    this.lastCueAt.set(cue,now);
 
     const howl=this.choose(cue);
     if(!howl)return null;
 
-    if(this.active.length>=MAX_SIMULTANEOUS_VOICES){
-      const removable=this.active.find(item=>item.source==='motion')||this.active[0];
+    const priority=this.sourcePriority(source);
+    const maxVoices=PRESET_PROFILE[this.preset].maxVoices;
+    if(this.active.length>=maxVoices){
+      const removable=[...this.active]
+        .filter(item=>item.priority<priority)
+        .sort((a,b)=>a.priority-b.priority)[0];
       if(removable){
         try{removable.howl.stop(removable.id);}catch{}
         this.active=this.active.filter(item=>item!==removable);
+        this.overlapPrevented++;
+      }else{
+        this.overlapPrevented++;
         this.droppedCueCount++;
+        return null;
       }
     }
 
     try{
       const id=howl.play();
-      const sourceGain=source==='semantic'?1:this.motionEventGain(cue);
-      const mastered=this.baseGain()*(event.volume??1)*sourceGain*CUE_TRIM[cue];
-      const volume=Math.max(0,Math.min(MASTER_CEILING,mastered));
+      const sourceGain=source==='semantic'?this.motionEventGain(cue):1;
+      const preClamp=this.baseGain(source)*(event.volume??1)*sourceGain*CUE_TRIM[cue];
+      if(preClamp>MASTER_CEILING)this.clippingPrevented++;
+      const volume=Math.max(0,Math.min(MASTER_CEILING,preClamp));
       if(volume<=.001){
         howl.stop(id);
         return null;
       }
       howl.volume(volume,id);
-      howl.rate(Math.max(.76,Math.min(1.20,event.rate??1)),id);
+      const rate=(event.rate??1)*this.rateVariant(cue);
+      howl.rate(Math.max(.76,Math.min(1.20,rate)),id);
       if(typeof howl.stereo==='function')howl.stereo(Math.max(-1,Math.min(1,event.pan??0)),id);
-      this.active.push({howl,id,source});
+      this.active.push({howl,id,source,priority});
       this.maxConcurrent=Math.max(this.maxConcurrent,this.active.length);
       howl.once('end',()=>{
         this.active=this.active.filter(item=>!(item.howl===howl&&item.id===id));
@@ -372,6 +484,16 @@ class DaiSfxEngine {
 
   playEvent(event:DaiMotionAudioEvent){
     return Boolean(this.startEvent(event,'motion'));
+  }
+
+  playConfirmation(kind:'success'|'error'='success'){
+    if(this.ducked||this.lastSonicState==='speaking')return false;
+    return Boolean(this.startEvent(
+      kind==='error'
+        ? {cue:'mech',volume:.13,rate:.92}
+        : {cue:'click',volume:.12,rate:1.06},
+      'confirmation'
+    ));
   }
 
   private transient(event:DaiMotionAudioEvent,maxMs=0){
