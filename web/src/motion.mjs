@@ -66,6 +66,7 @@ export class DaiMotion {
     this.offset = {x:0,y:0}; this.offsetTarget = {x:0,y:0};
     this.particles = []; this.caught = false; this.audioEvents = [];
     this.pose = this.targets();
+    this.poseVelocity=Object.fromEntries(Object.keys(this.pose).map(key=>[key,0]));
   }
   setAvatar(style='classic') {
     const next=String(style||'classic');
@@ -859,28 +860,88 @@ export class DaiMotion {
       gestureTime:this.gestureTime,
       allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture)
     });
+    const activeMode=animationModeForGesture(this.requestedGesture);
+
+    const springStep=(key,targetValue,frequency,damping)=>{
+      const x=Number(this.pose[key])||0;
+      const v=Number(this.poseVelocity[key])||0;
+      const targetX=Number(targetValue)||0;
+      const omega=Math.max(.01,2*Math.PI*frequency);
+      const zeta=clamp(damping,.35,1.6);
+      const rel=x-targetX;
+
+      let nextRel;
+      let nextVel;
+      if(Math.abs(zeta-1)<.001){
+        const e=Math.exp(-omega*dt);
+        const c1=rel;
+        const c2=v+omega*rel;
+        nextRel=(c1+c2*dt)*e;
+        nextVel=(v-omega*c2*dt)*e;
+      }else if(zeta<1){
+        const wd=omega*Math.sqrt(1-zeta*zeta);
+        const e=Math.exp(-zeta*omega*dt);
+        const cos=Math.cos(wd*dt);
+        const sin=Math.sin(wd*dt);
+        const A=rel;
+        const B=(v+zeta*omega*rel)/wd;
+        nextRel=e*(A*cos+B*sin);
+        nextVel=e*((-A*wd*sin+B*wd*cos)-zeta*omega*(A*cos+B*sin));
+      }else{
+        // Overdamped fallback is intentionally conservative.
+        const rate=omega/(1+zeta*.75);
+        const next=x+(targetX-x)*(1-Math.exp(-rate*dt));
+        this.poseVelocity[key]=(next-x)/Math.max(dt,.001);
+        this.pose[key]=next;
+        return;
+      }
+      this.poseVelocity[key]=nextVel;
+      this.pose[key]=targetX+nextRel;
+    };
+
     for(const key of Object.keys(this.pose)) {
-      const activeMode=animationModeForGesture(this.requestedGesture);
-      const rate=this.reduced
-        ? 22
-        : restingHands&&['la','ra'].includes(key)
-          ? 22
-          : speechFace&&key==='mouth'
-            ? 30
-            : speechFace&&key==='mouthWide'
-              ? 24
-              : ['gaze_x','gaze_y'].includes(key)
-                ? 16
-                : ['left','right','brow','smile','cheek'].includes(key)
-                  ? 12
-                  : ['tilt','bob'].includes(key)
-                    ? (activeMode==='idle'?8.5:11.5)
-                    : ['sx','sy'].includes(key)
-                      ? 9.5
-                      : ['la','ra','lx','ly','rx','ry','lr','rr'].includes(key)
-                        ? 10.5
-                        : 8.2;
-      this.pose[key]=mix(this.pose[key],target[key],rate);
+      if(restingHands&&['la','ra'].includes(key)){
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],24);
+        continue;
+      }
+
+      if(speechFace&&key==='mouth'){
+        // Mouth has to follow PCM quickly; body uses springs, lip sync does not.
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],42);
+        continue;
+      }
+      if(speechFace&&key==='mouthWide'){
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],34);
+        continue;
+      }
+
+      if(['la','ra','lx','ly','rx','ry','lr','rr','hat','wand','rod','fish','listen','heart','notes','bulb','sleep'].includes(key)){
+        this.poseVelocity[key]=0;
+        this.pose[key]=mix(this.pose[key],target[key],11.5);
+        continue;
+      }
+
+      if(['gaze_x','gaze_y'].includes(key)){
+        springStep(key,target[key],5.1,activeMode==='speaking'?.78:.72);
+        continue;
+      }
+      if(['tilt','bob'].includes(key)){
+        springStep(key,target[key],activeMode==='idle'?2.05:2.75,.82);
+        continue;
+      }
+      if(['sx','sy'].includes(key)){
+        springStep(key,target[key],2.15,.88);
+        continue;
+      }
+      if(['left','right','brow','smile','cheek','happy'].includes(key)){
+        springStep(key,target[key],3.7,.86);
+        continue;
+      }
+
+      springStep(key,target[key],3.1,.88);
     }
 
     // Props belong to the current semantic state, never the previous one.
