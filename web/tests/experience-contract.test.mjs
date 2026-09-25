@@ -15,6 +15,7 @@ const webResearch=readFileSync(new URL('../../supabase/functions/web-research/in
 const voiceLive=app;
 const supervisor=readFileSync(new URL('../src/requestSupervisor.ts',import.meta.url),'utf8');
 const diagnostics=app;
+const daiSfx=readFileSync(new URL('../src/daiSfx.ts',import.meta.url),'utf8');
 
 // Experience contracts intentionally assert stable architecture/user-facing invariants,
 // not incidental implementation details.
@@ -160,6 +161,16 @@ test('adaptive quality and preset system protects low-power devices',()=>assert.
 test('audio lifecycle pauses and resumes cleanly across page visibility',()=>assert.match(app,/visibility/i));
 test('core phase never delays the real DAI state behind animation locks',()=>assert.match(app,/daiState/));
 test('runtime diagnostics expose animation and soundtrack health',()=>assert.match(diagnostics,/animation|sound/i));
+test('speech fully owns the soundtrack mix',()=>{
+  assert.match(daiSfx,/this\.ducked\?0:1/);
+  assert.match(daiSfx,/this\.clearTransientVoices\(\)/);
+  assert.match(daiSfx,/this\.lastSonicState==='speaking'/);
+});
+test('transient cleanup is not recursive',()=>{
+  const body=daiSfx.match(/private clearTransientVoices\(\)\{([\s\S]*?)\n  \}/)?.[1]||'';
+  assert.ok(!body.includes('this.clearTransientVoices()'));
+  assert.match(body,/this\.active/);
+});
 test('avatar system keeps all styles on the same motion engine',()=>{
   assert.match(draw,/applyAvatarMotion\(c,m,avatar\)/);
   assert.match(draw,/stabilizeRenderedHands/);
