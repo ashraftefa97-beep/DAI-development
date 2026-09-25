@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101321">
+<link rel="manifest" href="../../manifest.webmanifest">
+<title>DAI Watch Bridge — iPhone</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#24172d 0,#101321 38%,#090a10 100%);color:#fff7fb;display:grid;place-items:center;padding:24px}
+.card{width:min(460px,100%);border:1px solid rgba(255,255,255,.1);background:rgba(15,17,29,.84);backdrop-filter:blur(18px);border-radius:28px;padding:24px;box-shadow:0 28px 90px rgba(0,0,0,.38)}
+.logo{width:72px;height:72px;border-radius:22px;display:block;margin:0 auto 12px}
+h1{font-size:25px;margin:4px 0 8px;text-align:center}
+.sub{color:#bdb0c7;line-height:1.75;text-align:center;margin:0 0 20px}
+.status{padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.055);margin:14px 0;color:#e4d8e8}
+.actions{display:grid;gap:10px}
+button,a.btn{appearance:none;border:0;border-radius:16px;padding:14px 16px;font-weight:800;font-size:16px;text-align:center;text-decoration:none;cursor:pointer}
+.primary{background:#f2bdd3;color:#24131d}
+.secondary{background:rgba(255,255,255,.08);color:#fff}
+.danger{background:rgba(230,108,135,.13);color:#ffced9}
+.steps{margin:20px 0 0;padding:0 18px 0 0;color:#cfc3d4;line-height:1.9;font-size:14px}
+code{color:#f0c6db}
+.small{font-size:12px;color:#95899d;line-height:1.7;margin-top:18px}
+</style>
+</head>
+<body>
+<main class="card">
+<img class="logo" src="../../dai-logo.svg" alt="ضي">
+<h1>DAI Watch Bridge — iPhone</h1>
+<p class="sub">اربط حالات ضي من iPhone 16 بـ Redmi Watch 3 Active عن طريق إشعارات iOS التي يقدر Mi Fitness يعكسها للساعة.</p>
+<div class="status" id="status">الجسر غير مفعّل</div>
+<div class="actions">
+<button class="primary" id="enable">تفعيل ربط الساعة</button>
+<button class="secondary" id="test">إرسال اختبار للساعة</button>
+<a class="btn secondary" href="../../">فتح ضي</a>
+<button class="danger" id="disable">إيقاف الربط</button>
+</div>
+<ol class="steps">
+<li>افتح الصفحة من Safari واضغط <b>تفعيل ربط الساعة</b>.</li>
+<li>من Share اختر <b>Add to Home Screen</b> ثم افتح ضي من الأيقونة الجديدة.</li>
+<li>اسمح بالإشعارات عندما يطلب iPhone ذلك.</li>
+<li>في iPhone: Settings → Bluetooth → ساعتك → فعّل <b>Share System Notifications</b> إن ظهر.</li>
+<li>في Mi Fitness: Device → Notifications وفعّل مزامنة إشعارات الهاتف.</li>
+</ol>
+<p class="small">بعد التفعيل، حالات ضي الحقيقية مثل LISTENING / THINKING / SPEAKING / COMPLETE تتحول إلى إشعارات iOS يمكن للساعة عرضها. ده جسر تجريبي آمن لا يغيّر Firmware الساعة.</p>
+</main>
+<script>
+const status=document.getElementById('status');
+const isStandalone=window.matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
+
+async function readyRegistration(){
+  if(!('serviceWorker' in navigator))throw new Error('service-worker-unavailable');
+  await navigator.serviceWorker.register('../../sw.js',{scope:'../../'});
+  return navigator.serviceWorker.ready;
+}
+function paint(){
+  const enabled=localStorage.getItem('dai-watch-iphone-bridge')==='1';
+  const permission=typeof Notification==='undefined'?'unsupported':Notification.permission;
+  status.textContent=
+    enabled && permission==='granted'
+      ? 'الجسر شغال — ضي جاهزة للساعة'
+      : enabled
+        ? 'الجسر محفوظ لكن إذن الإشعارات غير مكتمل'
+        : 'الجسر غير مفعّل';
+  status.dataset.enabled=enabled?'1':'0';
+}
+async function notify(body){
+  const reg=await readyRegistration();
+  await reg.showNotification('ضي',{
+    body,
+    tag:'dai-watch-state',
+    icon:'../../dai-logo.svg',
+    badge:'../../dai-logo.svg',
+    data:{url:'../../'}
+  });
+}
+document.getElementById('enable').onclick=async()=>{
+  try{
+    await readyRegistration();
+    if(typeof Notification==='undefined'){
+      status.textContent='الإشعارات غير مدعومة في الوضع الحالي.';
+      return;
+    }
+    const permission=await Notification.requestPermission();
+    if(permission!=='granted'){
+      status.textContent='لازم تسمح بإشعارات ضي من إعدادات iPhone.';
+      return;
+    }
+    localStorage.setItem('dai-watch-iphone-bridge','1');
+    paint();
+    await notify('تم ربط ضي بالآيفون. لو Mi Fitness مفعّل، الاختبار هيوصل للساعة.');
+  }catch(e){
+    status.textContent='تعذر تفعيل الجسر. أضف ضي للشاشة الرئيسية وافتحها من هناك ثم جرّب تاني.';
+  }
+};
+document.getElementById('test').onclick=async()=>{
+  try{
+    if(Notification.permission!=='granted')throw new Error('permission');
+    await notify('اختبار DAI Watch Bridge — ضي متصلة');
+    status.textContent='تم إرسال اختبار من الآيفون.';
+  }catch{
+    status.textContent='فعّل الجسر والإشعارات الأول.';
+  }
+};
+document.getElementById('disable').onclick=()=>{
+  localStorage.removeItem('dai-watch-iphone-bridge');
+  paint();
+};
+paint();
+if(!isStandalone){
+  status.title='أفضل توافق على iPhone بعد Add to Home Screen';
+}
+</script>
+</body>
+</html>
