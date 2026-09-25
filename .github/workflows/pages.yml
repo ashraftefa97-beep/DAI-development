@@ -80,6 +80,15 @@ jobs:
           npm run architecture-check
           cp github.html index.html
           npm run build
+
+          # Explicitly publish watch bridge/static watch assets. Vite normally
+          # copies public/, but keeping this explicit makes the watch routes
+          # deterministic and lets CI catch a missing iPhone bridge before deploy.
+          mkdir -p dist/watch
+          cp -R public/watch/. dist/watch/
+          test -f dist/watch/iphone-bridge/index.html
+          test -f dist/watch/redmi3-active/index.html
+
           npm run security-check
           touch dist/.nojekyll
 
