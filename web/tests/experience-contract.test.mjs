@@ -310,7 +310,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
   assert.match(app,/sampleRate\*\.020/);
   assert.match(app,/schedulePcmLipSync\(\s*samples,\s*rate,/);
   assert.match(app,/schedulePcmLipSync\(\s*samples,\s*sampleRate,/);
-  assert.match(app,/relative\*\.96/);
+  assert.match(app,/Math\.min\(1,relative\+transient\*\.52\)/);
 });
 
 
