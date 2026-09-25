@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v14-20260925-showpiece';
+const CACHE_NAME = 'dai-web-v15-20260925-product-flow';
 const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
