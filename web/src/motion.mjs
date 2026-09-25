@@ -57,6 +57,7 @@ export class DaiMotion {
     this.lastMeaningfulAt = 0;
     this.voiceDriven = false;
     this.voice = this.voiceTarget = this.audio = this.audioTarget = 0;
+    this.voiceAccent = 0;
     this.speechMood = 'neutral';
     this.speechMoodIntensity = .65;
     this.nextBlink = 2.5; this.blinkTime = 1;
@@ -166,9 +167,17 @@ export class DaiMotion {
   }
   setVoiceLevel(level=0, active=true) {
     const value=clamp(Number(level)||0,0,1);
+    const previous=this.voiceTarget;
     this.voiceDriven=Boolean(active);
     this.voiceTarget=active?value:0;
-    if(!active)this.voice=0;
+    if(active){
+      // Preserve fast syllable/consonant attacks instead of smoothing them away.
+      const attack=Math.max(0,value-previous);
+      this.voiceAccent=Math.max(this.voiceAccent,attack);
+    }else{
+      this.voice=0;
+      this.voiceAccent=0;
+    }
   }
   setSpeechMood(mood='neutral', intensity=.65) {
     const allowed=new Set(['neutral','warm','happy','curious','calm','serious']);
@@ -255,15 +264,25 @@ export class DaiMotion {
     } else if(active==='talk'||this.state==='talking') {
       // Mouth motion is driven only by real voice energy. Text responses use
       // the reply state, so a stopped voice must never leave synthetic speech.
-      const visualFallback=this.reduced?0:(.16+.10*(.5+.5*Math.sin(e*8.4)));
-      // Fallback only while real speech is marked active. The mouth must close
-      // immediately when speech tracking ends.
-      let beat=this.voiceDriven?Math.max(this.voice,visualFallback):0;
+      // Tiny fallback only prevents a frozen mouth on devices with weak analyser
+      // output. Real audio energy remains dominant so lip motion visibly follows
+      // syllables instead of sitting at one constant opening.
+      const visualFallback=this.reduced?0:(.032+.018*(.5+.5*Math.sin(e*9.1)));
+      let beat=this.voiceDriven
+        ?Math.max(this.voice,visualFallback)+this.voiceAccent*.82
+        :0;
       beat=clamp(beat,0,1);
 
-      // Gate tiny room/noise energy so the mouth actually closes between words.
-      const speechOpen=beat<.035?0:Math.pow(clamp((beat-.035)/.72,0,1),.68);
-      const mouthWide=speechOpen*(.62-.26*speechOpen);
+      // Stronger, non-linear articulation: quiet vowels are still visible while
+      // loud syllables open significantly wider. Positive transients widen the
+      // mouth briefly, making consonant/word attacks readable.
+      const speechOpen=beat<.022?0:Math.pow(clamp((beat-.022)/.50,0,1),.48);
+      const syllable=clamp(this.voiceAccent*2.15,0,1);
+      const mouthWide=clamp(
+        speechOpen*(.74-.16*speechOpen)+syllable*.24,
+        0,
+        1
+      );
       const phrase=this.reduced?0:Math.sin(e*.82);
       const micro=this.reduced?0:Math.sin(e*1.55+.7);
 
@@ -290,7 +309,7 @@ export class DaiMotion {
         right:speechRight,
         smile:speechSmile,
         cheek:speechCheek,
-        mouth:speechOpen*.78,
+        mouth:clamp(speechOpen*1.02+syllable*.16,0,1.08),
         mouthWide,
         tilt:speechTilt,
         gaze_x:phrase*.72,
@@ -827,8 +846,9 @@ export class DaiMotion {
     this.blinkTime+=elapsedDt;
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
-    this.voice=mix(this.voice,this.voiceTarget,18); this.audio=mix(this.audio,this.audioTarget,12);
-    if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*2.2);
+    this.voice=mix(this.voice,this.voiceTarget,26); this.audio=mix(this.audio,this.audioTarget,12);
+    this.voiceAccent*=Math.exp(-dt*13.5);
+    if(this.voiceDriven)this.voiceTarget*=Math.exp(-dt*3.0);
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
     const speechFace=this.gesture==='talk'||this.state==='talking';
