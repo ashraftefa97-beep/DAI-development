@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Globe2, Mic, Search, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react';
+import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, Sparkles, TimerReset, WandSparkles, Zap } from 'lucide-react';
 import DaiFace, { type DaiState } from './DaiFace';
 import './marketing.css';
 
@@ -218,6 +218,88 @@ const LANGUAGE_NAMES:Record<Locale,string>={
 
 const DEMO_STATES:DaiState[]=['listen','focus','search','happy'];
 
+const EXTRA_COPY:Record<Locale,{
+  chat:{eyebrow:string;title:string;body:string;user1:string;reply1:string;user2:string;reply2:string};
+  software:{eyebrow:string;title:string;body:string};
+  toolkit:{title:string;items:Array<{title:string;body:string}>};
+  inside:{eyebrow:string;title:string;body:string;items:Array<{title:string;body:string}>};
+  system:{eyebrow:string;title:string;body:string;items:Array<{title:string;body:string}>};
+  action:{eyebrow:string;title:string;body:string};
+  plans:{eyebrow:string;title:string;body:string;standard:string;pro:string;cta:string};
+  updates:{eyebrow:string;title:string;body:string;items:string[]};
+  faq:{eyebrow:string;title:string;items:Array<{q:string;a:string}>};
+}> = {
+  ar:{
+    chat:{eyebrow:'اتكلم مع ضي',title:'قول اللي في دماغك. ضي تكمل الباقي.',body:'اسأل، خطط، ابحث أو اطلب تنفيذ خطوة — والواجهة توضح لك هي بتعمل إيه لحظة بلحظة.',user1:'ضي، فكّريني أراجع المشروع بكرة الساعة 6.',reply1:'تمام. هفكرك الساعة 6، وهنبدأ من آخر نقطة وقفنا عندها.',user2:'دوريلي على أحدث حل للمشكلة دي.',reply2:'حاضر. هراجع المصادر وأرجعلك بأوضح نتيجة بدل التخمين.'},
+    software:{eyebrow:'البرنامج',title:'مكان واحد للكلام، البحث، الأدوات والشخصية.',body:'Dashboard واحدة تجمع المحادثة، الأدوات، الأفاتارات، الحالة الصوتية والإعدادات بدون ما تتنقل بين تطبيقات.'},
+    toolkit:{title:'كل اللي تحتاجه عشان ضي تبقى معاك طول اليوم.',items:[
+      {title:'محادثة وصوت',body:'كتابة وصوت في نفس المكان مع ردود قصيرة ومباشرة.'},
+      {title:'بحث حديث',body:'بحث ويب عند الحاجة بدل الاعتماد على معلومات قديمة.'},
+      {title:'أوامر وأدوات',body:'إجراءات واضحة داخل التطبيق، ومع نسخة الديسكتوب صلاحيات أوسع.'},
+      {title:'أفاتارات وحركة',body:'اختيار شخصية مختلفة مع حركة وتعبير حسب الحالة.'},
+      {title:'تذكيرات وروتين',body:'تنظيم المهام والمتابعة في نفس مساحة المساعد.'},
+      {title:'تشخيص مباشر',body:'تعرف حالة الصوت، الحركة، الشبكة والأدوات من داخل الواجهة.'}
+    ]},
+    inside:{eyebrow:'جوه التطبيق',title:'مش شات وخلاص.',body:'ضي مصممة كطبقة مساعدة كاملة حوالين يومك، مش نافذة سؤال وجواب بس.',items:[
+      {title:'عقل المحادثة',body:'يفهم السؤال ويختار الرد أو البحث أو الأداة المناسبة.'},
+      {title:'شخصية حية',body:'نظرات، تعبيرات وردود فعل مرتبطة بالسياق.'},
+      {title:'صوت مباشر',body:'استماع ورد صوتي مع مزامنة الفم والحركة.'},
+      {title:'أدوات سريعة',body:'اختصارات وإجراءات داخل نفس التدفق بدون تشتيت.'}
+    ]},
+    system:{eyebrow:'اشتغل على جهازك',title:'ويب الآن. وديسكتوب أقوى بعده.',body:'ضي مصممة تشتغل على المتصفح اليوم، ومع نسخة الكمبيوتر تزيد إمكانيات التحكم بشكل واضح وآمن.',items:[
+      {title:'Windows',body:'الهدف الرئيسي لنسخة الديسكتوب والتحكم بالتطبيقات.'},
+      {title:'Web',body:'تجربة ضي الأساسية متاحة مباشرة من المتصفح.'},
+      {title:'Mobile',body:'واجهة متجاوبة للموبايل مع أولوية للصوت والسرعة.'}
+    ]},
+    action:{eyebrow:'شوفها وهي شغالة',title:'الشخصية تتغير مع اللي بيحصل.',body:'الاستماع غير البحث، والبحث غير النجاح، والكلام نفسه له تعبير وحركة مختلفة.'},
+    plans:{eyebrow:'الخطط',title:'ابدأ بسيط، ووسع قدرات ضي وقت ما تحتاج.',body:'نسخة Standard للتجربة الأساسية، وProfessional لخصائص الديسكتوب والتحكم المتقدم.',standard:'Standard',pro:'Professional',cta:'ابدأ مع ضي'},
+    updates:{eyebrow:'تتطور باستمرار',title:'تحديثات صغيرة ومتكررة بدل قفزات كبيرة متأخرة.',body:'الصوت، الحركة، السرعة والأدوات بيتراجعوا ويتحسنوا باستمرار.',items:['تحسين الكلام والحركة','أدوات أسرع','نسخة ديسكتوب','مزايا موبايل','أفاتارات أكثر']},
+    faq:{eyebrow:'FAQ',title:'أسئلة سريعة.',items:[
+      {q:'إيه هي ضي؟',a:'DAI AI مساعدة ذكية بصوت وشخصية وحركة، مصممة للكلام والبحث والأدوات في تجربة واحدة.'},
+      {q:'هل لازم أسجل دخول؟',a:'التطبيق نفسه يعتمد على حسابك لحفظ تجربتك وإعداداتك بشكل منظم.'},
+      {q:'هل فيه نسخة كمبيوتر؟',a:'نسخة الديسكتوب جزء أساسي من الخطة، خصوصًا لخصائص التحكم في البرامج والصوت والفيديو.'},
+      {q:'هل ضي بتبحث على الإنترنت؟',a:'نعم، لما السؤال يحتاج معلومات حديثة تقدر تستخدم البحث بدل التخمين.'},
+      {q:'هل أقدر أغير الأفاتار؟',a:'نعم، النظام يدعم مجموعة أفاتارات مع اختلافات في الشكل والحركة.'}
+    ]}
+  },
+  en:{
+    chat:{eyebrow:'Talk to DAI',title:'Say what you need. DAI handles the flow.',body:'Ask, plan, search or trigger an action while the interface shows what DAI is doing.',user1:'DAI, remind me to review the project tomorrow at 6.',reply1:'Done. I’ll bring you back to the last point at 6.',user2:'Find the newest reliable fix for this issue.',reply2:'Got it. I’ll check current sources and bring back the clearest answer.'},
+    software:{eyebrow:'The software',title:'Conversation, search, tools and personality in one place.',body:'One dashboard for chat, tools, avatars, voice state and settings without jumping between apps.'},
+    toolkit:{title:'Everything DAI needs to stay useful throughout your day.',items:[
+      {title:'Chat & voice',body:'Text and voice in one place with short, direct replies.'},
+      {title:'Current search',body:'Fresh web research when the answer depends on current information.'},
+      {title:'Actions & tools',body:'Clear in-app actions, with broader desktop permissions later.'},
+      {title:'Avatars & motion',body:'Choose a personality with context-aware motion and expression.'},
+      {title:'Reminders & routines',body:'Keep small tasks and follow-ups close to the assistant.'},
+      {title:'Live diagnostics',body:'See voice, motion, network and tool health from the interface.'}
+    ]},
+    inside:{eyebrow:'Inside the app',title:'More than a chat window.',body:'DAI is designed as an assistant layer around your day, not only a question-and-answer box.',items:[
+      {title:'Conversation brain',body:'Understands intent and decides when to answer, search or use a tool.'},
+      {title:'Living character',body:'Gaze, expression and reactions shift with context.'},
+      {title:'Live voice',body:'Listening and spoken replies with lip and motion sync.'},
+      {title:'Quick tools',body:'Useful actions live in the same flow instead of breaking focus.'}
+    ]},
+    system:{eyebrow:'Runs where you work',title:'Web now. A stronger desktop experience next.',body:'DAI works in the browser today, while the desktop version expands controlled device actions.',items:[
+      {title:'Windows',body:'The main target for desktop automation and app control.'},
+      {title:'Web',body:'The core DAI experience runs directly in the browser.'},
+      {title:'Mobile',body:'A responsive interface tuned for voice and speed.'}
+    ]},
+    action:{eyebrow:'See it in action',title:'The character changes with the moment.',body:'Listening feels different from searching, success, and speaking.'},
+    plans:{eyebrow:'Plans',title:'Start simple, expand when you need more.',body:'Standard covers the core DAI experience. Professional adds advanced desktop capabilities.',standard:'Standard',pro:'Professional',cta:'Start with DAI'},
+    updates:{eyebrow:'Always improving',title:'Small, frequent improvements instead of rare giant releases.',body:'Voice, motion, speed and tools keep getting refined.',items:['Better voice & motion','Faster tools','Desktop app','Mobile features','More avatars']},
+    faq:{eyebrow:'FAQ',title:'Quick answers.',items:[
+      {q:'What is DAI?',a:'DAI AI is an assistant with voice, personality and motion, built around conversation, search and tools.'},
+      {q:'Do I need an account?',a:'The app uses your account to keep your experience and settings organized.'},
+      {q:'Is there a desktop app?',a:'The desktop version is a core part of the roadmap, especially for app, audio and video control.'},
+      {q:'Can DAI search the web?',a:'Yes. When a question needs current information, DAI can use web search instead of guessing.'},
+      {q:'Can I change the avatar?',a:'Yes. The avatar system supports multiple visual styles with different motion behavior.'}
+    ]}
+  },
+  fr:null as any,es:null as any,de:null as any,it:null as any,pt:null as any,tr:null as any,ja:null as any,ko:null as any
+};
+for(const code of ['fr','es','de','it','pt','tr','ja','ko'] as Locale[]) EXTRA_COPY[code]=EXTRA_COPY.en;
+
+
 function pickLocale():Locale{
   try{
     const saved=localStorage.getItem('dai-marketing-locale') as Locale|null;
@@ -248,8 +330,10 @@ export default function MarketingPage(){
   const [locale,setLocale]=useState<Locale>(pickLocale);
   const [demoIndex,setDemoIndex]=useState(0);
   const [heroState,setHeroState]=useState<DaiState>('idle');
+  const [openFaq,setOpenFaq]=useState(0);
   const buddyRef=useRef<HTMLDivElement>(null);
   const copy=COPY[locale];
+  const extra=EXTRA_COPY[locale];
   const rtl=locale==='ar';
 
   useEffect(()=>{
@@ -440,6 +524,154 @@ export default function MarketingPage(){
         <h2>{copy.personality.title}</h2>
         <p>{copy.personality.body}</p>
         <ul>{copy.personality.points.map(item=><li key={item}><Check size={17}/><span>{item}</span></li>)}</ul>
+      </div>
+    </section>
+
+
+    <section className='dai-mkt-chat-story'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.chat.eyebrow}</span>
+        <h2>{extra.chat.title}</h2>
+        <p>{extra.chat.body}</p>
+      </div>
+      <div className='dai-mkt-chat-stage' data-reveal>
+        <div className='dai-mkt-chat-face'><DaiFace state='listen' avatar='classic' quality='high'/></div>
+        <div className='dai-mkt-chat-thread'>
+          <div className='user'>{extra.chat.user1}</div>
+          <div className='dai'>{extra.chat.reply1}</div>
+          <div className='user'>{extra.chat.user2}</div>
+          <div className='dai'>{extra.chat.reply2}</div>
+        </div>
+      </div>
+    </section>
+
+    <section className='dai-mkt-software'>
+      <div className='dai-mkt-software-copy' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.software.eyebrow}</span>
+        <h2>{extra.software.title}</h2>
+        <p>{extra.software.body}</p>
+      </div>
+      <div className='dai-mkt-dashboard' data-reveal>
+        <aside>
+          <strong>DAI</strong>
+          <span className='active'><MessageCircle size={15}/> Chat</span>
+          <span><Search size={15}/> Search</span>
+          <span><TimerReset size={15}/> Tasks</span>
+          <span><Layers3 size={15}/> Avatars</span>
+          <span><Activity size={15}/> Status</span>
+        </aside>
+        <div className='dai-mkt-dashboard-main'>
+          <header><span>DAI workspace</span><i/></header>
+          <div className='dai-mkt-dashboard-grid'>
+            <div className='big'>
+              <DaiFace state='focus' avatar='classic' quality='high'/>
+              <small>Ready</small>
+            </div>
+            <div className='mini'><b>Voice</b><span>Live</span></div>
+            <div className='mini'><b>Search</b><span>Ready</span></div>
+            <div className='mini wide'><b>Recent</b><p>Continue your last conversation</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className='dai-mkt-toolkit'>
+      <div className='dai-mkt-section-head' data-reveal><h2>{extra.toolkit.title}</h2></div>
+      <div className='dai-mkt-toolkit-grid'>
+        {extra.toolkit.items.map((item,index)=><article key={item.title} data-reveal>
+          <span>{String(index+1).padStart(2,'0')}</span>
+          <h3>{item.title}</h3>
+          <p>{item.body}</p>
+        </article>)}
+      </div>
+    </section>
+
+    <section className='dai-mkt-inside'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.inside.eyebrow}</span>
+        <h2>{extra.inside.title}</h2>
+        <p>{extra.inside.body}</p>
+      </div>
+      <div className='dai-mkt-inside-list'>
+        {extra.inside.items.map((item,index)=><article key={item.title} data-reveal>
+          <span>{String(index+1).padStart(2,'0')}</span>
+          <div><h3>{item.title}</h3><p>{item.body}</p></div>
+          <ArrowUpRight size={20}/>
+        </article>)}
+      </div>
+    </section>
+
+    <section className='dai-mkt-system'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.system.eyebrow}</span>
+        <h2>{extra.system.title}</h2>
+        <p>{extra.system.body}</p>
+      </div>
+      <div className='dai-mkt-system-grid'>
+        {extra.system.items.map((item,index)=>{
+          const Icon=index===0?Laptop2:index===1?MonitorSmartphone:Zap;
+          return <article key={item.title} data-reveal><Icon size={23}/><h3>{item.title}</h3><p>{item.body}</p></article>;
+        })}
+      </div>
+    </section>
+
+    <section className='dai-mkt-action'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.action.eyebrow}</span>
+        <h2>{extra.action.title}</h2>
+        <p>{extra.action.body}</p>
+      </div>
+      <div className='dai-mkt-action-grid'>
+        {(['listen','search','happy'] as DaiState[]).map((state,index)=><div key={state} data-reveal>
+          <DaiFace state={state} avatar={index===1?'cyber':index===2?'sakura':'classic'} quality='high'/>
+          <span>{state}</span>
+        </div>)}
+      </div>
+    </section>
+
+    <section className='dai-mkt-plans'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.plans.eyebrow}</span>
+        <h2>{extra.plans.title}</h2>
+        <p>{extra.plans.body}</p>
+      </div>
+      <div className='dai-mkt-plan-grid'>
+        <article data-reveal>
+          <span>01</span><h3>{extra.plans.standard}</h3>
+          <ul><li><Check size={16}/>DAI web</li><li><Check size={16}/>Voice & text</li><li><Check size={16}/>Search & avatars</li></ul>
+          <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
+        </article>
+        <article className='pro' data-reveal>
+          <span>02</span><h3>{extra.plans.pro}</h3>
+          <ul><li><Check size={16}/>Everything in Standard</li><li><Check size={16}/>Desktop controls</li><li><Check size={16}/>Advanced device actions</li></ul>
+          <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
+        </article>
+      </div>
+    </section>
+
+    <section className='dai-mkt-updates' id='roadmap'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.updates.eyebrow}</span>
+        <h2>{extra.updates.title}</h2>
+        <p>{extra.updates.body}</p>
+      </div>
+      <div className='dai-mkt-update-strip' data-reveal>
+        {extra.updates.items.map((item,index)=><div key={item}><Clock3 size={16}/><span>{String(index+1).padStart(2,'0')}</span><b>{item}</b></div>)}
+      </div>
+    </section>
+
+    <section className='dai-mkt-faq' id='faq'>
+      <div className='dai-mkt-section-head' data-reveal>
+        <span className='dai-mkt-eyebrow'>{extra.faq.eyebrow}</span>
+        <h2>{extra.faq.title}</h2>
+      </div>
+      <div className='dai-mkt-faq-list'>
+        {extra.faq.items.map((item,index)=><article key={item.q} className={openFaq===index?'open':''} data-reveal>
+          <button onClick={()=>setOpenFaq(openFaq===index?-1:index)}>
+            <span>{item.q}</span><ChevronDown size={19}/>
+          </button>
+          <div><p>{item.a}</p></div>
+        </article>)}
       </div>
     </section>
 
