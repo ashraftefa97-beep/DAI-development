@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v10-20260925-lipsync';
+const CACHE_NAME = 'dai-web-v11-20260925-presence';
 const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
