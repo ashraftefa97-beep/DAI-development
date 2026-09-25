@@ -254,7 +254,8 @@ export class DaiMotion {
     } else if(active==='talk'||this.state==='talking') {
       // Mouth motion is driven only by real voice energy. Text responses use
       // the reply state, so a stopped voice must never leave synthetic speech.
-      let beat=this.voiceDriven?this.voice:0;
+      const visualFallback=this.reduced?0:(.16+.10*(.5+.5*Math.sin(e*8.4)));
+      let beat=this.voiceDriven?this.voice:visualFallback;
       beat=clamp(beat,0,1);
 
       // Gate tiny room/noise energy so the mouth actually closes between words.
