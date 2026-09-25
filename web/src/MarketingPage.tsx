@@ -22,8 +22,8 @@ const COPY:Record<Locale,Copy>={
     nav:{product:'عن ضي',personality:'الشخصية',languages:'اللغات',open:'افتح ضي'},
     hero:{
       eyebrow:'DAI AI · ضي',
-      title1:'مساعدة ذكية',
-      title2:'تحس إنها موجودة معاك.',
+      title1:'ضي، مساعدة ذكية.',
+      title2:'تسمعك. تفهمك. وتتحرك معاك.',
       body:'ضي تجمع بين الكلام الطبيعي، البحث، الأدوات والحركة في شخصية واحدة خفيفة وسريعة — مش مجرد صندوق شات.',
       primary:'جرب ضي',
       secondary:'شوف الشخصية',
@@ -320,7 +320,7 @@ export default function MarketingPage(){
     setHeroState(DEMO_STATES[index]);
   };
 
-  return <main className='dai-marketing-page' dir={rtl?'rtl':'ltr'}>
+  return <main className='dai-marketing-page' dir={rtl?'rtl':'ltr'} data-locale={locale}>
     <header className='dai-mkt-nav'>
       <a className='dai-mkt-brand' href='#top' aria-label='DAI AI'>
         <img src='./dai-logo.svg' alt=''/>
@@ -343,6 +343,9 @@ export default function MarketingPage(){
     </header>
 
     <section className='dai-mkt-hero' id='top'>
+      <div className='dai-mkt-hero-gridwash' aria-hidden='true'/>
+      <div className='dai-mkt-hero-orb orb-one' aria-hidden='true'/>
+      <div className='dai-mkt-hero-orb orb-two' aria-hidden='true'/>
       <div className='dai-mkt-hero-copy' data-reveal>
         <span className='dai-mkt-eyebrow'>{copy.hero.eyebrow}</span>
         <h1><span>{copy.hero.title1}</span><span className='accent'>{copy.hero.title2}</span></h1>
@@ -352,6 +355,11 @@ export default function MarketingPage(){
           <a className='secondary' href='#personality'>{copy.hero.secondary}</a>
         </div>
         <small className='dai-mkt-note'><i/>{copy.hero.note}</small>
+        <div className='dai-mkt-hero-proof' aria-label='DAI highlights'>
+          <span><b>24</b><small>Avatars</small></span>
+          <span><b>10</b><small>Languages</small></span>
+          <span><b>Live</b><small>Voice</small></span>
+        </div>
       </div>
 
       <div className='dai-mkt-buddy-column' data-reveal>
@@ -372,6 +380,14 @@ export default function MarketingPage(){
       </div>
     </section>
 
+    <section className='dai-mkt-motion-strip' aria-label='DAI capabilities'>
+      <div className='dai-mkt-motion-track'>
+        <span>VOICE</span><i/> <span>SEARCH</span><i/> <span>TOOLS</span><i/> <span>MOTION</span><i/>
+        <span>24 AVATARS</span><i/> <span>10 LANGUAGES</span><i/> <span>VOICE</span><i/> <span>SEARCH</span><i/>
+        <span>TOOLS</span><i/> <span>MOTION</span><i/> <span>24 AVATARS</span><i/> <span>10 LANGUAGES</span>
+      </div>
+    </section>
+
     <section className='dai-mkt-buddy-demo' id='product'>
       <div className='dai-mkt-demo-copy' data-reveal>
         <span className='dai-mkt-eyebrow'>{copy.buddy.label}</span>
@@ -388,6 +404,10 @@ export default function MarketingPage(){
     </section>
 
     <section className='dai-mkt-flow'>
+      <div className='dai-mkt-flow-index' aria-hidden='true'>
+        <span>DAI / EXPERIENCE</span>
+        <b>01 — 04</b>
+      </div>
       <div className='dai-mkt-section-head' data-reveal>
         <span className='dai-mkt-eyebrow'>{copy.flow.eyebrow}</span>
         <h2>{copy.flow.title}</h2>
