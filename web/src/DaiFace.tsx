@@ -55,7 +55,7 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
         m.advance(dt);
         for(const event of m.consumeAudioEvents()) daiSfx.playEvent(event);
 
-        const minFrameMs=quality==='low'?32:quality==='medium'?21:0;
+        const minFrameMs=quality==='low'?27:quality==='medium'?17:0;
         if(!minFrameMs||now-lastDraw>=minFrameMs){
           drawDai(c,m,w,h,avatar);
           lastDraw=now;
