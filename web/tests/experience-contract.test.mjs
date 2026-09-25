@@ -314,8 +314,44 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 });
 
 
-test('cache version changes with lip sync release',()=>{
+test('cache version changes with presence release',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v10-20260925-lipsync/);
-  assert.match(app,/DAI_WEB_VERSION='1\.9\.1'/);
+  assert.match(sw,/dai-web-v11-20260925-presence/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.0'/);
+});
+
+
+test('expressive channels use stable spring dynamics',()=>{
+  assert.match(motion,/poseVelocity/);
+  assert.match(motion,/const springStep=/);
+  assert.match(motion,/springStep\(key,target\[key\],5\.1/);
+  assert.match(motion,/springStep\(key,target\[key\],activeMode==='idle'\?2\.05:2\.75/);
+});
+
+test('eyes use nonperiodic micro-saccades instead of only sine motion',()=>{
+  assert.match(motionPolish,/function microSaccade/);
+  assert.match(motionPolish,/function smoothNoise/);
+  assert.match(motionPolish,/saccadeX/);
+  assert.match(motionPolish,/saccadeY/);
+});
+
+test('all avatars get volumetric face depth without a hard face outline',()=>{
+  assert.match(draw,/function premiumFaceVolume/);
+  assert.match(draw,/premiumFaceVolume\(c,m,avatar,isLight\)/);
+  assert.match(draw,/createRadialGradient\(-22,-34,8,0,-4,124\)/);
+});
+
+test('spoken emotion intensity visibly changes the face',()=>{
+  assert.match(motion,/const moodI=clamp\(this\.speechMoodIntensity/);
+  assert.match(motion,/speechBrow/);
+  assert.match(motion,/brow:clamp\(speechBrow/);
+});
+
+test('voice prompts require conversational breath groups and non-robotic delivery',()=>{
+  const streamVoice=readFileSync(new URL('../../supabase/functions/tts-stream/index.ts',import.meta.url),'utf8');
+  const fullVoice=readFileSync(new URL('../../supabase/functions/tts-gemini/index.ts',import.meta.url),'utf8');
+  assert.match(streamVoice,/مجموعات تنفّس قصيرة/);
+  assert.match(fullVoice,/مجموعات تنفّس قصيرة/);
+  assert.match(streamVoice,/مش بتقري سكريبت/);
+  assert.match(fullVoice,/مش بتقري نص محفوظ/);
 });
