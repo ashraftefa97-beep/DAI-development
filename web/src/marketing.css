@@ -1564,3 +1564,141 @@
   .dai-mkt-plan-grid{grid-template-columns:1fr}
   .dai-mkt-update-strip{grid-template-columns:1fr}
 }
+
+
+/* DAI Marketing V5 — Classic avatar first. Remove the artificial device shell. */
+.dai-mkt-buddy-column-classic{
+  min-height:620px;
+  display:grid;
+  place-items:center;
+  position:relative;
+  isolation:isolate;
+}
+.dai-mkt-buddy-column-classic::before{
+  width:min(700px,104%);
+  aspect-ratio:1;
+  background:
+    radial-gradient(circle at 50% 48%,rgba(255,255,255,.86) 0 14%,rgba(247,218,229,.34) 34%,rgba(190,162,220,.13) 55%,transparent 73%);
+  filter:blur(0);
+}
+.dai-mkt-buddy-column-classic::after{
+  display:none;
+}
+.dai-mkt-buddy-classic{
+  width:min(590px,92vw);
+  aspect-ratio:1/1;
+  border:0;
+  border-radius:50%;
+  background:transparent;
+  box-shadow:none;
+  overflow:visible;
+  isolation:isolate;
+}
+.dai-mkt-buddy-classic::before,
+.dai-mkt-buddy-classic::after{
+  display:none;
+}
+.dai-mkt-buddy-classic .dai-mkt-face-stage{
+  position:absolute;
+  inset:4%;
+  z-index:4;
+  overflow:visible;
+  border-radius:50%;
+  background:transparent;
+  filter:
+    drop-shadow(0 26px 42px rgba(82,49,69,.10))
+    drop-shadow(0 8px 18px rgba(135,89,114,.08));
+}
+.dai-mkt-buddy-classic .dai-mkt-face-stage .dai-canvas{
+  width:100%;
+  height:100%;
+}
+.dai-mkt-classic-halo{
+  position:absolute;
+  inset:50%;
+  translate:-50% -50%;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:1;
+}
+.dai-mkt-classic-halo.halo-a{
+  width:90%;
+  aspect-ratio:1;
+  background:
+    radial-gradient(circle,rgba(255,255,255,.78) 0 22%,rgba(246,203,220,.22) 48%,transparent 72%);
+  filter:blur(10px);
+  animation:mktClassicBreath 6s ease-in-out infinite;
+}
+.dai-mkt-classic-halo.halo-b{
+  width:112%;
+  aspect-ratio:1;
+  border:1px solid rgba(182,130,160,.11);
+  box-shadow:
+    0 0 0 26px rgba(206,171,222,.035),
+    0 0 0 58px rgba(237,176,200,.025);
+  animation:mktClassicOrbit 18s linear infinite;
+}
+.dai-mkt-classic-halo.halo-b::before,
+.dai-mkt-classic-halo.halo-b::after{
+  content:'';
+  position:absolute;
+  border-radius:50%;
+  width:8px;height:8px;
+  background:#e69ab5;
+  box-shadow:0 0 18px rgba(230,154,181,.35);
+}
+.dai-mkt-classic-halo.halo-b::before{top:13%;left:20%}
+.dai-mkt-classic-halo.halo-b::after{bottom:18%;right:16%;background:#9d83c5}
+.dai-mkt-buddy-classic:hover .dai-mkt-classic-halo.halo-a{
+  filter:blur(7px);
+}
+@keyframes mktClassicBreath{
+  0%,100%{transform:scale(.96);opacity:.76}
+  50%{transform:scale(1.035);opacity:1}
+}
+@keyframes mktClassicOrbit{
+  to{transform:rotate(360deg)}
+}
+
+/* Keep the intro visually consistent: Classic DAI everywhere, no device-frame treatment. */
+.dai-mkt-chat-face{
+  background:
+    radial-gradient(circle at 50% 43%,rgba(255,255,255,.76),rgba(241,218,228,.18) 46%,transparent 72%);
+  border-color:rgba(80,54,69,.07);
+  box-shadow:none;
+}
+.dai-mkt-chat-face .dai-canvas{
+  width:92%;
+  height:92%;
+}
+.dai-mkt-dashboard-grid .big{
+  background:
+    radial-gradient(circle at 50% 42%,rgba(255,255,255,.065),transparent 62%),
+    #17141b;
+}
+.dai-mkt-action-grid>div{
+  background:
+    radial-gradient(circle at 50% 40%,rgba(255,255,255,.84),rgba(245,220,230,.24) 46%,transparent 73%);
+}
+
+/* Disable the discarded V3 shell parts even if stale markup is cached briefly. */
+.dai-mkt-buddy-fin,
+.dai-mkt-buddy-ring,
+.dai-mkt-buddy-scanline,
+.dai-mkt-buddy-topline,
+.dai-mkt-buddy-base,
+.dai-mkt-buddy-shadow{
+  display:none!important;
+}
+
+@media(max-width:1000px){
+  .dai-mkt-buddy-column-classic{min-height:530px}
+  .dai-mkt-buddy-classic{width:min(500px,86vw)}
+}
+@media(max-width:700px){
+  .dai-mkt-buddy-column-classic{min-height:390px}
+  .dai-mkt-buddy-classic{width:min(340px,82vw)}
+}
+@media(prefers-reduced-motion:reduce){
+  .dai-mkt-classic-halo{animation:none!important}
+}
