@@ -1286,11 +1286,11 @@ export default function GithubApp(){
         energy+=sample*sample;
       }
       const rms=Math.sqrt(energy/Math.max(1,data.length));
-      const raw=Math.max(0,Math.min(1,(rms-.003)*9.5));
-      const mapped=Math.pow(raw,.58);
-      smooth+=(mapped>smooth ? .48 : .20)*(mapped-smooth);
+      const raw=Math.max(0,Math.min(1,(rms-.0018)*14));
+      const mapped=Math.pow(raw,.48);
+      smooth+=(mapped>smooth ? .66 : .34)*(mapped-smooth);
 
-      if(now-lastEmit>=28){
+      if(now-lastEmit>=20){
         emitVoiceMotion(smooth,true);
         lastEmit=now;
       }
@@ -3639,7 +3639,7 @@ export default function GithubApp(){
     // Seed lip-sync directly from the PCM chunk as well as the analyser. This
     // keeps the mouth visibly reactive on browsers/devices with weak analyser RMS.
     const pcmRms=audioRms(samples);
-    const pcmLevel=Math.pow(Math.max(0,Math.min(1,(pcmRms-.0025)*10)),.58);
+    const pcmLevel=Math.pow(Math.max(0,Math.min(1,(pcmRms-.0018)*14)),.48);
     const lipDelay=Math.max(0,(startAt-ctx.currentTime)*1000);
     window.setTimeout(()=>{
       if(voiceSessionActiveRef.current&&liveOutputSourcesRef.current.has(source)){
