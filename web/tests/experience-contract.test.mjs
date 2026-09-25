@@ -320,7 +320,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v13-20260925-landing-v2/);
+  assert.match(sw,/dai-web-v14-20260925-showpiece/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
@@ -395,5 +395,22 @@ test('landing page uses varied visual chapters instead of one repeated layout',(
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v13-20260925-landing-v2/);
+  assert.match(sw,/dai-web-v14-20260925-showpiece/);
+});
+
+
+test('landing uses Lemon and requested Narsol typography',()=>{
+  const githubHtml=readFileSync(new URL('../github.html',import.meta.url),'utf8');
+  assert.match(githubHtml,/fonts\.googleapis\.com\/css2\?family=Lemon/);
+  assert.match(marketingCss,/--dai-font-en:'Lemon'/);
+  assert.match(marketingCss,/--dai-font-ar:'Narsol','Norsal'/);
+});
+
+test('hero buddy is a layered showpiece instead of a plain square',()=>{
+  assert.match(marketingPage,/dai-mkt-buddy-fin/);
+  assert.match(marketingPage,/dai-mkt-buddy-ring/);
+  assert.match(marketingPage,/dai-mkt-buddy-scanline/);
+  assert.match(marketingCss,/border-radius:47% 53% 43% 57%/);
+  assert.match(marketingCss,/conic-gradient/);
+  assert.match(marketingCss,/mktShellGlow/);
 });
