@@ -365,6 +365,11 @@ export default function MarketingPage(){
       <div className='dai-mkt-buddy-column' data-reveal>
         <div className='dai-mkt-buddy-shadow'/>
         <div className='dai-mkt-buddy' ref={buddyRef}>
+          <span className='dai-mkt-buddy-fin fin-left' aria-hidden='true'/>
+          <span className='dai-mkt-buddy-fin fin-right' aria-hidden='true'/>
+          <span className='dai-mkt-buddy-ring ring-a' aria-hidden='true'/>
+          <span className='dai-mkt-buddy-ring ring-b' aria-hidden='true'/>
+          <span className='dai-mkt-buddy-scanline' aria-hidden='true'/>
           <div className='dai-mkt-buddy-topline'>
             <span>DAI</span>
             <i/>
