@@ -114,7 +114,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.0';
+const DAI_WEB_VERSION='1.10.1';
 
 type DesktopAction =
   | {type:'openApp';target:string}
