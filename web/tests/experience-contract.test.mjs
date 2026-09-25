@@ -6,6 +6,7 @@ const app=readFileSync(new URL('../src/GithubApp.tsx',import.meta.url),'utf8');
 const draw=readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
 const avatarCatalog=readFileSync(new URL('../src/avatarCatalog.ts',import.meta.url),'utf8');
 const motion=readFileSync(new URL('../src/motion.mjs',import.meta.url),'utf8');
+const motionPolish=readFileSync(new URL('../src/motionPolish.mjs',import.meta.url),'utf8');
 const director=readFileSync(new URL('../src/animationDirector.mjs',import.meta.url),'utf8');
 const poseGuard=readFileSync(new URL('../src/poseGuard.mjs',import.meta.url),'utf8');
 const emotionDirector=readFileSync(new URL('../src/emotionDirector.mjs',import.meta.url),'utf8');
@@ -242,4 +243,25 @@ test('audio v2 preserves short desktop command confirmation',()=>{
 test('minimal preset keeps only essential command confirmation behavior',()=>{
   assert.match(daiSfx,/minimal:\{foleyGain:0,semanticGain:0,confirmationGain:/);
   assert.match(app,/preset:experiencePreset/);
+});
+
+
+test('layered motion polish avoids a single repeated rhythm',()=>{
+  assert.match(motion,/applyActiveMotionPolish/);
+  assert.match(motionPolish,/Incommensurate frequencies/);
+  assert.match(motionPolish,/slow/);
+  assert.match(motionPolish,/mid/);
+  assert.match(motionPolish,/fine/);
+  assert.match(motionPolish,/breathe/);
+});
+
+test('speaking polish remains face-led with real voice emphasis',()=>{
+  assert.match(motionPolish,/mode==='speaking'/);
+  assert.match(motionPolish,/voiceDriven/);
+  assert.ok(!/p\.la=|p\.ra=|showLeft|showRight/.test(motionPolish));
+});
+
+test('animation cadence stays smooth across quality tiers',()=>{
+  assert.match(app,/quality='high'/);
+  assert.match(readFileSync(new URL('../src/DaiFace.tsx',import.meta.url),'utf8'),/quality==='low'\?27:quality==='medium'\?17:0/);
 });
