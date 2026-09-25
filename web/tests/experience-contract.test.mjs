@@ -320,7 +320,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
+  assert.match(sw,/dai-web-v17-20260925-dark-header/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
 });
 
@@ -386,7 +386,7 @@ test('landing hero has Arabic-safe typography and no Latin negative tracking',()
 });
 
 test('landing page uses varied visual chapters instead of one repeated layout',()=>{
-  assert.match(marketingPage,/dai-mkt-motion-strip/);
+  assert.ok(!marketingPage.includes('dai-mkt-motion-strip'));
   assert.match(marketingPage,/dai-mkt-flow-index/);
   assert.match(marketingCss,/grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
   assert.match(marketingCss,/dai-mkt-card:nth-child\(1\).*grid-column:span 7/s);
@@ -395,7 +395,7 @@ test('landing page uses varied visual chapters instead of one repeated layout',(
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
+  assert.match(sw,/dai-web-v17-20260925-dark-header/);
 });
 
 
@@ -442,7 +442,7 @@ test('landing has responsive dashboard plans updates and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v16-20260925-classic-intro/);
+  assert.match(sw,/dai-web-v17-20260925-dark-header/);
 });
 
 
@@ -450,4 +450,18 @@ test('classic intro removes discarded shell decoration',()=>{
   assert.match(marketingCss,/dai-mkt-buddy-fin,[\s\S]*display:none!important/);
   assert.match(marketingCss,/mktClassicBreath/);
   assert.match(marketingCss,/mktClassicOrbit/);
+});
+
+
+test('landing header is dark glass without bottom rule',()=>{
+  assert.match(marketingCss,/DAI Marketing V6/);
+  assert.match(marketingCss,/background:rgba\(15,13,18,\.72\)!important/);
+  assert.match(marketingCss,/border-bottom:0!important/);
+  assert.match(marketingCss,/backdrop-filter:blur\(24px\)/);
+});
+
+test('classic hero has solid visual presence on light background',()=>{
+  assert.match(marketingCss,/dai-mkt-buddy-classic[\s\S]*rgba\(34,29,40,\.96\)/);
+  assert.match(marketingCss,/contrast\(1\.18\)/);
+  assert.match(marketingCss,/opacity:1!important/);
 });
