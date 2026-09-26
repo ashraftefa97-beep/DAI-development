@@ -109,7 +109,7 @@ export default function DaiFace({state='idle', reduced=false, quality='high', av
     const up=(e:PointerEvent)=>{
       if(!m.dragging)return;m.dragging=false;
       if(node.hasPointerCapture(e.pointerId))node.releasePointerCapture(e.pointerId);
-      if(dragTotal<10&&m.gesture==='idle') {m.idleAction='smile';m.idleUntil=m.elapsed+1.4;m.burst(0,-25,10);}
+      if(dragTotal<10&&['idle','voicewait'].includes(m.requestedGesture)) m.poke();
     };
     const cancel=()=>{m.dragging=false;m.mouseInside=false;};
     const leave=()=>{m.mouseInside=false;};

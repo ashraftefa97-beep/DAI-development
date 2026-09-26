@@ -128,7 +128,9 @@ test('renderer uses the correct visual family for each state',()=>{
 
 test('idle motion is intentionally calmer than active motion',()=>{
   const draw=fs.readFileSync(new URL('../src/draw.mjs',import.meta.url),'utf8');
-  assert.match(draw,/const activity=calm\?\.22:expressive\?1:\.62/);
+  const levels=draw.match(/const activity=calm\?([\d.]+):expressive\?([\d.]+):([\d.]+)/);
+  assert.ok(levels,'renderer defines separate activity levels');
+  assert.ok(Number(levels[1])<Number(levels[2]),'idle stays calmer than expressive motion');
 });
 
 

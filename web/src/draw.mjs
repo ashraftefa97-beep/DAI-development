@@ -311,7 +311,7 @@ function avatarMotionSample(m,avatar,variant){
   const semantic=m.requestedGesture||m.gesture;
   const calm=['idle','relax','breathe','sleep','wait_patient','voicewait','meditate'].includes(semantic);
   const expressive=['celebrate','cheer','victory','wow','surprise_soft','error','alert','wave','double_wave'].includes(semantic);
-  const activity=calm?.22:expressive?1:.62;
+  const activity=calm?.56:expressive?1:.62;
   const reduced=m.reduced?(m.avatarVariantReducedIntensity||.22):1;
   const envelope=avatarMotionEnvelope(m);
   const cadence=Number(v.cadence)||1;
