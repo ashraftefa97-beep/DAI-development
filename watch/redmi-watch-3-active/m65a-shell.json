@@ -1,0 +1,20 @@
+{
+  "name": "DAI Shell M65A",
+  "device": "Redmi Watch 3 Active",
+  "codename": "M65A",
+  "resolution": {"width": 240, "height": 280},
+  "states": ["idle", "listening", "thinking", "speaking", "error"],
+  "defaultState": "idle",
+  "bridge": {
+    "mode": "abstract",
+    "phoneRequired": true,
+    "directMicAccess": "unproven",
+    "directSpeakerAccess": "unproven"
+  },
+  "safety": {
+    "engMode": false,
+    "userDebugMode": false,
+    "forceOta": false,
+    "unknownFirmwareWrites": false
+  }
+}
