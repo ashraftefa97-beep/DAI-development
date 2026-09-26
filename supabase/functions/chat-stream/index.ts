@@ -318,6 +318,31 @@ function resolveContextLink(
   return '';
 }
 
+function isContextualResearchFollowup(text:string) {
+  const normalized=String(text||'').replace(/\s+/g,' ').trim();
+  if(!normalized || normalized.length>140) return false;
+  return /^(?:(?:طب|طيب|تمام|و|طيب\s+و|طب\s+و)\s*)?(?:ده|دا|دي|دول|هو|هي|السعر|الاسعار|الأسعار|المتاح|متوفر|موجود|الأرخص|الأفضل|افضل|أنسب|انسب|والتاني|والثاني|البديل|بديل|طب\s+فين|فين|امتى|إمتى|كام|بكام|ليه|ازاي|إزاي)(?:\s|[؟?!.،]|$)[\s\S]*$/i.test(normalized);
+}
+
+function resolveResearchQuery(
+  text:string,
+  history:Array<{role:string;content:string}>,
+) {
+  const current=String(text||'').replace(/\s+/g,' ').trim();
+  if(!isContextualResearchFollowup(current)) return current;
+
+  for(let index=history.length-1; index>=0; index--){
+    const item=history[index];
+    if(item?.role!=='user') continue;
+    const previous=String(item.content||'').replace(/\s+/g,' ').trim();
+    if(!previous || previous.toLowerCase()===current.toLowerCase()) continue;
+    if(previous.length<3) continue;
+    return (previous+' — متابعة المستخدم: '+current).slice(0,700);
+  }
+
+  return current;
+}
+
 function webSearchAllowed(text: string) {
   // Keep browsing age-appropriate. The model can still answer safety questions
   // without getting direct search access to restricted material.
@@ -1075,11 +1100,21 @@ function normalizedResearchKey(query: string) {
   return canonical.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 500);
 }
 
+function researchCacheTtl(query:string) {
+  const fresh=/(?:اليوم|دلوقتي|حاليا|حالياً|أحدث|احدث|آخر|سعر|اسعار|أسعار|متوفر|متاحة|متاح|خبر|اخبار|أخبار|موعد|current|currently|latest|today|price|available|availability|news|release|update)/i.test(query);
+  return fresh ? 3*60*1000 : RESEARCH_CACHE_TTL_MS;
+}
+
+function persistentResearchTtl(query:string) {
+  const fresh=/(?:اليوم|دلوقتي|حاليا|حالياً|أحدث|احدث|آخر|سعر|اسعار|أسعار|متوفر|متاحة|متاح|خبر|اخبار|أخبار|موعد|current|currently|latest|today|price|available|availability|news|release|update)/i.test(query);
+  return fresh ? 5*60*1000 : 30*60*1000;
+}
+
 function cachedResearch(query: string) {
   const key = normalizedResearchKey(query);
   const cached = researchCache.get(key);
   if (!cached) return null;
-  if (Date.now() - cached.at > RESEARCH_CACHE_TTL_MS) {
+  if (Date.now() - cached.at > researchCacheTtl(query)) {
     researchCache.delete(key);
     return null;
   }
@@ -1615,7 +1650,7 @@ async function directWebResearch(
       detail:'',
     };
     storeResearchCache(query, value);
-    await storePersistentResearchCache(admin,query,value,20*60*1000);
+    await storePersistentResearchCache(admin,query,value,persistentResearchTtl(query));
     return value;
   }
 
@@ -1710,7 +1745,7 @@ async function directWebResearch(
             detail:'',
           };
           storeResearchCache(query, value);
-          await storePersistentResearchCache(admin,query,value,20*60*1000);
+          await storePersistentResearchCache(admin,query,value,persistentResearchTtl(query));
           return value;
         }
         lastDetail = 'Grounded generateContent returned insufficient relevant sources';
@@ -1792,7 +1827,7 @@ async function directWebResearch(
         admin,
         query,
         value,
-        value.model === 'fallback-web' ? 45*60*1000 : 20*60*1000,
+        persistentResearchTtl(query),
       );
       return value;
     }
@@ -2208,6 +2243,11 @@ Deno.serve(async (req) => {
     : '';
   const genericLinkRequest = route === 'link' && isGenericContextLinkRequest(message);
 
+  const researchQuery =
+    route === 'research' || route === 'link'
+      ? resolveResearchQuery(message, orderedHistory)
+      : message;
+
   const lastHistory = orderedHistory[orderedHistory.length - 1];
   const sameAsLastHistory =
     lastHistory?.role === 'user' &&
@@ -2287,8 +2327,8 @@ Deno.serve(async (req) => {
 
           const configuredModel = (Deno.env.get('AI_MODEL') || '').trim();
           researchAnnounced = true;
-          push('research', { queries: [message], sources: [] });
-          const research = await directWebResearch(apiKey, configuredModel, message, req.signal, admin);
+          push('research', { queries: [researchQuery], sources: [] });
+          const research = await directWebResearch(apiKey, configuredModel, researchQuery, req.signal, admin);
 
           if (!research.ok || !research.answer) {
             console.error(
@@ -2370,8 +2410,9 @@ Deno.serve(async (req) => {
           }
 
           researchAnnounced = true;
+          groundingQueries.add(researchQuery);
           push('research', {
-            queries: [message],
+            queries: [researchQuery],
             sources: research.sources,
           });
 
