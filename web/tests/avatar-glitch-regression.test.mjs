@@ -68,3 +68,9 @@ test('Classic DAI keeps hands off the face during normal conversation',()=>{
     assert.equal(block.includes("'"+state+"'"),false);
   }
 });
+
+
+test('Classic DAI never overlays the happy eye arc on the filled eye',()=>{
+  assert.match(draw,/c\.globalAlpha=avatar==='classic'\?1:1-happy\*\.94/);
+  assert.match(draw,/if\(avatar!=='classic'\)\{[\s\S]*?M-22 5 C-16 -19 16 -19 22 5/);
+});
