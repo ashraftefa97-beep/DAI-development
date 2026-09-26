@@ -55,3 +55,13 @@ test('director FX intensity is consumed by signature and library rendering',()=>
   },{width:1200,height:700});
   assert.ok(serious.fxAlpha<1);
 });
+
+
+test('Classic DAI keeps hands off the face during normal conversation',()=>{
+  assert.match(draw,/const classicHandStates=new Set/);
+  assert.match(draw,/avatar!==\'classic\'\\|\\|classicHandStates\\.has\\(requestedGesture\\)/);
+  for(const state of ['idle','reply','talk','typing','listen','working','search']){
+    const marker=new RegExp("classicHandStates=new Set\\\\([\\\\s\\\\S]*?[\\\"']"+state+"[\\\"']");
+    assert.equal(marker.test(draw),false);
+  }
+});
