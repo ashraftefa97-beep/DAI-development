@@ -404,248 +404,275 @@ export default function MarketingPage(){
     setHeroState(DEMO_STATES[index]);
   };
 
-  return <main className='dai-marketing-page' dir={rtl?'rtl':'ltr'} data-locale={locale}>
-    <header className='dai-mkt-nav'>
-      <a className='dai-mkt-brand' href='#top' aria-label='DAI AI'>
+  return <main className='dai-marketing-page dai-v7' dir={rtl?'rtl':'ltr'} data-locale={locale}>
+    <header className='dai-v7-nav'>
+      <a className='dai-v7-brand' href='#top' aria-label='DAI AI'>
         <img src='./dai-logo.svg' alt=''/>
         <span><strong>DAI AI</strong><small>ضي</small></span>
       </a>
-      <nav className='dai-mkt-links' aria-label='Primary'>
+
+      <nav className='dai-v7-navlinks' aria-label='Primary'>
         <a href='#product'>{copy.nav.product}</a>
         <a href='#personality'>{copy.nav.personality}</a>
+        <a href='#system'>{extra.system.eyebrow}</a>
         <a href='#languages'>{copy.nav.languages}</a>
       </nav>
-      <div className='dai-mkt-actions'>
-        <label className='dai-mkt-language'>
-          <Globe2 size={16}/>
+
+      <div className='dai-v7-nav-actions'>
+        <label className='dai-v7-language'>
+          <Globe2 size={15}/>
           <select value={locale} onChange={e=>setLocale(e.target.value as Locale)} aria-label='Language'>
             {languageList.map(([code,name])=><option value={code} key={code}>{name}</option>)}
           </select>
         </label>
-        <button className='dai-mkt-open' onClick={()=>{window.location.href=appUrl()}}>{copy.nav.open}<ArrowUpRight size={16}/></button>
+        <button className='dai-v7-open' onClick={()=>{window.location.href=appUrl()}}>
+          {copy.nav.open}<ArrowUpRight size={16}/>
+        </button>
       </div>
     </header>
 
-    <section className='dai-mkt-hero' id='top'>
-      <div className='dai-mkt-hero-gridwash' aria-hidden='true'/>
-      <div className='dai-mkt-hero-orb orb-one' aria-hidden='true'/>
-      <div className='dai-mkt-hero-orb orb-two' aria-hidden='true'/>
-      <div className='dai-mkt-hero-copy' data-reveal>
-        <span className='dai-mkt-eyebrow'>{copy.hero.eyebrow}</span>
-        <h1><span>{copy.hero.title1}</span><span className='accent'>{copy.hero.title2}</span></h1>
+    <section className='dai-v7-hero' id='top'>
+      <div className='dai-v7-grid' aria-hidden='true'/>
+      <div className='dai-v7-glow glow-a' aria-hidden='true'/>
+      <div className='dai-v7-glow glow-b' aria-hidden='true'/>
+
+      <div className='dai-v7-hero-copy' data-reveal>
+        <span className='dai-v7-kicker'>{copy.hero.eyebrow}</span>
+        <h1><span>{copy.hero.title1}</span><span>{copy.hero.title2}</span></h1>
         <p>{copy.hero.body}</p>
-        <div className='dai-mkt-hero-cta'>
-          <button className='primary' onClick={()=>{window.location.href=appUrl()}}>{copy.hero.primary}<ArrowUpRight size={18}/></button>
-          <a className='secondary' href='#personality'>{copy.hero.secondary}</a>
+
+        <div className='dai-v7-hero-actions'>
+          <button className='primary' onClick={()=>{window.location.href=appUrl()}}>
+            {copy.hero.primary}<ArrowUpRight size={18}/>
+          </button>
+          <a href='#personality'>{copy.hero.secondary}</a>
         </div>
-        <small className='dai-mkt-note'><i/>{copy.hero.note}</small>
-        <div className='dai-mkt-hero-proof' aria-label='DAI highlights'>
-          <span><b>24</b><small>Avatars</small></span>
-          <span><b>10</b><small>Languages</small></span>
-          <span><b>Live</b><small>Voice</small></span>
+
+        <div className='dai-v7-proof' aria-label='DAI highlights'>
+          <div><strong>24</strong><span>Avatars</span></div>
+          <div><strong>10</strong><span>Languages</span></div>
+          <div><strong>Live</strong><span>Voice</span></div>
         </div>
       </div>
 
-      <div className='dai-mkt-buddy-column dai-mkt-buddy-column-classic' data-reveal>
-        <div className='dai-mkt-buddy dai-mkt-buddy-classic' ref={buddyRef}>
-          <div className='dai-mkt-classic-halo halo-a' aria-hidden='true'/>
-          <div className='dai-mkt-classic-halo halo-b' aria-hidden='true'/>
-          <div className='dai-mkt-face-stage'>
-            <DaiFace state={heroState} avatar='classic' quality='high'/>
-          </div>
+      <div className='dai-v7-hero-stage' data-reveal>
+        <div className='dai-v7-stage-ring ring-a' aria-hidden='true'/>
+        <div className='dai-v7-stage-ring ring-b' aria-hidden='true'/>
+        <div className='dai-v7-stage-card card-voice'><Activity size={15}/><span>Voice</span><b>Live</b></div>
+        <div className='dai-v7-stage-card card-search'><Search size={15}/><span>Search</span><b>Ready</b></div>
+        <div className='dai-v7-face' ref={buddyRef}>
+          <DaiFace state={heroState} avatar='classic' quality='high'/>
         </div>
+      </div>
+
+      <div className='dai-v7-hero-foot' data-reveal>
+        <small><i/>{copy.hero.note}</small>
+        <span>DAI / 2026</span>
       </div>
     </section>
 
-    <section className='dai-mkt-buddy-demo' id='product'>
-      <div className='dai-mkt-demo-copy' data-reveal>
-        <span className='dai-mkt-eyebrow'>{copy.buddy.label}</span>
-        <h2>{copy.buddy.title}</h2>
-        <p>{copy.buddy.body}</p>
-      </div>
-      <div className='dai-mkt-demo-controls' data-reveal>
-        {copy.buddy.actions.map((label,index)=><button
-          key={label}
-          className={demoIndex===index?'active':''}
-          onClick={()=>setDemo(index)}
-        ><span>{String(index+1).padStart(2,'0')}</span>{label}</button>)}
-      </div>
-    </section>
-
-    <section className='dai-mkt-flow'>
-      <div className='dai-mkt-flow-index' aria-hidden='true'>
-        <span>DAI / EXPERIENCE</span>
-        <b>01 — 04</b>
-      </div>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{copy.flow.eyebrow}</span>
+    <section className='dai-v7-core' id='product'>
+      <div className='dai-v7-section-intro' data-reveal>
+        <span className='dai-v7-kicker'>{copy.flow.eyebrow}</span>
         <h2>{copy.flow.title}</h2>
         <p>{copy.flow.body}</p>
       </div>
-      <div className='dai-mkt-card-grid'>
-        {copy.flow.cards.map(card=><article className='dai-mkt-card' data-reveal key={card.kicker}>
-          <span>{card.kicker}</span>
-          <h3>{card.title}</h3>
-          <p>{card.body}</p>
+
+      <div className='dai-v7-bento'>
+        {copy.flow.cards.map((card,index)=>{
+          const Icon=index===0?MessageCircle:index===1?Search:index===2?WandSparkles:Laptop2;
+          return <article className={'dai-v7-bento-card bento-'+(index+1)} data-reveal key={card.kicker}>
+            <div className='dai-v7-card-top'><span>{card.kicker}</span><Icon size={20}/></div>
+            <div><h3>{card.title}</h3><p>{card.body}</p></div>
+          </article>;
+        })}
+        <article className='dai-v7-bento-card bento-wide' data-reveal>
+          <div className='dai-v7-mini-thread'>
+            <div className='user'>{extra.chat.user1}</div>
+            <div className='dai'>{extra.chat.reply1}</div>
+          </div>
+          <div className='dai-v7-wide-copy'>
+            <span>{extra.chat.eyebrow}</span>
+            <h3>{extra.chat.title}</h3>
+            <p>{extra.chat.body}</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section className='dai-v7-personality' id='personality'>
+      <div className='dai-v7-personality-copy' data-reveal>
+        <span className='dai-v7-kicker'>{copy.personality.eyebrow}</span>
+        <h2>{copy.personality.title}</h2>
+        <p>{copy.personality.body}</p>
+
+        <div className='dai-v7-reaction-controls'>
+          {copy.buddy.actions.map((label,index)=><button
+            key={label}
+            className={demoIndex===index?'active':''}
+            onClick={()=>setDemo(index)}
+          ><span>{String(index+1).padStart(2,'0')}</span>{label}</button>)}
+        </div>
+      </div>
+
+      <div className='dai-v7-personality-stage' data-reveal>
+        <div className='dai-v7-orbit orbit-a' aria-hidden='true'/>
+        <div className='dai-v7-orbit orbit-b' aria-hidden='true'/>
+        <div className='dai-v7-personality-face'>
+          <DaiFace state={heroState} avatar='classic' quality='high'/>
+        </div>
+        <div className='dai-v7-traits'>
+          {copy.personality.points.map((item,index)=><div key={item}>
+            <span>{String(index+1).padStart(2,'0')}</span><Check size={15}/><p>{item}</p>
+          </div>)}
+        </div>
+      </div>
+    </section>
+
+    <section className='dai-v7-process'>
+      <div className='dai-v7-section-intro' data-reveal>
+        <span className='dai-v7-kicker'>{extra.inside.eyebrow}</span>
+        <h2>{extra.inside.title}</h2>
+        <p>{extra.inside.body}</p>
+      </div>
+
+      <div className='dai-v7-process-line'>
+        {extra.inside.items.map((item,index)=><article data-reveal key={item.title}>
+          <span className='num'>{String(index+1).padStart(2,'0')}</span>
+          <div className='node'/>
+          <div className='copy'><h3>{item.title}</h3><p>{item.body}</p></div>
         </article>)}
       </div>
     </section>
 
-    <section className='dai-mkt-personality' id='personality'>
-      <div className='dai-mkt-personality-visual' data-reveal>
-        <div className='dai-mkt-orbit orbit-one'/>
-        <div className='dai-mkt-orbit orbit-two'/>
-        <div className='dai-mkt-personality-face'>
-          <DaiFace state='curious' avatar='classic' quality='high'/>
-        </div>
-      </div>
-      <div className='dai-mkt-personality-copy' data-reveal>
-        <span className='dai-mkt-eyebrow'>{copy.personality.eyebrow}</span>
-        <h2>{copy.personality.title}</h2>
-        <p>{copy.personality.body}</p>
-        <ul>{copy.personality.points.map(item=><li key={item}><Check size={17}/><span>{item}</span></li>)}</ul>
-      </div>
-    </section>
-
-
-    <section className='dai-mkt-chat-story'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.chat.eyebrow}</span>
-        <h2>{extra.chat.title}</h2>
-        <p>{extra.chat.body}</p>
-      </div>
-      <div className='dai-mkt-chat-stage' data-reveal>
-        <div className='dai-mkt-chat-face'><DaiFace state='listen' avatar='classic' quality='high'/></div>
-        <div className='dai-mkt-chat-thread'>
-          <div className='user'>{extra.chat.user1}</div>
-          <div className='dai'>{extra.chat.reply1}</div>
-          <div className='user'>{extra.chat.user2}</div>
-          <div className='dai'>{extra.chat.reply2}</div>
-        </div>
-      </div>
-    </section>
-
-    <section className='dai-mkt-software'>
-      <div className='dai-mkt-software-copy' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.software.eyebrow}</span>
+    <section className='dai-v7-workspace'>
+      <div className='dai-v7-workspace-copy' data-reveal>
+        <span className='dai-v7-kicker'>{extra.software.eyebrow}</span>
         <h2>{extra.software.title}</h2>
         <p>{extra.software.body}</p>
       </div>
-      <div className='dai-mkt-dashboard' data-reveal>
+
+      <div className='dai-v7-app-shell' data-reveal>
         <aside>
-          <strong>DAI</strong>
-          <span className='active'><MessageCircle size={15}/> Chat</span>
-          <span><Search size={15}/> Search</span>
-          <span><TimerReset size={15}/> Tasks</span>
-          <span><Layers3 size={15}/> Avatars</span>
-          <span><Activity size={15}/> Status</span>
+          <div className='dai-v7-app-brand'><img src='./dai-logo.svg' alt=''/><strong>DAI</strong></div>
+          <span className='active'><MessageCircle size={16}/> Chat</span>
+          <span><Search size={16}/> Search</span>
+          <span><TimerReset size={16}/> Tasks</span>
+          <span><Layers3 size={16}/> Avatars</span>
+          <span><Activity size={16}/> Status</span>
         </aside>
-        <div className='dai-mkt-dashboard-main'>
+        <div className='dai-v7-app-main'>
           <header><span>DAI workspace</span><i/></header>
-          <div className='dai-mkt-dashboard-grid'>
-            <div className='big'>
+          <div className='dai-v7-app-grid'>
+            <div className='face-panel'>
               <DaiFace state='focus' avatar='classic' quality='high'/>
               <small>Ready</small>
             </div>
-            <div className='mini'><b>Voice</b><span>Live</span></div>
-            <div className='mini'><b>Search</b><span>Ready</span></div>
-            <div className='mini wide'><b>Recent</b><p>Continue your last conversation</p></div>
+            <div className='status-card voice'><b>Voice</b><span>Live</span><Activity size={18}/></div>
+            <div className='status-card search'><b>Search</b><span>Ready</span><Search size={18}/></div>
+            <div className='conversation-card'>
+              <div className='user'>{extra.chat.user2}</div>
+              <div className='dai'>{extra.chat.reply2}</div>
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section className='dai-mkt-toolkit'>
-      <div className='dai-mkt-section-head' data-reveal><h2>{extra.toolkit.title}</h2></div>
-      <div className='dai-mkt-toolkit-grid'>
-        {extra.toolkit.items.map((item,index)=><article key={item.title} data-reveal>
-          <span>{String(index+1).padStart(2,'0')}</span>
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-        </article>)}
-      </div>
-    </section>
-
-    <section className='dai-mkt-inside'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.inside.eyebrow}</span>
-        <h2>{extra.inside.title}</h2>
-        <p>{extra.inside.body}</p>
-      </div>
-      <div className='dai-mkt-inside-list'>
-        {extra.inside.items.map((item,index)=><article key={item.title} data-reveal>
-          <span>{String(index+1).padStart(2,'0')}</span>
-          <div><h3>{item.title}</h3><p>{item.body}</p></div>
-          <ArrowUpRight size={20}/>
-        </article>)}
-      </div>
-    </section>
-
-    <section className='dai-mkt-system'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.system.eyebrow}</span>
+    <section className='dai-v7-system' id='system'>
+      <div className='dai-v7-section-intro' data-reveal>
+        <span className='dai-v7-kicker'>{extra.system.eyebrow}</span>
         <h2>{extra.system.title}</h2>
         <p>{extra.system.body}</p>
       </div>
-      <div className='dai-mkt-system-grid'>
+
+      <div className='dai-v7-device-grid'>
         {extra.system.items.map((item,index)=>{
           const Icon=index===0?Laptop2:index===1?MonitorSmartphone:Zap;
-          return <article key={item.title} data-reveal><Icon size={23}/><h3>{item.title}</h3><p>{item.body}</p></article>;
+          return <article key={item.title} data-reveal>
+            <div className='dai-v7-device-icon'><Icon size={24}/></div>
+            <span>{String(index+1).padStart(2,'0')}</span>
+            <h3>{item.title}</h3>
+            <p>{item.body}</p>
+          </article>;
         })}
       </div>
-    </section>
 
-    <section className='dai-mkt-action'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.action.eyebrow}</span>
-        <h2>{extra.action.title}</h2>
-        <p>{extra.action.body}</p>
-      </div>
-      <div className='dai-mkt-action-grid'>
-        {(['listen','search','happy'] as DaiState[]).map((state)=><div key={state} data-reveal>
-          <DaiFace state={state} avatar='classic' quality='high'/>
-          <span>{state}</span>
+      <div className='dai-v7-tool-rail' data-reveal>
+        {extra.toolkit.items.map((item,index)=><div key={item.title}>
+          <span>{String(index+1).padStart(2,'0')}</span><strong>{item.title}</strong><p>{item.body}</p>
         </div>)}
       </div>
     </section>
 
-    <section className='dai-mkt-plans'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.plans.eyebrow}</span>
+    <section className='dai-v7-plans'>
+      <div className='dai-v7-section-intro' data-reveal>
+        <span className='dai-v7-kicker'>{extra.plans.eyebrow}</span>
         <h2>{extra.plans.title}</h2>
         <p>{extra.plans.body}</p>
       </div>
-      <div className='dai-mkt-plan-grid'>
+
+      <div className='dai-v7-plan-grid'>
         <article data-reveal>
-          <span>01</span><h3>{extra.plans.standard}</h3>
-          <ul><li><Check size={16}/>DAI web</li><li><Check size={16}/>Voice & text</li><li><Check size={16}/>Search & avatars</li></ul>
+          <span>01</span>
+          <h3>{extra.plans.standard}</h3>
+          <ul>
+            <li><Check size={16}/>DAI web</li>
+            <li><Check size={16}/>Voice & text</li>
+            <li><Check size={16}/>Search & avatars</li>
+          </ul>
           <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
         </article>
+
         <article className='pro' data-reveal>
-          <span>02</span><h3>{extra.plans.pro}</h3>
-          <ul><li><Check size={16}/>Everything in Standard</li><li><Check size={16}/>Desktop controls</li><li><Check size={16}/>Advanced device actions</li></ul>
+          <span>02</span>
+          <h3>{extra.plans.pro}</h3>
+          <ul>
+            <li><Check size={16}/>Everything in Standard</li>
+            <li><Check size={16}/>Desktop controls</li>
+            <li><Check size={16}/>Advanced device actions</li>
+          </ul>
           <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
         </article>
       </div>
-    </section>
 
-    <section className='dai-mkt-updates' id='roadmap'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.updates.eyebrow}</span>
-        <h2>{extra.updates.title}</h2>
-        <p>{extra.updates.body}</p>
-      </div>
-      <div className='dai-mkt-update-strip' data-reveal>
-        {extra.updates.items.map((item,index)=><div key={item}><Clock3 size={16}/><span>{String(index+1).padStart(2,'0')}</span><b>{item}</b></div>)}
+      <div className='dai-v7-roadmap' data-reveal>
+        <div><Clock3 size={16}/><span>{extra.updates.eyebrow}</span></div>
+        {extra.updates.items.map((item,index)=><span key={item}><b>{String(index+1).padStart(2,'0')}</b>{item}</span>)}
       </div>
     </section>
 
-    <section className='dai-mkt-faq' id='faq'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{extra.faq.eyebrow}</span>
+    <section className='dai-v7-global' id='languages'>
+      <div className='dai-v7-global-copy' data-reveal>
+        <span className='dai-v7-kicker'>{copy.languages.eyebrow}</span>
+        <h2>{copy.languages.title}</h2>
+        <p>{copy.languages.body}</p>
+
+        <div className='dai-v7-language-cloud'>
+          {languageList.map(([code,name])=><button
+            key={code}
+            className={locale===code?'active':''}
+            onClick={()=>setLocale(code)}
+          >{name}</button>)}
+        </div>
+      </div>
+
+      <div className='dai-v7-control-card' data-reveal>
+        <ShieldCheck size={26}/>
+        <span className='dai-v7-kicker'>{copy.privacy.eyebrow}</span>
+        <h3>{copy.privacy.title}</h3>
+        <p>{copy.privacy.body}</p>
+        <ul>{copy.privacy.points.map(item=><li key={item}><Check size={15}/><span>{item}</span></li>)}</ul>
+      </div>
+    </section>
+
+    <section className='dai-v7-faq' id='faq'>
+      <div className='dai-v7-section-intro' data-reveal>
+        <span className='dai-v7-kicker'>{extra.faq.eyebrow}</span>
         <h2>{extra.faq.title}</h2>
       </div>
-      <div className='dai-mkt-faq-list'>
+
+      <div className='dai-v7-faq-list'>
         {extra.faq.items.map((item,index)=><article key={item.q} className={openFaq===index?'open':''} data-reveal>
           <button onClick={()=>setOpenFaq(openFaq===index?-1:index)}>
             <span>{item.q}</span><ChevronDown size={19}/>
@@ -655,40 +682,17 @@ export default function MarketingPage(){
       </div>
     </section>
 
-    <section className='dai-mkt-languages' id='languages'>
-      <div className='dai-mkt-section-head' data-reveal>
-        <span className='dai-mkt-eyebrow'>{copy.languages.eyebrow}</span>
-        <h2>{copy.languages.title}</h2>
-        <p>{copy.languages.body}</p>
-      </div>
-      <div className='dai-mkt-language-cloud' data-reveal>
-        {languageList.map(([code,name])=><button
-          key={code}
-          className={locale===code?'active':''}
-          onClick={()=>setLocale(code)}
-        >{name}</button>)}
+    <section className='dai-v7-final' data-reveal>
+      <div className='dai-v7-final-face'><DaiFace state='happy' avatar='classic' quality='high'/></div>
+      <div className='dai-v7-final-copy'>
+        <WandSparkles size={26}/>
+        <h2>{copy.final.title}</h2>
+        <p>{copy.final.body}</p>
+        <button onClick={()=>{window.location.href=appUrl()}}>{copy.final.button}<ArrowUpRight size={18}/></button>
       </div>
     </section>
 
-    <section className='dai-mkt-control'>
-      <div className='dai-mkt-control-card' data-reveal>
-        <div>
-          <span className='dai-mkt-eyebrow'>{copy.privacy.eyebrow}</span>
-          <h2>{copy.privacy.title}</h2>
-          <p>{copy.privacy.body}</p>
-        </div>
-        <ul>{copy.privacy.points.map(item=><li key={item}><ShieldCheck size={18}/><span>{item}</span></li>)}</ul>
-      </div>
-    </section>
-
-    <section className='dai-mkt-final' data-reveal>
-      <WandSparkles size={28}/>
-      <h2>{copy.final.title}</h2>
-      <p>{copy.final.body}</p>
-      <button onClick={()=>{window.location.href=appUrl()}}>{copy.final.button}<ArrowUpRight size={18}/></button>
-    </section>
-
-    <footer className='dai-mkt-footer'>
+    <footer className='dai-v7-footer'>
       <span>{copy.footer}</span>
       <span>© {new Date().getFullYear()} DAI AI</span>
     </footer>
