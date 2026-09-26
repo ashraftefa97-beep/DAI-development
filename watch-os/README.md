@@ -1,11 +1,16 @@
 # DAI Watch OS v1
 
-Standalone wearable client for DAI on an ESP32-S3 watch platform.
+DAI Watch OS now follows an **M65A-first** strategy for Redmi Watch 3 Active (M2235W1).
 
-## Target
-Initial hardware profile: ESP32-S3 + 240x280 ST7789V2-class touch display. The architecture keeps DAI intelligence, search and speech services on the phone/server while the watch owns the UI, interaction state and low-latency command transport.
+## Primary target
+- Device family: M65A / Redmi Watch 3 Active
+- Display: 240 x 280
+- Runtime strategy: DAI Shell on top of the existing watch environment
+- Heavy AI / search / speech services: phone or server bridge
 
-## v1 states
+The Xiaomi firmware is **not replaced or force-flashed** in this stage. The original watch system keeps responsibility for boot, display power, battery management and Bluetooth while the DAI layer owns the visible experience.
+
+## DAI states
 - IDLE
 - LISTENING
 - THINKING
@@ -13,9 +18,18 @@ Initial hardware profile: ESP32-S3 + 240x280 ST7789V2-class touch display. The a
 - ERROR
 
 ## Architecture
-watch UI -> DAI link -> phone/server -> DAI services
+DAI Shell (watch) -> bridge abstraction -> phone/server -> DAI services
 
-No Xiaomi firmware flashing is required. Redmi Watch 3 Active remains untouched.
+The bridge interface is kept separate from the shell so we can use whichever communication path the M65A environment actually exposes.
 
-## Current milestone
-A compilable host-side prototype/state machine is the first milestone. Hardware drivers are isolated behind interfaces so the UI/DAI protocol can be developed before physical hardware arrives.
+## Milestones
+1. 240x280 DAI Shell visual prototype.
+2. Package the shell as a Redmi Watch 3 Active-compatible watch-face prototype.
+3. Prove an input/action path from the watch to the phone.
+4. Map real DAI state events back to the watch where the platform allows it.
+5. Test watch microphone/speaker access only if a supported runtime API is discovered.
+
+## Fallback
+ESP32-S3 remains a hardware fallback only if M65A cannot expose enough interaction for DAI.
+
+No ENG mode, USER DEBUG mode, local OTA force-flash or unknown firmware write is part of this branch.
