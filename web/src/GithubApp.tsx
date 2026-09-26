@@ -3503,9 +3503,12 @@ export default function GithubApp(){
     const contextMessages=(conversations.find(item=>item.id===activeIdRef.current)?.messages||[]).slice(-8);
     const previousUser=[...contextMessages].reverse().find(item=>item.role==='user');
     const previousAssistant=[...contextMessages].reverse().find(item=>item.role==='assistant');
-    const previousRoute=previousUser
-      ? routeDaiTask(previousUser.content).route
-      : undefined;
+    // Reconstruct recent routing in order so short research follow-ups keep
+    // their research context across more than one turn.
+    let previousRoute:DaiTaskRoute|undefined;
+    for(const message of contextMessages.filter(item=>item.role==='user')){
+      previousRoute=routeDaiTask(message.content,{previousRoute}).route;
+    }
     const gatewayRequest=createDaiRequest(
       text,
       fromVoice?'voice':desktopMode?'desktop':'text',
