@@ -63,7 +63,9 @@ export class DaiMotion {
     this.speechMood = 'neutral';
     this.speechMoodIntensity = .65;
     this.nextBlink = 2.5; this.blinkTime = 1;
-    this.nextIdle = 3.5; this.idleUntil = 0; this.idleAction = 'look'; this.idleSide = 1;
+    this.nextIdle = 2.2; this.idleUntil = 0; this.idleStartedAt = 0;
+    this.idleAction = 'look'; this.idleSide = 1;
+    this.pokeAt = -2; this.pokeUntil = -1;
     this.pointer = {x:0,y:0}; this.mouseInside = this.dragging = false;
     this.offset = {x:0,y:0}; this.offsetTarget = {x:0,y:0};
     this.particles = []; this.caught = false; this.audioEvents = [];
@@ -151,6 +153,7 @@ export class DaiMotion {
     if(requested!=='idle')this.lastMeaningfulAt=this.elapsed;
     this.animationLockUntil=this.elapsed+(transition.lockMs||0)/1000;
     this._applyAvatarVariant(requested,true);
+    if(externalChanged&&requested==='idle')this.nextIdle=this.elapsed+1.8;
 
     if (externalChanged&&['happy','found','idea','celebrate','wow','response_ready','success','wake_up','bounce','double_wave','welcome_back'].includes(requested)) {
       const burstCount=
@@ -204,6 +207,11 @@ export class DaiMotion {
     const cap=this.quality==='high'?40:this.quality==='medium'?24:10;
     this.particles=this.particles.slice(-cap);
   }
+  poke() {
+    if(this.reduced)return;
+    this.pokeAt=this.elapsed;
+    this.pokeUntil=this.elapsed+.72;
+  }
   targets() {
     let e=this.gestureTime; const t=this.elapsed;
     const [left,right,lw,rw,smile,mouth,tilt,cheek]=expressions[this.state];
@@ -212,19 +220,11 @@ export class DaiMotion {
       mouthWide:0,mouthRound:0,hat:0,wand:0,listen:0,rod:0,fish:0,brow:0,heart:0,notes:0,bulb:0,sleep:0};
     const set = values => Object.assign(p, values);
     let active=this.gesture;
-    if(this.state==='idle' && active==='idle' && this.elapsed<this.idleUntil) {
-      const action=this.idleAction;
-      if(action==='look') set({gaze_x:this.idleSide*9,gaze_y:-2});
-      else if(action==='smile') set({smile:.75,cheek:.35,happy:.7});
-      else if(action==='tilt') set({tilt:this.idleSide*7,left:.76,right:1.05});
-      else if(action==='sleepy') set({left:.3,right:.35,tilt:-5,smile:.3});
-      else { active=action; e=1.7-(this.idleUntil-this.elapsed); }
-    }
     if(this.mouseInside&&!this.dragging) set({gaze_x:clamp(this.pointer.x/22,-10,10),gaze_y:clamp(this.pointer.y/32,-5,5)});
     const qualityScale=this.quality==='high'?1:this.quality==='medium'?.72:.42;
     if(!this.reduced){
       const ambient=['idle','relax','breathe','sleep','dream','meditate','wait_patient','voicewait','recharge'].includes(active);
-      const baseBob=ambient?.58:2.2;
+      const baseBob=ambient?1.45:2.2;
       p.bob=Math.sin(t*(ambient?1.15:1.7))*baseBob*qualityScale;
     }
     const enter=e<.62?back(e/.62,.8):1;
@@ -425,21 +425,19 @@ export class DaiMotion {
       });
       if(!this.reduced)p.bob+=Math.sin(e*1.4)*.35;
     } else if(active==='voicewait') {
+      const attention=this.reduced?0:Math.sin(t*.88);
       set({
         left:.92,
         right:.92,
-        gaze_x:0,
-        gaze_y:-2,
-        tilt:0,
-        smile:.24,
+        gaze_x:attention*1.5,
+        gaze_y:-2+attention*.4,
+        tilt:attention*.9,
+        smile:.32,
         mouth:0,
-        cheek:.04,
-        brow:.18,
+        cheek:.1,
+        brow:.22+attention*.05,
         la:0,
-        ra:0,
-        bob:0,
-        sx:1,
-        sy:1
+        ra:0
       });
     } else if(active==='error') {
       const shake=this.reduced?0:Math.sin(e*15)*Math.exp(-e*.45);
@@ -711,7 +709,55 @@ export class DaiMotion {
     applyEmotionToPose(p,this);
     applyActiveMotionPolish(p,this);
 
+    // Small unprompted expressions keep DAI present without changing its
+    // semantic gesture or making idle hands wave on a loop.
+    if(this.requestedGesture==='idle'&&this.elapsed<this.idleUntil&&!this.reduced){
+      const span=Math.max(.01,this.idleUntil-this.idleStartedAt);
+      const phase=clamp((t-this.idleStartedAt)/span,0,1);
+      const amount=Math.sin(Math.PI*phase)**2;
+      if(this.idleAction==='look'){
+        p.gaze_x+=this.idleSide*6.5*amount;
+        p.brow+=.08*amount;
+      }else if(this.idleAction==='smile'){
+        p.smile+=.35*amount;
+        p.cheek+=.29*amount;
+        p.left-=.08*amount;p.right-=.08*amount;
+      }else if(this.idleAction==='tilt'){
+        p.tilt+=this.idleSide*2.2*amount;
+        p.gaze_x+=this.idleSide*2*amount;
+      }else if(this.idleAction==='wink'){
+        if(this.idleSide<0)p.left-=.82*amount;
+        else p.right-=.82*amount;
+        p.smile+=.26*amount;
+        p.cheek+=.25*amount;
+      }else if(this.idleAction==='curious'){
+        p.brow+=.23*amount;
+        p.gaze_y-=1.7*amount;
+        p.left+=.07*amount;p.right-=.07*amount;
+      }
+    }
+    if(this.mouseInside&&!this.dragging&&['idle','voicewait'].includes(this.requestedGesture)){
+      const near=clamp(1-Math.hypot(this.pointer.x/165,this.pointer.y/135),0,1);
+      p.gaze_x=clamp(this.pointer.x/19,-10,10);
+      p.gaze_y=clamp(this.pointer.y/28,-6,6);
+      p.tilt+=clamp(this.pointer.x/90,-1.7,1.7)*near;
+      p.smile+=.12*near;
+      p.brow+=.1*near;
+    }
+    if(this.elapsed<this.pokeUntil&&['idle','voicewait'].includes(this.requestedGesture)){
+      const phase=clamp((t-this.pokeAt)/.72,0,1);
+      const bounce=Math.sin(Math.PI*phase);
+      p.bob-=bounce*3.5;
+      p.sx+=bounce*.025;
+      p.sy-=bounce*.02;
+      p.smile+=bounce*.3;
+      p.cheek+=bounce*.35;
+      p.left-=bounce*.35;
+    }
+    if(['idle','voicewait'].includes(this.requestedGesture))p.tilt=clamp(p.tilt,-3,3);
+
     if(this.dragging) set({sx:1.055,sy:.94,left:1.1,right:1.1,mouth:.35,tilt:clamp(this.offsetTarget.x*.07,-8,8)});
+    if(this.requestedGesture==='voicewait')p.mouth=0;
     if(this.reduced) set({bob:0,sx:1,sy:1});
 
     const accessory=p.rod>.03?'fishing':p.wand>.03?'wand':p.hat>.03?'hat':null;
@@ -882,6 +928,18 @@ export class DaiMotion {
       this.blinkTime=0; this.nextBlink=this.elapsed+2.6+this.random()*2.9;
     }
     this.blinkTime+=elapsedDt;
+    if(this.requestedGesture==='idle'&&this.elapsed>=this.nextIdle&&!this.dragging&&!this.reduced){
+      if(this.mouseInside){
+        this.nextIdle=this.elapsed+1.8;
+      }else{
+        const pick=this.random();
+        this.idleAction=pick<.24?'look':pick<.47?'smile':pick<.64?'tilt':pick<.81?'wink':'curious';
+        this.idleSide=this.random()<.5?-1:1;
+        this.idleStartedAt=this.elapsed;
+        this.idleUntil=this.elapsed+.72+this.random()*.52;
+        this.nextIdle=this.idleUntil+2.2+this.random()*2.3;
+      }
+    }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
     this.voice=mix(this.voice,this.voiceTarget,30);
