@@ -1,5 +1,5 @@
-const CACHE_NAME = 'dai-web-v20-20260926-eye-research-fix';
-const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
+const CACHE_NAME = 'dai-web-v21-20260926-code-studio-preview';
+const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE)).catch(() => undefined));
