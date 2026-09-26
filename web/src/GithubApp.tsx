@@ -114,7 +114,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.3';
+const DAI_WEB_VERSION='1.10.4';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -327,10 +327,42 @@ function htmlPreviewFromMessage(content:string){
 
 function openHtmlPreview(html:string){
   if(!html)return;
-  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
-  const url=URL.createObjectURL(blob);
-  window.open(url,'_blank','noopener,noreferrer');
-  window.setTimeout(()=>URL.revokeObjectURL(url),60_000);
+
+  const id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
+  const key='dai-preview:'+id;
+
+  try{
+    // Keep only a few recent previews so large generated sites do not fill storage.
+    const oldKeys:string[]=[];
+    for(let i=0;i<localStorage.length;i++){
+      const itemKey=localStorage.key(i);
+      if(itemKey?.startsWith('dai-preview:'))oldKeys.push(itemKey);
+    }
+    oldKeys.sort().slice(0,Math.max(0,oldKeys.length-3)).forEach(itemKey=>{
+      try{localStorage.removeItem(itemKey)}catch{}
+    });
+    localStorage.setItem(key,html);
+  }catch(error){
+    console.warn('DAI preview storage fallback',error);
+    const direct=window.open('about:blank','_blank');
+    if(direct){
+      try{
+        direct.document.open();
+        direct.document.write(html);
+        direct.document.close();
+      }catch{}
+    }
+    return;
+  }
+
+  const url=new URL('./preview.html',window.location.href);
+  url.hash=encodeURIComponent(id);
+  const opened=window.open(url.href,'_blank');
+  if(!opened){
+    // Popup-block fallback keeps the working inline preview visible and opens
+    // the dedicated renderer in the current tab only as a last resort.
+    window.location.href=url.href;
+  }
 }
 
 function DaiMessageContent({
@@ -3577,28 +3609,11 @@ export default function GithubApp(){
     }
 
     if(!fromVoice&&predictedCode){
-      try{
-        const handled=await runLocalCodeReply(text);
-        if(handled){
-          setPendingUserMessage(null);
-          setSending(false);
-          return;
-        }
-      }catch(error){
-        console.warn('DAI local coder fallback',error);
-        localCoderStopRef.current=null;
-        setCodeEnginePhase('idle');
-        setCodeEngineProgress(0);
-        setStreamingText(false);
-        const tempId=streamMessageIdRef.current;
-        if(tempId){
-          setConversations(prev=>prev.map(item=>({
-            ...item,
-            messages:item.messages.filter(message=>message.id!==tempId)
-          })));
-          streamMessageIdRef.current='';
-        }
-      }
+      // Prefer the stronger server-side deep coding path while online.
+      // The small WebGPU coder remains available as a future offline fallback,
+      // but it must not cap website/design quality on phones or desktops.
+      setCodeEnginePhase('coding');
+      setCodeEngineProgress(100);
     }
 
     if(!fromVoice&&predictedComplex){
@@ -3693,6 +3708,8 @@ export default function GithubApp(){
         setPendingUserMessage(null);
         setStreamingText(false);
         setResearching(false);
+        setCodeEnginePhase('idle');
+        setCodeEngineProgress(0);
         setSending(false);
       }
       return;
