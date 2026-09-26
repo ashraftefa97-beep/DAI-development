@@ -3,7 +3,9 @@ name: Build DAI Watch Lite assets
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - dai-watch-os-v1
     paths:
       - 'watch/redmi-watch-3-active/**'
       - '.github/workflows/redmi3-active-watchface.yml'
@@ -36,7 +38,9 @@ jobs:
           for p in frames:
               assert Image.open(p).size==(240,280), (p,Image.open(p).size)
           assert Image.open(root/'preview.png').size==(156,182)
-          print('DAI Watch Lite validation passed')
+          assert (root/'easyface-layout.json').exists()
+          assert (root/'m65a-shell.json').exists()
+          print('DAI Watch M65A validation passed')
           PY
       - uses: actions/upload-artifact@v4
         with:
