@@ -403,7 +403,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v18-20260925-iphone-watch-bridge/);
+  assert.match(sw,/dai-web-v19-20260926-code-preview-avatar-fix/);
 });
 
 test('landing uses Lemon and requested Narsol typography',()=>{
@@ -441,7 +441,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v18-20260925-iphone-watch-bridge/);
+  assert.match(sw,/dai-web-v19-20260926-code-preview-avatar-fix/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
