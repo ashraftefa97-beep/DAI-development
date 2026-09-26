@@ -320,8 +320,8 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v18-20260925-iphone-watch-bridge/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.1'/);
+  assert.match(sw,/dai-web-v19-20260926-code-preview-avatar-fix/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.2'/);
 });
 
 
