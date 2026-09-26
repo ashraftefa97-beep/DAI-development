@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v19-20260926-code-preview-avatar-fix';
+const CACHE_NAME = 'dai-web-v20-20260926-eye-research-fix';
 const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
