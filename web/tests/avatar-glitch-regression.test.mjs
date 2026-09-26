@@ -59,9 +59,12 @@ test('director FX intensity is consumed by signature and library rendering',()=>
 
 test('Classic DAI keeps hands off the face during normal conversation',()=>{
   assert.match(draw,/const classicHandStates=new Set/);
-  assert.match(draw,/avatar!==\'classic\'\\|\\|classicHandStates\\.has\\(requestedGesture\\)/);
+  assert.match(draw,/avatar!=='classic'\|\|classicHandStates\.has\(requestedGesture\)/);
+  const block=draw.slice(
+    draw.indexOf('const classicHandStates=new Set'),
+    draw.indexOf('const allowHands=',draw.indexOf('const classicHandStates=new Set'))
+  );
   for(const state of ['idle','reply','talk','typing','listen','working','search']){
-    const marker=new RegExp("classicHandStates=new Set\\\\([\\\\s\\\\S]*?[\\\"']"+state+"[\\\"']");
-    assert.equal(marker.test(draw),false);
+    assert.equal(block.includes("'"+state+"'"),false);
   }
 });
