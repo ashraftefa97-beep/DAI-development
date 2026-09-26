@@ -264,14 +264,14 @@ function thinkingLevelForModel(model: string, profile: DaiBrainProfile) {
 }
 
 function outputBudgetForBrain(profile: DaiBrainProfile, route: DaiTaskRoute) {
-  if (route === 'code') return 5200;
+  if (route === 'code') return 6500;
   if (profile === 'deep') return 2400;
   if (profile === 'smart') return 900;
   return 480;
 }
 
 function timeoutForBrain(profile: DaiBrainProfile, route: DaiTaskRoute) {
-  if (route === 'code') return 55000;
+  if (route === 'code') return 70000;
   if (profile === 'deep') return 38000;
   if (profile === 'smart') return 22000;
   return 14000;
