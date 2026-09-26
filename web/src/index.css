@@ -6067,3 +6067,18 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   .dai-site-preview>header{align-items:flex-start}
   .dai-site-preview>header button{flex:0 0 auto}
 }
+
+
+.dai-code-details{border:1px solid rgba(238,188,216,.12);border-radius:16px;background:rgba(255,255,255,.018);overflow:hidden}
+.dai-code-details>summary{list-style:none;cursor:pointer;padding:10px 12px;color:#d9c3cf;font-size:11px;font-weight:800;user-select:none}
+.dai-code-details>summary::-webkit-details-marker{display:none}
+.dai-code-details>summary::after{content:'⌄';float:left;opacity:.6;transition:transform .2s ease}
+.dai-code-details[open]>summary::after{transform:rotate(180deg)}
+.dai-code-details-body{display:grid;gap:10px;padding:0 10px 10px}
+.dai-site-preview{order:-1}
+.dai-site-preview iframe{min-height:420px}
+@media(max-width:640px){
+  .dai-site-preview{border-radius:16px}
+  .dai-site-preview iframe{height:520px;min-height:520px}
+  .dai-code-details>summary{padding:12px}
+}
