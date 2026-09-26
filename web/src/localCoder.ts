@@ -99,7 +99,7 @@ export async function runLocalCoder(options:{
     messages,
     temperature:.15,
     top_p:.9,
-    max_tokens:4500,
+    max_tokens:6000,
     stream:true
   });
 
