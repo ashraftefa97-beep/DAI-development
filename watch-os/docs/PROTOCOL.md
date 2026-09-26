@@ -1,19 +1,22 @@
 # DAI Watch Link Protocol v1
 
-Transport is intentionally abstract: BLE is primary; Wi-Fi can be added later.
+This protocol is transport-independent.
 
-Every message carries:
+On M65A the transport is intentionally left behind an adapter until we prove which watch-to-phone action channel is available. On an ESP32 fallback it can map directly to BLE or Wi-Fi.
+
+Every logical message carries:
 - v: protocol version
 - type: event type
 - id: request/session id
 - text: optional UTF-8 payload
 
-Voice flow:
-1. Watch enters LISTENING.
-2. Audio transport begins.
-3. Server/phone signals THINKING when capture ends.
-4. Speech playback starts only after SPEECH_START.
-5. UI enters SPEAKING for exact animation/audio synchronization.
-6. SPEECH_END returns UI to IDLE.
+## Voice/state flow
+1. User action requests LISTENING.
+2. Bridge starts capture on the supported endpoint.
+3. DAI enters THINKING when capture ends.
+4. SPEECH_START changes the shell to SPEAKING exactly when audio playback begins.
+5. SPEECH_END returns the shell to IDLE.
 
-Text replies use REPLY_TEXT without mouth animation.
+Text replies use REPLY_TEXT and do not trigger mouth animation.
+
+The watch shell may initially support only a subset of these events. Unsupported events must degrade to a visual-only state rather than attempting privileged system access.
