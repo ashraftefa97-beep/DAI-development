@@ -243,6 +243,121 @@ function renderLinkedText(content:string,onOpenLink?:(url:string)=>void){
   return parts;
 }
 
+
+type DaiCodeSegment =
+  | {type:'text';value:string}
+  | {type:'code';lang:string;value:string};
+
+function splitCodeSegments(content:string):DaiCodeSegment[]{
+  const source=String(content||'');
+  const segments:DaiCodeSegment[]=[];
+  const fence=/\x60{3}([a-zA-Z0-9_+.-]*)[ \t]*\r?\n([\s\S]*?)\x60{3}/g;
+  let last=0;
+  let match:RegExpExecArray|null;
+  while((match=fence.exec(source))){
+    if(match.index>last)segments.push({type:'text',value:source.slice(last,match.index)});
+    segments.push({
+      type:'code',
+      lang:String(match[1]||'').toLowerCase(),
+      value:String(match[2]||'').replace(/\s+$/,'')
+    });
+    last=fence.lastIndex;
+  }
+  if(last<source.length)segments.push({type:'text',value:source.slice(last)});
+  return segments.length?segments:[{type:'text',value:source}];
+}
+
+function htmlPreviewFromMessage(content:string){
+  const code=splitCodeSegments(content).filter(
+    (segment):segment is Extract<DaiCodeSegment,{type:'code'}>=>segment.type==='code'
+  );
+  const htmlBlock=code.find(segment=>
+    ['html','htm',''].includes(segment.lang) &&
+    /(?:<!doctype\s+html|<html\b|<body\b|<main\b|<section\b|<div\b)/i.test(segment.value)
+  );
+  if(!htmlBlock)return '';
+
+  const css=code
+    .filter(segment=>segment.lang==='css')
+    .map(segment=>segment.value)
+    .join('\n\n');
+  const js=code
+    .filter(segment=>['js','javascript'].includes(segment.lang))
+    .map(segment=>segment.value)
+    .join('\n\n');
+
+  let html=htmlBlock.value.trim();
+  if(!/<html\b/i.test(html)){
+    html='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+html+'</body></html>';
+  }
+  if(css){
+    const style='<style>'+css+'</style>';
+    html=/<\/head>/i.test(html)
+      ? html.replace(/<\/head>/i,style+'</head>')
+      : style+html;
+  }
+  if(js){
+    const safeJs=js.replace(/<\/script/gi,'<\\/script');
+    const script='<script>'+safeJs+'</script>';
+    html=/<\/body>/i.test(html)
+      ? html.replace(/<\/body>/i,script+'</body>')
+      : html+script;
+  }
+  return html;
+}
+
+function openHtmlPreview(html:string){
+  if(!html)return;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  window.open(url,'_blank','noopener,noreferrer');
+  window.setTimeout(()=>URL.revokeObjectURL(url),60_000);
+}
+
+function DaiMessageContent({
+  content,
+  onOpenLink
+}:{
+  content:string;
+  onOpenLink?:(url:string)=>void;
+}){
+  const segments=splitCodeSegments(content);
+  const preview=htmlPreviewFromMessage(content);
+  const hasCode=segments.some(segment=>segment.type==='code');
+
+  return <div className={'dai-message-content '+(hasCode?'has-code':'')}>
+    {segments.map((segment,index)=>
+      segment.type==='text'
+        ? segment.value
+          ? <p className='dai-message-prose' dir='auto' key={'text-'+index}>
+              {renderLinkedText(segment.value,onOpenLink)}
+            </p>
+          : null
+        : <section className='dai-code-block' key={'code-'+index}>
+            <header><span>{segment.lang||'code'}</span></header>
+            <pre dir='ltr'><code>{segment.value}</code></pre>
+          </section>
+    )}
+    {preview&&<section className='dai-site-preview'>
+      <header>
+        <div>
+          <strong>معاينة الموقع</strong>
+          <span>شكل حي للكود اللي ضي كتبته</span>
+        </div>
+        <button type='button' onClick={()=>openHtmlPreview(preview)}>
+          <ExternalLink className='h-3.5 w-3.5'/> فتح المعاينة
+        </button>
+      </header>
+      <iframe
+        title='معاينة الموقع من ضي'
+        srcDoc={preview}
+        sandbox='allow-scripts allow-forms allow-modals allow-popups'
+        loading='lazy'
+      />
+    </section>}
+  </div>;
+}
+
 export default function GithubApp(){
   const [daiState,setDaiState]=useState<DaiState>('idle');
   const [reduced,setReduced]=useState(()=>{
@@ -2873,7 +2988,8 @@ export default function GithubApp(){
 
     const streamTimeoutMs=
       routeHint==='research'?45000
-      : routeHint==='complex'||routeHint==='code'?40000
+      : routeHint==='code'?65000
+      : routeHint==='complex'?50000
       : 30000;
     let streamTimedOut=false;
     const streamTimeoutId=window.setTimeout(()=>{
@@ -5321,7 +5437,7 @@ export default function GithubApp(){
           : (active?.messages||[]).map(m=>
             <article className={'classic-chat-message '+m.role} key={m.id}>
               <strong>{m.role==='user'?'أنت':'ضي'}</strong>
-              <p dir='auto'>{renderLinkedText(m.content,openDaiBrowser)}</p>
+              {m.role==='assistant'?<DaiMessageContent content={m.content} onOpenLink={openDaiBrowser}/>:<p dir='auto'>{renderLinkedText(m.content,openDaiBrowser)}</p>}
               {m.role==='assistant'&&m.sources&&m.sources.length>0&&
                 <div className='dai-search-sources' aria-label='مصادر بحث ضي'>
                   <span><Search className='h-3.5 w-3.5'/> مصادر البحث</span>
