@@ -277,6 +277,76 @@ function timeoutForBrain(profile: DaiBrainProfile, route: DaiTaskRoute) {
   return 14000;
 }
 
+function isWebsiteCodeRequest(text:string) {
+  return /(?:موقع|صفحة|صفحه|landing\s*page|website|web\s*page|portfolio|dashboard|واجهة|ui\b|ux\b|html\b|css\b)/i.test(String(text||''));
+}
+
+function websiteCodeLooksComplete(answer:string) {
+  const value=String(answer||'').trim();
+  if(!value) return false;
+  const hasHtml=/(?:```html\b|<!doctype\s+html\b|<html\b)/i.test(value);
+  const hasBodyClose=/<\/body\s*>/i.test(value);
+  const hasHtmlClose=/<\/html\s*>/i.test(value);
+  const suspiciousTail=/(?:\.\.\.|…|TODO|continue|يتبع|أكمل|الباقي|remaining)\s*(?:```)?\s*$/i.test(value);
+  return hasHtml && hasBodyClose && hasHtmlClose && !suspiciousTail;
+}
+
+async function generateCodeStudioPass(
+  apiKey:string,
+  configuredModel:string,
+  systemText:string,
+  contents:any[],
+  maxOutputTokens:number,
+  parentSignal?:AbortSignal,
+) {
+  let lastStatus=0;
+  let lastDetail='';
+  for(const model of modelCandidatesForBrain('deep',configuredModel)){
+    try{
+      const response=await timedFetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method:'POST',
+          headers:{
+            'x-goog-api-key':apiKey,
+            'Content-Type':'application/json',
+          },
+          body:JSON.stringify({
+            systemInstruction:{parts:[{text:systemText}]},
+            contents,
+            generationConfig:{
+              maxOutputTokens,
+              temperature:0.22,
+              topP:0.9,
+              thinkingConfig:{thinkingLevel:thinkingLevelForModel(model,'deep')},
+            },
+          }),
+        },
+        42000,
+        parentSignal,
+      );
+      lastStatus=response.status;
+      const raw=await response.text().catch(()=> '');
+      lastDetail=raw.slice(0,1000);
+      if(!response.ok){
+        if([404,429,503].includes(response.status))continue;
+        break;
+      }
+      const payload=JSON.parse(raw||'{}');
+      const text=String(
+        payload?.candidates?.[0]?.content?.parts
+          ?.map((part:any)=>part?.text||'')
+          ?.join('') || ''
+      ).trim();
+      if(text)return {ok:true,text,model,status:response.status,detail:''};
+    }catch(error){
+      lastDetail=String(error||'').slice(0,1000);
+      if(parentSignal?.aborted)break;
+    }
+  }
+  return {ok:false,text:'',model:'',status:lastStatus,detail:lastDetail};
+}
+
 const DAI_WEB_URL = Deno.env.get('DAI_WEB_URL') || 'https://ashraftefa97-beep.github.io/DAI-development/';
 
 function cleanDetectedUrl(value: string) {
@@ -2417,6 +2487,90 @@ Deno.serve(async (req) => {
           });
 
           push('delta', { text: answer });
+        } else if (route === 'code') {
+          const apiKey = (
+            Deno.env.get('GEMINI_API_KEY') ||
+            Deno.env.get('AI_API_KEY') ||
+            ''
+          ).trim();
+
+          if (!apiKey) {
+            await rollbackFailedTurn();
+            push('error', { code:'AI_CONFIG', message:'خدمة ضي الذكية غير متاحة حاليًا.' });
+            close();
+            return;
+          }
+
+          const configuredModel=(Deno.env.get('AI_MODEL')||'').trim();
+          const websiteRequest=isWebsiteCodeRequest(message);
+          const codeStudioSystem=
+            systemPrompt +
+            '\nأنت الآن في DAI Code Studio. اشتغل كمبرمج Senior ومصمم Product/UI قوي في نفس الوقت. ' +
+            'فكر في المعمارية والـlayout والـresponsive behavior داخليًا قبل كتابة الناتج، ثم أرسل النسخة النهائية فقط. ' +
+            'أي موقع أو صفحة لازم تكون كاملة وقابلة للتشغيل فورًا، self-contained قدر الإمكان، ومصممة بمستوى Premium: hierarchy واضحة، spacing متزن، typography قوية، contrast ممتاز، responsive حقيقي للموبايل والديسكتوب، hover/focus/active states، micro-interactions هادئة، accessibility، وحالات empty/loading عند الحاجة. ' +
+            'تجنب شكل القوالب العامة الرخيصة، المبالغة في gradients/glows، lorem ipsum، TODO، placeholders، أو أجزاء ناقصة. ' +
+            'لو المستخدم لم يحدد Stack لموقع بسيط، أرجع ملف HTML واحد كامل بداخله CSS وJavaScript. ' +
+            'ضع الملف كاملًا داخل fenced code block باسم اللغة، ولا تختصر منتصف الملف. راجع الوسوم والأقواس والإغلاق قبل الإرسال.';
+
+          const firstPass=await generateCodeStudioPass(
+            apiKey,
+            configuredModel,
+            codeStudioSystem,
+            contents,
+            websiteRequest?7800:6500,
+            req.signal,
+          );
+
+          if(!firstPass.ok||!firstPass.text){
+            await rollbackFailedTurn();
+            push('error',{code:'CODE_FAILED',message:'ضي مقدرتش تكمّل الكود دلوقتي. جرّب تاني.'});
+            close();
+            return;
+          }
+
+          answer=firstPass.text;
+          usedModel='code-studio:'+firstPass.model;
+          firstTokenMs=Math.round(performance.now()-requestStartedAt);
+
+          // Website/design requests get a second senior review pass. This is the
+          // quality path: refine layout, completeness, mobile behavior and visual polish.
+          if(websiteRequest && !req.signal.aborted){
+            const reviewSystem=
+              'أنت Senior Frontend Engineer وProduct Designer بتراجع مسودة موقع قبل تسليمها. ' +
+              'أعد كتابة الناتج كاملًا كنسخة نهائية أقوى بصريًا وتقنيًا. لا تشرح المراجعة ولا ترجع Patch. ' +
+              'حافظ على طلب المستخدم، أصلح أي HTML/CSS/JS ناقص، حسّن hierarchy وspacing وtypography وresponsive mobile، ' +
+              'وتأكد إن كل التفاعلات الأساسية شغالة. تجنب القوالب العامة والمبالغة البصرية. ' +
+              'أخرج فقط الرد النهائي ومعه ملف HTML كامل داخل ```html. لازم ينتهي بـ </body></html>.';
+
+            const reviewContents=[{
+              role:'user',
+              parts:[{text:
+                'طلب المستخدم الأصلي:\n'+message+
+                '\n\nالمسودة الأولى:\n'+answer+
+                '\n\nراجعها وارجع النسخة النهائية الكاملة فقط.'
+              }]
+            }];
+
+            const reviewed=await generateCodeStudioPass(
+              apiKey,
+              configuredModel,
+              reviewSystem,
+              reviewContents,
+              8200,
+              req.signal,
+            );
+
+            if(reviewed.ok && reviewed.text && websiteCodeLooksComplete(reviewed.text)){
+              answer=reviewed.text;
+              usedModel='code-studio-reviewed:'+reviewed.model;
+            }else if(!websiteCodeLooksComplete(answer) && reviewed.ok && reviewed.text){
+              // Prefer a complete repaired result even when the reviewer changed formatting.
+              answer=reviewed.text;
+              usedModel='code-studio-repaired:'+reviewed.model;
+            }
+          }
+
+          push('delta',{text:answer});
         } else {
           const apiKey = (
             Deno.env.get('GEMINI_API_KEY') ||
