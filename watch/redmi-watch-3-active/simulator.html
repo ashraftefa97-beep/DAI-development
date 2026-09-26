@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DAI Shell M65A — 240x280</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0d0b14;color:#fff;font-family:Arial,sans-serif}
+  .wrap{display:grid;gap:14px;justify-items:center}
+  .watch{width:240px;height:280px;border-radius:34px;overflow:hidden;position:relative;background:
+    radial-gradient(circle at 50% 52%,rgba(189,140,235,.18),transparent 38%),
+    linear-gradient(180deg,#0b0912,#151020);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+  .time{position:absolute;top:14px;left:0;right:0;text-align:center;font-size:34px;font-weight:700;letter-spacing:1px}
+  .avatar{position:absolute;width:136px;height:126px;left:52px;top:85px;border-radius:46% 54% 52% 48%;
+    border:2px solid rgba(255,220,239,.25);box-shadow:0 0 34px rgba(201,142,231,.16);transition:.28s ease}
+  .eye{position:absolute;top:43px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s ease}
+  .eye:after{content:"";position:absolute;width:7px;height:7px;border-radius:50%;background:#77619a;left:9px;top:9px}
+  .eye.l{left:28px}.eye.r{right:28px}
+  .mouth{position:absolute;left:50%;top:82px;width:28px;height:12px;margin-left:-14px;border-bottom:4px solid #f1a6cc;border-radius:0 0 20px 20px;transition:.18s ease}
+  .status{position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:13px;letter-spacing:1.4px;color:#d9c2ea}
+  .brand{position:absolute;bottom:12px;left:14px;color:#f1acd0;font-size:11px;font-weight:700}
+  .dot{position:absolute;bottom:15px;right:16px;width:7px;height:7px;border-radius:50%;background:#947db1}
+  .controls{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;max-width:360px}
+  button{border:0;border-radius:999px;padding:8px 12px;background:#241c31;color:#fff;cursor:pointer}
+  button.active{background:#f1acd0;color:#241525}
+  .watch.listening .avatar{transform:scale(1.03)}
+  .watch.listening .dot{background:#74d9ff;box-shadow:0 0 14px #74d9ff}
+  .watch.thinking .eye:after{transform:translateX(-4px)}
+  .watch.thinking .dot{background:#c6a6ff;box-shadow:0 0 14px #c6a6ff}
+  .watch.speaking .mouth{height:22px;border:0;background:#ef9fc7;border-radius:50%}
+  .watch.speaking .dot{background:#ff9fcf;box-shadow:0 0 14px #ff9fcf}
+  .watch.error .dot{background:#ff6d7f;box-shadow:0 0 14px #ff6d7f}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="watch" class="watch idle">
+    <div id="time" class="time">12:34</div>
+    <div class="avatar">
+      <div class="eye l"></div><div class="eye r"></div><div class="mouth"></div>
+    </div>
+    <div id="status" class="status">IDLE</div>
+    <div class="brand">DAI</div><div class="dot"></div>
+  </div>
+  <div class="controls" id="controls"></div>
+</div>
+<script>
+const states=["idle","listening","thinking","speaking","error"];
+const labels={idle:"IDLE",listening:"LISTENING",thinking:"THINKING",speaking:"SPEAKING",error:"ERROR"};
+const watch=document.getElementById("watch"), status=document.getElementById("status"), controls=document.getElementById("controls");
+function setState(s){
+  watch.className="watch "+s; status.textContent=labels[s];
+  [...controls.children].forEach(b=>b.classList.toggle("active",b.dataset.state===s));
+}
+states.forEach(s=>{const b=document.createElement("button");b.textContent=labels[s];b.dataset.state=s;b.onclick=()=>setState(s);controls.appendChild(b)});
+setState("idle");
+setInterval(()=>{const d=new Date();document.getElementById("time").textContent=d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",hour12:false})},1000);
+</script>
+</body>
+</html>
