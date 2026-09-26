@@ -959,7 +959,7 @@ function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   g.addColorStop(1,theme.eyeC);
   const eyePath=buildEyePath(dna.eye,w,h,r);
 
-  c.globalAlpha=1-happy*.94;
+  c.globalAlpha=avatar==='classic'?1:1-happy*.94;
   c.save();
   c.shadowColor=material.glow;
   c.shadowBlur=4+material.depth*7;
@@ -986,12 +986,14 @@ function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
     c.globalAlpha=(1-happy)*.31;for(const a of [0,90,180,270])line(c,Math.cos(rad(a))*w*.48,Math.sin(rad(a))*h*.40,Math.cos(rad(a))*w*.62,Math.sin(rad(a))*h*.52,theme.happy,.72);
   }
 
-  c.globalAlpha=happy;
-  c.save();
-  c.shadowColor=material.glow;
-  c.shadowBlur=3.5;
-  path(c,'M-22 5 C-16 -19 16 -19 22 5',null,theme.happy,shape.happyStroke);
-  c.restore();
+  if(avatar!=='classic'){
+    c.globalAlpha=happy;
+    c.save();
+    c.shadowColor=material.glow;
+    c.shadowBlur=3.5;
+    path(c,'M-22 5 C-16 -19 16 -19 22 5',null,theme.happy,shape.happyStroke);
+    c.restore();
+  }
   c.restore();
 }
 
