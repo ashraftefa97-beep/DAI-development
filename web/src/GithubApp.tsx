@@ -609,7 +609,6 @@ export default function GithubApp(){
   const liveOutputAnalyserRef=useRef<AnalyserNode|null>(null);
   const textRequestAbortRef=useRef<AbortController|null>(null);
   const gatewayRequestRef=useRef('');
-  const localCoderStopRef=useRef<(()=>void)|null>(null);
   const localGeneralStopRef=useRef<(()=>void)|null>(null);
   const streamMessageIdRef=useRef('');
   const chatScrollRef=useRef<HTMLElement|null>(null);
@@ -2667,9 +2666,7 @@ export default function GithubApp(){
     gatewayRequestRef.current='';
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
-    localCoderStopRef.current?.();
     localGeneralStopRef.current?.();
-    localCoderStopRef.current=null;
     localGeneralStopRef.current=null;
     setCodeEnginePhase('idle');
     setCodeEngineProgress(0);
@@ -3379,147 +3376,6 @@ export default function GithubApp(){
       return true;
     }finally{
       setImageGenerating(false);
-    }
-  }
-
-  async function runLocalCodeReply(text:string){
-    if(!supabase||!userId)return false;
-    if(typeof navigator==='undefined'||!('gpu' in navigator))return false;
-
-    let conversationId=activeIdRef.current;
-    if(!conversationId){
-      conversationId=await createConversation(text.slice(0,48)||'محادثة برمجة')||'';
-      if(!conversationId)return false;
-      activeIdRef.current=conversationId;
-    }
-
-    const tempAssistantId='local-code-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
-    streamMessageIdRef.current=tempAssistantId;
-    const history=(conversations.find(item=>item.id===conversationId)?.messages||[])
-      .slice(-6)
-      .map(item=>({role:item.role,content:item.content}));
-
-    setResearching(false);
-    setCodeEnginePhase('loading');
-    setCodeEngineProgress(0);
-    transitionCorePhase('working',{force:true});
-
-    const coder=await import('./localCoder');
-    localCoderStopRef.current=coder.stopLocalCoder;
-
-    let draftInserted=false;
-    const updateDraft=(full:string)=>{
-      if(!full)return;
-      setStreamingText(true);
-      setCodeEnginePhase('coding');
-      const draft:Message={
-        id:tempAssistantId,
-        role:'assistant',
-        content:full,
-        createdAt:Date.now()
-      };
-
-      setConversations(prev=>{
-        const existing=prev.find(item=>item.id===conversationId);
-        const base=existing?.messages||[];
-        const messages=draftInserted
-          ? base.map(message=>message.id===tempAssistantId?draft:message)
-          : [...base,draft];
-        draftInserted=true;
-
-        const updated:Conversation=existing
-          ? {...existing,messages,updatedAt:Date.now()}
-          : {id:conversationId,title:text.slice(0,48)||'محادثة برمجة',messages,updatedAt:Date.now()};
-
-        return [updated,...prev.filter(item=>item.id!==conversationId)];
-      });
-    };
-
-    try{
-      const result=await coder.runLocalCoder({
-        prompt:text,
-        history,
-        onProgress:(progress)=>{
-          setCodeEnginePhase(progress>=1?'coding':'loading');
-          setCodeEngineProgress(Math.round(progress*100));
-        },
-        onDelta:(_delta,full)=>updateDraft(full)
-      });
-
-      const answer=String(result.text||'').trim();
-      if(!answer)throw new Error('LOCAL_CODER_EMPTY');
-
-      const {data:saved,error}=await supabase
-        .from('dai_messages')
-        .insert([
-          {
-            conversation_id:conversationId,
-            user_id:userId,
-            role:'user',
-            content:text
-          },
-          {
-            conversation_id:conversationId,
-            user_id:userId,
-            role:'assistant',
-            content:answer
-          }
-        ])
-        .select('id,role,content,created_at');
-
-      if(error||!saved||saved.length<2)throw error||new Error('LOCAL_CODER_SAVE_FAILED');
-
-      await supabase
-        .from('dai_conversations')
-        .update({updated_at:new Date().toISOString()})
-        .eq('id',conversationId);
-
-      const userRow=saved.find((item:any)=>item.role==='user');
-      const assistantRow=saved.find((item:any)=>item.role==='assistant');
-      if(!userRow||!assistantRow)throw new Error('LOCAL_CODER_SAVE_READ_FAILED');
-
-      const userMessage:Message={
-        id:String(userRow.id),
-        role:'user',
-        content:String(userRow.content||text),
-        createdAt:new Date(userRow.created_at).getTime()
-      };
-      const assistantMessage:Message={
-        id:String(assistantRow.id),
-        role:'assistant',
-        content:String(assistantRow.content||answer),
-        createdAt:new Date(assistantRow.created_at).getTime()
-      };
-
-      setPendingUserMessage(null);
-      setActiveId(conversationId);
-      activeIdRef.current=conversationId;
-      setConversations(prev=>{
-        const existing=prev.find(item=>item.id===conversationId);
-        const base=(existing?.messages||[]).filter(message=>
-          message.id!==tempAssistantId &&
-          message.id!==userMessage.id &&
-          message.id!==assistantMessage.id
-        );
-        const updated:Conversation=existing
-          ? {...existing,messages:[...base,userMessage,assistantMessage],updatedAt:Date.now()}
-          : {
-              id:conversationId,
-              title:text.slice(0,48)||'محادثة برمجة',
-              messages:[userMessage,assistantMessage],
-              updatedAt:Date.now()
-            };
-        return [updated,...prev.filter(item=>item.id!==conversationId)];
-      });
-
-      transitionCorePhase('complete',{force:true});
-      return true;
-    }finally{
-      localCoderStopRef.current=null;
-      streamMessageIdRef.current='';
-      setCodeEnginePhase('idle');
-      setCodeEngineProgress(0);
-      setStreamingText(false);
     }
   }
 
@@ -4461,9 +4317,7 @@ export default function GithubApp(){
     gatewayRequestRef.current=liveGateway.id;
     textRequestAbortRef.current?.abort();
     textRequestAbortRef.current=null;
-    localCoderStopRef.current?.();
     localGeneralStopRef.current?.();
-    localCoderStopRef.current=null;
     localGeneralStopRef.current=null;
     speechRunRef.current++;
     stopSpeechAudio();
