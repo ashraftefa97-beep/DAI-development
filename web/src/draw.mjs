@@ -1229,7 +1229,14 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const variantMotion=m.avatarVariantMotion||{};
   const handBias=(Number(variantMotion.handBias)||0)*5.5;
   const handLift=(Number(variantMotion.handLift)||0)*4.2;
-  const allowHands=avatarAllowsHandGesture(avatar,requestedGesture);
+  // Classic DAI is face-first during normal conversation. Hands are reserved
+  // for explicit gesture requests so they can never drift over the eyes.
+  const classicHandStates=new Set([
+    'wave','double_wave','high_five','clap','salute','peace','bow',
+    'celebrate','cheer','victory','party','dance','camera_pose'
+  ]);
+  const allowHands=(avatar!=='classic'||classicHandStates.has(requestedGesture))
+    && avatarAllowsHandGesture(avatar,requestedGesture);
   const handIntent=handIntentScale({
     requestedGesture,
     activeGesture:m.gesture||requestedGesture,
