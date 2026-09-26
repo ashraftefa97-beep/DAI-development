@@ -380,24 +380,31 @@ test('rendered speaking mouth visibly changes silhouette',()=>{
 
 test('landing hero has Arabic-safe typography and no Latin negative tracking',()=>{
   assert.match(marketingPage,/data-locale=\{locale\}/);
-  assert.match(marketingCss,/data-locale='ar'.*dai-mkt-hero h1/s);
+  assert.match(marketingCss,/dai-v7\[data-locale='ar'\].*dai-v7-hero h1/s);
   assert.match(marketingCss,/letter-spacing:0/);
-  assert.match(marketingCss,/line-height:1\.18/);
+  assert.match(marketingCss,/line-height:1\.19/);
 });
 
-test('landing page uses varied visual chapters instead of one repeated layout',()=>{
-  assert.ok(!marketingPage.includes('dai-mkt-motion-strip'));
-  assert.match(marketingPage,/dai-mkt-flow-index/);
+test('landing page uses the V7 immersive product-story structure',()=>{
+  for(const token of [
+    'dai-v7-hero',
+    'dai-v7-core',
+    'dai-v7-bento',
+    'dai-v7-personality',
+    'dai-v7-process',
+    'dai-v7-workspace',
+    'dai-v7-system',
+    'dai-v7-global',
+    'dai-v7-final'
+  ]) assert.match(marketingPage,new RegExp(token));
   assert.match(marketingCss,/grid-template-columns:repeat\(12,minmax\(0,1fr\)\)/);
-  assert.match(marketingCss,/dai-mkt-card:nth-child\(1\).*grid-column:span 7/s);
-  assert.match(marketingCss,/dai-mkt-languages[\s\S]*#17151b/);
+  assert.match(marketingCss,/dai-v7-bento-card\.bento-1/);
 });
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
   assert.match(sw,/dai-web-v18-20260925-iphone-watch-bridge/);
 });
-
 
 test('landing uses Lemon and requested Narsol typography',()=>{
   const githubHtml=readFileSync(new URL('../github.html',import.meta.url),'utf8');
@@ -406,38 +413,30 @@ test('landing uses Lemon and requested Narsol typography',()=>{
   assert.match(marketingCss,/--dai-font-ar:'Narsol','Norsal'/);
 });
 
-test('public introduction features Classic DAI without an artificial device shell',()=>{
+test('public introduction keeps Classic DAI as the visual identity',()=>{
   const faces=[...marketingPage.matchAll(/<DaiFace[^>]*avatar='([^']+)'/g)].map(match=>match[1]);
-  assert.ok(faces.length>=5);
+  assert.ok(faces.length>=4);
   assert.ok(faces.every(avatar=>avatar==='classic'));
-  assert.ok(!marketingPage.includes('dai-mkt-buddy-fin'));
-  assert.ok(!marketingPage.includes('dai-mkt-buddy-ring'));
-  assert.ok(!marketingPage.includes('dai-mkt-buddy-scanline'));
-  assert.match(marketingCss,/dai-mkt-buddy-classic/);
-  assert.match(marketingCss,/background:transparent/);
+  assert.match(marketingPage,/dai-v7-face/);
+  assert.match(marketingPage,/dai-v7-personality-face/);
+  assert.match(marketingPage,/dai-v7-final-face/);
 });
 
-
-test('landing mirrors the product-story flow with original DAI sections',()=>{
-  for(const token of [
-    'dai-mkt-chat-story',
-    'dai-mkt-software',
-    'dai-mkt-toolkit',
-    'dai-mkt-inside',
-    'dai-mkt-system',
-    'dai-mkt-action',
-    'dai-mkt-plans',
-    'dai-mkt-updates',
-    'dai-mkt-faq'
-  ]) assert.match(marketingPage,new RegExp(token));
+test('landing combines conversation product and device story without repetitive chapters',()=>{
+  assert.match(marketingPage,/dai-v7-mini-thread/);
+  assert.match(marketingPage,/dai-v7-app-shell/);
+  assert.match(marketingPage,/dai-v7-device-grid/);
+  assert.match(marketingPage,/dai-v7-tool-rail/);
+  assert.match(marketingPage,/dai-v7-plan-grid/);
+  assert.match(marketingPage,/dai-v7-faq-list/);
 });
 
-test('landing has responsive dashboard plans updates and FAQ',()=>{
-  assert.match(marketingCss,/dai-mkt-dashboard/);
-  assert.match(marketingCss,/dai-mkt-plan-grid/);
-  assert.match(marketingCss,/dai-mkt-update-strip/);
-  assert.match(marketingCss,/dai-mkt-faq-list/);
-  assert.match(marketingCss,/@media\(max-width:700px\)/);
+test('landing has responsive dashboard plans roadmap and FAQ',()=>{
+  assert.match(marketingCss,/dai-v7-app-shell/);
+  assert.match(marketingCss,/dai-v7-plan-grid/);
+  assert.match(marketingCss,/dai-v7-roadmap/);
+  assert.match(marketingCss,/dai-v7-faq-list/);
+  assert.match(marketingCss,/@media\(max-width:820px\)/);
 });
 
 test('full landing release refreshes service worker cache',()=>{
@@ -445,23 +444,16 @@ test('full landing release refreshes service worker cache',()=>{
   assert.match(sw,/dai-web-v18-20260925-iphone-watch-bridge/);
 });
 
-
-test('classic intro removes discarded shell decoration',()=>{
-  assert.match(marketingCss,/dai-mkt-buddy-fin,[\s\S]*display:none!important/);
-  assert.match(marketingCss,/mktClassicBreath/);
-  assert.match(marketingCss,/mktClassicOrbit/);
+test('landing header is dark glass and mobile-safe',()=>{
+  assert.match(marketingCss,/DAI V7 — immersive product-story restructure/);
+  assert.match(marketingCss,/background:rgba\(13,12,16,\.82\)/);
+  assert.match(marketingCss,/backdrop-filter:blur\(26px\)/);
+  assert.match(marketingCss,/@media\(max-width:820px\)/);
 });
 
-
-test('landing header is dark glass without bottom rule',()=>{
-  assert.match(marketingCss,/DAI Marketing V6/);
-  assert.match(marketingCss,/background:rgba\(15,13,18,\.72\)!important/);
-  assert.match(marketingCss,/border-bottom:0!important/);
-  assert.match(marketingCss,/backdrop-filter:blur\(24px\)/);
+test('classic hero has cinematic visual presence on light background',()=>{
+  assert.match(marketingCss,/dai-v7-face[\s\S]*radial-gradient/s);
+  assert.match(marketingCss,/dai-v7-hero-stage[\s\S]*min-height:650px/s);
+  assert.match(marketingCss,/contrast\(1\.17\)/);
 });
 
-test('classic hero has solid visual presence on light background',()=>{
-  assert.match(marketingCss,/dai-mkt-buddy-classic[\s\S]*rgba\(34,29,40,\.96\)/);
-  assert.match(marketingCss,/contrast\(1\.18\)/);
-  assert.match(marketingCss,/opacity:1!important/);
-});
