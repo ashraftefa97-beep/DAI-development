@@ -11,13 +11,15 @@ test('DAI renders fenced HTML as a live sandboxed preview',()=>{
   assert.match(app,/className='dai-site-preview'/);
   assert.match(app,/srcDoc=\{preview\}/);
   assert.match(app,/sandbox='allow-scripts allow-forms allow-modals allow-popups'/);
-  assert.match(app,/فتح المعاينة/);
+  assert.match(app,/فتح الموقع/);
+  assert.match(app,/htmlStart=source\.search/);
+  assert.match(app,/dai-code-details/);
 });
 
 test('DAI coding routes have enough room for complete website builds',()=>{
-  assert.match(coder,/max_tokens:4500/);
-  assert.match(edge,/route === 'code'\) return 5200/);
-  assert.match(edge,/route === 'code'\) return 55000/);
+  assert.match(coder,/max_tokens:6000/);
+  assert.match(edge,/route === 'code'\) return 6500/);
+  assert.match(edge,/route === 'code'\) return 70000/);
 });
 
 test('DAI coding prompt asks for complete production-ready responsive output',()=>{
