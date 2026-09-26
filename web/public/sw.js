@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v18-20260925-iphone-watch-bridge';
+const CACHE_NAME = 'dai-web-v19-20260926-code-preview-avatar-fix';
 const CORE = ['./', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
