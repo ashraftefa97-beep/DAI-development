@@ -178,6 +178,21 @@ digit_set(SMALL,(14,20),15)
 # machine-readable frame map
 (DIST/"frame_map.txt").write_text("\n".join(f"{i:02d}=images/second_{i:02d}.png" for i in range(60)),encoding="utf-8")
 
+# Bundle the M65A shell profile and EasyFace layout next to the generated assets.
+for name in ("easyface-layout.json", "m65a-shell.json"):
+    source = ROOT / name
+    if source.exists():
+        shutil.copy2(source, DIST / name)
+
+(DIST/"INSTALL.txt").write_text(
+    "DAI Shell M65A - Redmi Watch 3 Active\n"
+    "Resolution: 240x280\n\n"
+    "This archive contains visual watch-face assets and layout metadata.\n"
+    "Import/build it with a Redmi Watch 3 Active compatible EasyFace toolchain.\n"
+    "Do not use ENG mode, USER DEBUG mode, force OTA, or unknown firmware files.\n",
+    encoding="utf-8"
+)
+
 zip_path=DIST/"DAI_Watch_Redmi3Active_Assets.zip"
 if zip_path.exists(): zip_path.unlink()
 with zipfile.ZipFile(zip_path,"w",zipfile.ZIP_DEFLATED) as z:
