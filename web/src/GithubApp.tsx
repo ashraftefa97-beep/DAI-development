@@ -263,8 +263,27 @@ function splitCodeSegments(content:string):DaiCodeSegment[]{
     });
     last=fence.lastIndex;
   }
-  if(last<source.length)segments.push({type:'text',value:source.slice(last)});
-  return segments.length?segments:[{type:'text',value:source}];
+  if(segments.length){
+    if(last<source.length)segments.push({type:'text',value:source.slice(last)});
+    return segments;
+  }
+
+  // Some coding models return a raw HTML document without Markdown fences.
+  // Detect it so the user still gets a proper code block + live preview.
+  const htmlStart=source.search(/<!doctype\s+html\b|<html\b/i);
+  if(htmlStart>=0){
+    const before=source.slice(0,htmlStart).trim();
+    const html=source.slice(htmlStart).trim();
+    if(before)segments.push({type:'text',value:before});
+    segments.push({type:'code',lang:'html',value:html});
+    return segments;
+  }
+
+  // Render obvious raw CSS/JS as code instead of a giant unformatted paragraph.
+  const cssLike=/^[\s\S]{0,120}(?:\*\/\s*)?[.#a-zA-Z][^\n{]{0,90}\{[\s\S]*?(?:display|position|padding|margin|color|background|font-size|grid|flex)\s*:/i.test(source);
+  if(cssLike)return [{type:'code',lang:'css',value:source.trim()}];
+
+  return [{type:'text',value:source}];
 }
 
 function htmlPreviewFromMessage(content:string){
@@ -326,35 +345,54 @@ function DaiMessageContent({
   const hasCode=segments.some(segment=>segment.type==='code');
 
   return <div className={'dai-message-content '+(hasCode?'has-code':'')}>
-    {segments.map((segment,index)=>
-      segment.type==='text'
-        ? segment.value
-          ? <p className='dai-message-prose' dir='auto' key={'text-'+index}>
-              {renderLinkedText(segment.value,onOpenLink)}
-            </p>
-          : null
-        : <section className='dai-code-block' key={'code-'+index}>
-            <header><span>{segment.lang||'code'}</span></header>
-            <pre dir='ltr'><code>{segment.value}</code></pre>
-          </section>
-    )}
     {preview&&<section className='dai-site-preview'>
       <header>
         <div>
           <strong>معاينة الموقع</strong>
-          <span>شكل حي للكود اللي ضي كتبته</span>
+          <span>الموقع شغال قدامك مباشرة</span>
         </div>
         <button type='button' onClick={()=>openHtmlPreview(preview)}>
-          <ExternalLink className='h-3.5 w-3.5'/> فتح المعاينة
+          <ExternalLink className='h-3.5 w-3.5'/> فتح الموقع
         </button>
       </header>
       <iframe
         title='معاينة الموقع من ضي'
         srcDoc={preview}
         sandbox='allow-scripts allow-forms allow-modals allow-popups'
-        loading='lazy'
+        loading='eager'
       />
     </section>}
+
+    {preview&&hasCode
+      ? <details className='dai-code-details'>
+          <summary>عرض الكود</summary>
+          <div className='dai-code-details-body'>
+            {segments.map((segment,index)=>
+              segment.type==='text'
+                ? segment.value
+                  ? <p className='dai-message-prose' dir='auto' key={'text-'+index}>
+                      {renderLinkedText(segment.value,onOpenLink)}
+                    </p>
+                  : null
+                : <section className='dai-code-block' key={'code-'+index}>
+                    <header><span>{segment.lang||'code'}</span></header>
+                    <pre dir='ltr'><code>{segment.value}</code></pre>
+                  </section>
+            )}
+          </div>
+        </details>
+      : segments.map((segment,index)=>
+          segment.type==='text'
+            ? segment.value
+              ? <p className='dai-message-prose' dir='auto' key={'text-'+index}>
+                  {renderLinkedText(segment.value,onOpenLink)}
+                </p>
+              : null
+            : <section className='dai-code-block' key={'code-'+index}>
+                <header><span>{segment.lang||'code'}</span></header>
+                <pre dir='ltr'><code>{segment.value}</code></pre>
+              </section>
+        )}
   </div>;
 }
 
