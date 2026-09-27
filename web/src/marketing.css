@@ -4931,3 +4931,54 @@
     justify-self:stretch;
   }
 }
+
+
+/* Final Arabic display fix: use real Rabie weights and tighten story composition */
+.dai-v8[data-locale='ar'] .dai-v7-hero h1,
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3{
+  font-weight:900!important;
+  font-synthesis:none!important;
+}
+.dai-v8[data-locale='ar'] .dai-v7-hero h1{
+  font-size:clamp(54px,6.05vw,96px);
+  line-height:1.1;
+}
+.dai-v8[data-locale='ar'] .dai-v8-ar-hero-line{
+  align-items:flex-start;
+  gap:.08em;
+}
+.dai-v8[data-locale='ar'] .dai-v8-ar-hero-line b{
+  line-height:1.12;
+}
+
+.dai-v8[data-locale='ar'] .dai-v7-bento-card.bento-wide{
+  grid-template-columns:minmax(360px,500px) minmax(460px,660px);
+  justify-content:center;
+  column-gap:clamp(32px,4vw,64px);
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy{
+  width:100%;
+  justify-self:stretch;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread{
+  width:100%;
+  max-width:500px;
+  justify-self:stretch;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3{
+  max-width:620px;
+  font-size:clamp(32px,2.8vw,46px);
+  line-height:1.22;
+}
+@media(max-width:1050px){
+  .dai-v8[data-locale='ar'] .dai-v7-bento-card.bento-wide{
+    grid-template-columns:1fr;
+    max-width:none;
+  }
+  .dai-v8[data-locale='ar'] .dai-v7-mini-thread,
+  .dai-v8[data-locale='ar'] .dai-v7-wide-copy{
+    max-width:680px;
+    width:100%;
+    margin-inline:auto;
+  }
+}
