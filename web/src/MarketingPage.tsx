@@ -230,7 +230,7 @@ const EXTRA_COPY:Record<Locale,{
   faq:{eyebrow:string;title:string;items:Array<{q:string;a:string}>};
 }> = {
   ar:{
-    chat:{eyebrow:'اتكلم مع ضي',title:'قول اللي في دماغك. ضي تكمل الباقي.',body:'اسأل، خطط، ابحث أو اطلب تنفيذ خطوة — والواجهة توضح لك هي بتعمل إيه لحظة بلحظة.',user1:'ضي، فكّريني أراجع المشروع بكرة الساعة 6.',reply1:'تمام. هفكرك الساعة 6، وهنبدأ من آخر نقطة وقفنا عندها.',user2:'دوريلي على أحدث حل للمشكلة دي.',reply2:'حاضر. هراجع المصادر وأرجعلك بأوضح نتيجة بدل التخمين.'},
+    chat:{eyebrow:'اتكلم مع ضي',title:'قول اللي في دماغك، وضي تكمل الباقي',body:'اسأل، خطط، ابحث أو اطلب تنفيذ خطوة — والواجهة توضح لك هي بتعمل إيه لحظة بلحظة.',user1:'ضي، فكّريني أراجع المشروع بكرة الساعة 6',reply1:'تمام، هفكرك الساعة 6 وهنبدأ من آخر نقطة وقفنا عندها',user2:'دوريلي على أحدث حل للمشكلة دي',reply2:'حاضر، هراجع المصادر وأرجعلك بأوضح نتيجة بدل التخمين'},
     software:{eyebrow:'البرنامج',title:'مكان واحد للكلام، البحث، الأدوات والشخصية.',body:'Dashboard واحدة تجمع المحادثة، الأدوات، الأفاتارات، الحالة الصوتية والإعدادات بدون ما تتنقل بين تطبيقات.'},
     toolkit:{title:'كل اللي تحتاجه عشان ضي تبقى معاك طول اليوم.',items:[
       {title:'محادثة وصوت',body:'كتابة وصوت في نفس المكان مع ردود قصيرة ومباشرة.'},
@@ -583,7 +583,7 @@ export default function MarketingPage(){
     <section className='dai-v8-experience' id='experience'>
       <div className='dai-v8-experience-head' data-reveal>
         <span className='dai-v7-kicker'>{rtl?'شوف المسار وهو شغال':'See the flow in motion'}</span>
-        <h2>{rtl?'مش Demo محفوظ. كل حالة ليها معنى.':'Not a canned demo. Every state means something.'}</h2>
+        <h2>{rtl?'مش Demo محفوظ، كل حالة ليها معنى':'Not a canned demo. Every state means something.'}</h2>
         <p>{rtl?'بدل ما نشرح ضي بكلام كتير، جرّب المسار نفسه: اسمع، ابحث، ابنِ، واستلم النتيجة — والشخصية تتغير مع كل خطوة.':'Try the flow itself: listen, search, build and get the result — while DAI’s character reacts to each phase.'}</p>
       </div>
 
@@ -639,7 +639,7 @@ export default function MarketingPage(){
     <section className='dai-v8-live-try' id='try-dai'>
       <div className='dai-v8-live-try-copy' data-reveal>
         <span className='dai-v7-kicker'>{rtl?'جرّب ضي بنفسك':'Try DAI for yourself'}</span>
-        <h2>{rtl?'اسأل سؤال حقيقي. وخد رد حقيقي.':'Ask something real. Get a real reply.'}</h2>
+        <h2>{rtl?'اسأل سؤال حقيقي وخد رد حقيقي':'Ask something real. Get a real reply.'}</h2>
         <p>{rtl?'دي مش Animation تمثيلية. اكتب سؤال قصير هنا وضي هترد عليك فعليًا من النسخة التجريبية الخفيفة.':'This is not a scripted animation. Type a short question and DAI will answer through the lightweight live demo.'}</p>
       </div>
       <div className='dai-v8-live-try-card' data-reveal>
@@ -653,7 +653,7 @@ export default function MarketingPage(){
               ? <p>{miniReply}</p>
               : miniError
                 ? <p className='error'>{miniError}</p>
-                : <p className='placeholder'>{rtl?'مثال: رتبيلي 3 خطوات أبدأ بيها مشروع جديد.':'Example: Give me 3 steps to start a new project.'}</p>}
+                : <p className='placeholder'>{rtl?'مثال: رتبيلي 3 خطوات أبدأ بيها مشروع جديد':'Example: Give me 3 steps to start a new project.'}</p>}
           </div>
           <form onSubmit={event=>{event.preventDefault();void runMiniDemo();}}>
             <input
