@@ -331,10 +331,56 @@ export default function MarketingPage(){
   const [demoIndex,setDemoIndex]=useState(0);
   const [heroState,setHeroState]=useState<DaiState>('idle');
   const [openFaq,setOpenFaq]=useState(0);
+  const [experienceStep,setExperienceStep]=useState(0);
   const buddyRef=useRef<HTMLDivElement>(null);
   const copy=COPY[locale];
   const extra=EXTRA_COPY[locale];
   const rtl=locale==='ar';
+
+  const experience=useMemo(()=>[
+    {
+      id:'listen',
+      icon:Mic,
+      state:'listen' as DaiState,
+      label:rtl?'اسمع':'Listen',
+      status:rtl?'بسمعك دلوقتي':'Listening now',
+      title:rtl?'اتكلم بطريقتك.':'Speak naturally.',
+      prompt:rtl?'ضي، رتبيلي أهم حاجات لازم أخلصها النهارده.':'DAI, organize the most important things I need to finish today.',
+      result:rtl?'الصوت يدخل مباشرة لمسار الفهم من غير ما يحول التجربة لشاشة مليانة خطوات.':'Voice flows straight into understanding without turning the experience into a wall of controls.'
+    },
+    {
+      id:'search',
+      icon:Search,
+      state:'search' as DaiState,
+      label:rtl?'ابحث':'Search',
+      status:rtl?'براجع مصادر حديثة':'Checking fresh sources',
+      title:rtl?'لما المعلومة تتغير، ضي تدور.':'When facts change, DAI searches.',
+      prompt:rtl?'دوريلي على أحدث معلومة موثوقة عن الموضوع ده وقارني المصادر.':'Find the newest reliable information on this and compare the sources.',
+      result:rtl?'البحث جزء من نفس المحادثة: فهم للسؤال، مصادر، ثم خلاصة واضحة بدل التخمين.':'Research stays in the same conversation: intent, sources, then a clear synthesis instead of guessing.'
+    },
+    {
+      id:'build',
+      icon:WandSparkles,
+      state:'working' as DaiState,
+      label:rtl?'ابني':'Build',
+      status:rtl?'ببني وبراجع':'Building & reviewing',
+      title:rtl?'الفكرة تتحول لشغل قابل للتجربة.':'Ideas turn into something you can try.',
+      prompt:rtl?'اعملي Landing Page احترافية لشركة AI وخليها قوية على الموبايل.':'Build a premium AI company landing page and make it excellent on mobile.',
+      result:rtl?'DAI Code Studio يبني، يراجع التصميم والكود، وبعدها يعرض النتيجة في نفس المسار.':'DAI Code Studio builds, reviews the design and code, then presents the result in the same flow.'
+    },
+    {
+      id:'reply',
+      icon:MessageCircle,
+      state:'reply' as DaiState,
+      label:rtl?'استلم':'Result',
+      status:rtl?'النتيجة جاهزة':'Result ready',
+      title:rtl?'النتيجة ترجع منظمة ومباشرة.':'The result comes back clear and organized.',
+      prompt:rtl?'اختصريلي النتيجة وقوليلي أبدأ بإيه.':'Summarize the result and tell me what to do first.',
+      result:rtl?'الهدف مش رد أطول؛ الهدف إنك تعرف إيه المهم، إيه اللي اتعمل، وإيه الخطوة اللي بعدها.':'The goal is not a longer answer. It is knowing what matters, what was done, and what comes next.'
+    }
+  ],[rtl]);
+
+  const activeExperience=experience[experienceStep]||experience[0];
 
   useEffect(()=>{
     try{localStorage.setItem('dai-marketing-locale',locale)}catch{}
@@ -362,6 +408,14 @@ export default function MarketingPage(){
     },4200);
     return()=>window.clearInterval(timer);
   },[]);
+
+  useEffect(()=>{
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const timer=window.setInterval(()=>{
+      setExperienceStep(step=>(step+1)%experience.length);
+    },5200);
+    return()=>window.clearInterval(timer);
+  },[experience.length]);
 
   useEffect(()=>{
     const node=buddyRef.current;
@@ -413,6 +467,7 @@ export default function MarketingPage(){
 
       <nav className='dai-v7-navlinks' aria-label='Primary'>
         <a href='#product'>{copy.nav.product}</a>
+        <a href='#experience'>{rtl?'تجربة حية':'Live demo'}</a>
         <a href='#personality'>{copy.nav.personality}</a>
         <a href='#system'>{extra.system.eyebrow}</a>
         <a href='#languages'>{copy.nav.languages}</a>
@@ -497,6 +552,62 @@ export default function MarketingPage(){
             <p>{extra.chat.body}</p>
           </div>
         </article>
+      </div>
+    </section>
+
+    <section className='dai-v8-experience' id='experience'>
+      <div className='dai-v8-experience-head' data-reveal>
+        <span className='dai-v7-kicker'>{rtl?'شوف المسار وهو شغال':'See the flow in motion'}</span>
+        <h2>{rtl?'مش Demo محفوظ. كل حالة ليها معنى.':'Not a canned demo. Every state means something.'}</h2>
+        <p>{rtl?'بدل ما نشرح ضي بكلام كتير، جرّب المسار نفسه: اسمع، ابحث، ابنِ، واستلم النتيجة — والشخصية تتغير مع كل خطوة.':'Try the flow itself: listen, search, build and get the result — while DAI’s character reacts to each phase.'}</p>
+      </div>
+
+      <div className='dai-v8-experience-shell' data-reveal>
+        <div className='dai-v8-experience-tabs' role='tablist' aria-label={rtl?'حالات ضي':'DAI states'}>
+          {experience.map((item,index)=>{
+            const Icon=item.icon;
+            return <button
+              type='button'
+              role='tab'
+              aria-selected={experienceStep===index}
+              className={experienceStep===index?'active':''}
+              onClick={()=>setExperienceStep(index)}
+              key={item.id}
+            >
+              <span className='index'>{String(index+1).padStart(2,'0')}</span>
+              <span className='icon'><Icon size={16}/></span>
+              <strong>{item.label}</strong>
+            </button>;
+          })}
+        </div>
+
+        <div className='dai-v8-experience-stage'>
+          <div className='dai-v8-experience-orbit orbit-one' aria-hidden='true'/>
+          <div className='dai-v8-experience-orbit orbit-two' aria-hidden='true'/>
+          <div className='dai-v8-experience-face'>
+            <DaiFace state={activeExperience.state} avatar='classic' quality='high'/>
+          </div>
+          <div className='dai-v8-experience-status'>
+            <i/>
+            <span>{activeExperience.status}</span>
+          </div>
+        </div>
+
+        <div className='dai-v8-experience-copy'>
+          <span className='step'>{String(experienceStep+1).padStart(2,'0')} / {String(experience.length).padStart(2,'0')}</span>
+          <h3>{activeExperience.title}</h3>
+          <div className='dai-v8-experience-prompt'>
+            <span>{rtl?'أنت':'You'}</span>
+            <p>{activeExperience.prompt}</p>
+          </div>
+          <div className='dai-v8-experience-result'>
+            <span>{rtl?'ضي':'DAI'}</span>
+            <p>{activeExperience.result}</p>
+          </div>
+          <div className='dai-v8-experience-progress' aria-hidden='true'>
+            {experience.map((item,index)=><i className={index<=experienceStep?'active':''} key={item.id}/>)}
+          </div>
+        </div>
       </div>
     </section>
 
