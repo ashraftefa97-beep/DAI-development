@@ -115,7 +115,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.4';
+const DAI_WEB_VERSION='1.10.5';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -326,43 +326,56 @@ function htmlPreviewFromMessage(content:string){
   return html;
 }
 
-function openHtmlPreview(html:string){
+async function openHtmlPreview(html:string){
   if(!html)return;
 
-  const id=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,9);
-  const key='dai-preview:'+id;
+  // Open the preview shell synchronously from the user's tap so iOS / in-app
+  // browsers do not classify it as a blocked async popup.
+  const loadingUrl=new URL('./preview.html',window.location.href);
+  const previewWindow=window.open(loadingUrl.href,'_blank');
 
   try{
-    // Keep only a few recent previews so large generated sites do not fill storage.
-    const oldKeys:string[]=[];
-    for(let i=0;i<localStorage.length;i++){
-      const itemKey=localStorage.key(i);
-      if(itemKey?.startsWith('dai-preview:'))oldKeys.push(itemKey);
-    }
-    oldKeys.sort().slice(0,Math.max(0,oldKeys.length-3)).forEach(itemKey=>{
-      try{localStorage.removeItem(itemKey)}catch{}
-    });
-    localStorage.setItem(key,html);
-  }catch(error){
-    console.warn('DAI preview storage fallback',error);
-    const direct=window.open('about:blank','_blank');
-    if(direct){
-      try{
-        direct.document.open();
-        direct.document.write(html);
-        direct.document.close();
-      }catch{}
-    }
-    return;
-  }
+    if(!supabase)throw new Error('PREVIEW_SUPABASE_UNAVAILABLE');
+    const {data:sessionData}=await supabase.auth.getSession();
+    const accessToken=sessionData.session?.access_token||'';
+    if(!accessToken)throw new Error('PREVIEW_AUTH_REQUIRED');
 
-  const url=new URL('./preview.html',window.location.href);
-  url.hash=encodeURIComponent(id);
-  const opened=window.open(url.href,'_blank');
-  if(!opened){
-    // Popup-block fallback keeps the working inline preview visible and opens
-    // the dedicated renderer in the current tab only as a last resort.
-    window.location.href=url.href;
+    const response=await fetch(
+      'https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/code-preview',
+      {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':'Bearer '+accessToken
+        },
+        body:JSON.stringify({html})
+      }
+    );
+    const payload=await response.json().catch(()=>({}));
+    const token=String(payload?.token||'');
+    if(!response.ok||!/^[a-f0-9]{64}$/i.test(token)){
+      throw new Error(String(payload?.error||'PREVIEW_STORE_FAILED'));
+    }
+
+    const url=new URL('./preview.html',window.location.href);
+    url.searchParams.set('token',token);
+
+    if(previewWindow&&!previewWindow.closed){
+      previewWindow.location.replace(url.href);
+    }else{
+      window.location.href=url.href;
+    }
+  }catch(error){
+    console.warn('DAI server preview fallback',error);
+    if(previewWindow&&!previewWindow.closed){
+      try{
+        previewWindow.document.open();
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+      }catch{
+        previewWindow.close();
+      }
+    }
   }
 }
 
