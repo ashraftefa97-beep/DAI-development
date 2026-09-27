@@ -332,6 +332,10 @@ export default function MarketingPage(){
   const [heroState,setHeroState]=useState<DaiState>('idle');
   const [openFaq,setOpenFaq]=useState(0);
   const [experienceStep,setExperienceStep]=useState(0);
+  const [miniPrompt,setMiniPrompt]=useState('');
+  const [miniReply,setMiniReply]=useState('');
+  const [miniLoading,setMiniLoading]=useState(false);
+  const [miniError,setMiniError]=useState('');
   const buddyRef=useRef<HTMLDivElement>(null);
   const copy=COPY[locale];
   const extra=EXTRA_COPY[locale];
@@ -456,6 +460,32 @@ export default function MarketingPage(){
   const setDemo=(index:number)=>{
     setDemoIndex(index);
     setHeroState(DEMO_STATES[index]);
+  };
+
+
+  const runMiniDemo=async()=>{
+    const message=miniPrompt.trim();
+    if(!message||miniLoading)return;
+    setMiniLoading(true);
+    setMiniError('');
+    setMiniReply('');
+    setHeroState('thinking_deep');
+    try{
+      const response=await fetch('https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/marketing-demo',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({message,locale})
+      });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||!payload?.reply)throw new Error(String(payload?.error||'demo_failed'));
+      setMiniReply(String(payload.reply));
+      setHeroState('reply');
+    }catch{
+      setMiniError(rtl?'المعاينة الذكية مش متاحة للحظة. افتح ضي وجربها كاملة.':'The live demo is briefly unavailable. Open DAI for the full experience.');
+      setHeroState('idle');
+    }finally{
+      setMiniLoading(false);
+    }
   };
 
   return <main className='dai-marketing-page dai-v7 dai-v8' dir={rtl?'rtl':'ltr'} data-locale={locale}>
@@ -607,6 +637,43 @@ export default function MarketingPage(){
           <div className='dai-v8-experience-progress' aria-hidden='true'>
             {experience.map((item,index)=><i className={index<=experienceStep?'active':''} key={item.id}/>)}
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section className='dai-v8-live-try' id='try-dai'>
+      <div className='dai-v8-live-try-copy' data-reveal>
+        <span className='dai-v7-kicker'>{rtl?'جرّب ضي بنفسك':'Try DAI for yourself'}</span>
+        <h2>{rtl?'اسأل سؤال حقيقي. وخد رد حقيقي.':'Ask something real. Get a real reply.'}</h2>
+        <p>{rtl?'دي مش Animation تمثيلية. اكتب سؤال قصير هنا وضي هترد عليك فعليًا من النسخة التجريبية الخفيفة.':'This is not a scripted animation. Type a short question and DAI will answer through the lightweight live demo.'}</p>
+      </div>
+      <div className='dai-v8-live-try-card' data-reveal>
+        <div className='dai-v8-live-face'>
+          <DaiFace state={miniLoading?'thinking_deep':miniReply?'reply':'idle'} avatar='classic' quality='high'/>
+          <span>{miniLoading?(rtl?'ضي بتفكر…':'DAI is thinking…'):(rtl?'DAI Live Demo':'DAI Live Demo')}</span>
+        </div>
+        <div className='dai-v8-live-chat'>
+          <div className='dai-v8-live-output'>
+            {miniReply
+              ? <p>{miniReply}</p>
+              : miniError
+                ? <p className='error'>{miniError}</p>
+                : <p className='placeholder'>{rtl?'مثال: رتبيلي 3 خطوات أبدأ بيها مشروع جديد.':'Example: Give me 3 steps to start a new project.'}</p>}
+          </div>
+          <form onSubmit={event=>{event.preventDefault();void runMiniDemo();}}>
+            <input
+              value={miniPrompt}
+              onChange={event=>setMiniPrompt(event.target.value)}
+              maxLength={260}
+              placeholder={rtl?'اكتب سؤالك هنا…':'Ask DAI something…'}
+              aria-label={rtl?'سؤال لضي':'Question for DAI'}
+            />
+            <button type='submit' disabled={!miniPrompt.trim()||miniLoading}>
+              {miniLoading?(rtl?'لحظة…':'Wait…'):(rtl?'اسأل ضي':'Ask DAI')}
+              <ArrowUpRight size={16}/>
+            </button>
+          </form>
+          <small>{rtl?'تجربة مختصرة للصفحة التعريفية · بدون بحث ويب أو تنفيذ أدوات':'Lightweight landing-page demo · no web research or tool actions'}</small>
         </div>
       </div>
     </section>
