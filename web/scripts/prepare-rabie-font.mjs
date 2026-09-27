@@ -4,30 +4,22 @@ import {dirname,join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
 const webRoot=fileURLToPath(new URL('..',import.meta.url));
-const sourceDir=join(webRoot,'font-parts');
-const target=join(webRoot,'src','assets','Rabie-DAI.woff2');
-const partNames=[
-  'rabie-01.b64',
-  'rabie-02.b64',
-  'rabie-03.b64',
-  'rabie-04.b64',
-  'rabie-05.b64',
-  'rabie-06.b64',
-  'rabie-07.b64',
-];
-const parts=partNames.map(name=>
-  readFileSync(join(sourceDir,name),'utf8').replace(/\s+/g,'')
-).join('');
+const sourceDir=join(webRoot,'font-src');
+const target=join(webRoot,'src','assets','Rabie-DAI-Arabic.woff2');
+const parts=[0,1,2,3,4].map(index=>{
+  const name='rabie-ar-'+String(index).padStart(2,'0')+'.b64';
+  return readFileSync(join(sourceDir,name),'utf8').replace(/\s+/g,'');
+}).join('');
 
 const bytes=Buffer.from(parts,'base64');
-const expectedSize=69548;
-const expectedSha='f6e2bd694c8662a467731d595af69bee74969ed5f4cdff5efe655366b1107f06';
+const expectedSize=36912;
+const expectedSha='9cd8ee5486dd8187b36f1442fa2aae1e172196d98696bd8ca6caee1e0db19e59';
 const actualSha=createHash('sha256').update(bytes).digest('hex');
 
 if(bytes.length!==expectedSize||actualSha!==expectedSha||bytes.subarray(0,4).toString('ascii')!=='wOF2'){
-  throw new Error('Rabie DAI unified Arabic/Latin font payload failed integrity validation');
+  throw new Error('Rabie DAI Arabic font payload failed integrity validation');
 }
 
 mkdirSync(dirname(target),{recursive:true});
 writeFileSync(target,bytes);
-console.log('Prepared official DAI font: Rabie Arabic + Latin ('+bytes.length+' bytes)');
+console.log('Prepared official DAI Arabic font: Rabie ('+bytes.length+' bytes)');
