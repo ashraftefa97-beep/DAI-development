@@ -26,9 +26,15 @@ function limited(ip:string){
 }
 
 function models(configured:string){
-  const preferred=['gemini-3.5-flash-lite','gemini-3.8-flash'];
+  const preferred=['gemini-3.8-flash','gemini-3.5-flash-lite'];
   if(/^gemini-3\./i.test(configured)) preferred.unshift(configured);
   return preferred.filter((value,index,all)=>all.indexOf(value)===index);
+}
+
+function thinkingLevel(model:string){
+  if(/gemini-3\.8-flash/i.test(model)) return 'low';
+  if(/gemini-3\.5-flash-lite/i.test(model)) return 'minimal';
+  return 'low';
 }
 
 Deno.serve(async(req)=>{
@@ -63,7 +69,7 @@ Deno.serve(async(req)=>{
   for(const model of models(configured)){
     try{
       const controller=new AbortController();
-      const timer=setTimeout(()=>controller.abort(),12000);
+      const timer=setTimeout(()=>controller.abort(),15000);
       const response=await fetch(
         'https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',
         {
@@ -73,7 +79,12 @@ Deno.serve(async(req)=>{
           body:JSON.stringify({
             systemInstruction:{parts:[{text:systemText}]},
             contents:[{role:'user',parts:[{text:message}]}],
-            generationConfig:{maxOutputTokens:220,temperature:.45,topP:.9,thinkingConfig:{thinkingLevel:'minimal'}}
+            generationConfig:{
+              maxOutputTokens:220,
+              temperature:.4,
+              topP:.9,
+              thinkingConfig:{thinkingLevel:thinkingLevel(model)}
+            }
           })
         }
       ).finally(()=>clearTimeout(timer));
@@ -81,9 +92,10 @@ Deno.serve(async(req)=>{
       lastStatus=response.status;
       const raw=await response.text().catch(()=>'');
       lastDetail=raw.slice(0,500);
+
       if(!response.ok){
         console.warn('marketing-demo provider status',model,response.status,lastDetail);
-        if([404,429,503].includes(response.status)) continue;
+        if([400,404,429,503].includes(response.status)) continue;
         break;
       }
 
