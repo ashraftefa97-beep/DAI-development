@@ -99,15 +99,15 @@ export function applyAvatarBehaviorToPose(p,m){
 export function avatarAllowsLegacyAccessory(id,kind,gesture=''){
   const profile=getAvatarBehaviorProfile(id);
   if(kind==='fishing')return String(gesture)==='fishing';
-  if(kind==='hat'||kind==='wand')return profile.legacySearchProps&&String(gesture)==='search';
+  if(kind==='hat'||kind==='wand')return profile.legacySearchProps&&['search','found'].includes(String(gesture));
   return false;
 }
 
 export function avatarAllowsHandGesture(id,gesture=''){
   const value=String(gesture||'idle');
   const profile=getAvatarBehaviorProfile(id);
-  if(value==='search')return Boolean(profile.searchHand);
-  if(['scan','detect','scout','found'].includes(value))return false;
+  if(value==='search'||value==='found')return Boolean(profile.searchHand);
+  if(['scan','detect','scout'].includes(value))return false;
   return true;
 }
 
