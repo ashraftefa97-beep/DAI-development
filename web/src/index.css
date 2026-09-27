@@ -4,9 +4,9 @@
 
 @font-face {
   font-family: "Rabie DAI";
-  src: url("./assets/Rabie-DAI-Arabic.woff2") format("woff2");
+  src: url("./assets/Rabie-Variable.woff2") format("woff2");
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
 }
 
