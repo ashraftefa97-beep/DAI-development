@@ -1,3 +1,4 @@
+import { DaiMotion } from '../src/motion.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -293,14 +294,19 @@ test('premium hand rendering uses material gradient and highlight pass',()=>{
 });
 
 
-test('lip sync has visible syllable articulation',()=>{
-  assert.match(motion,/voiceAccent/);
-  assert.match(motion,/speechOpen\*1\.08/);
-  assert.match(motion,/syllable\*\.20/);
-  assert.match(motion,/voiceWideTarget/);
-  assert.match(motion,/voiceRoundTarget/);
-  assert.match(draw,/speechWide\*23/);
-  assert.match(draw,/q\.mouth\*39/);
+test('speech articulation remains visible without oversized jaw travel',()=>{
+  const openings=[];
+  for(const level of [0,.2,.5,1]){
+    const face=new DaiMotion();face.setGesture('talk');
+    for(let i=0;i<90;i++){
+      face.setVoiceLevel(level,true,{wide:level,round:level,accent:level});
+      face.advance(1/60);
+    }
+    assert.ok(face.pose.mouth<=.401);
+    openings.push(face.pose.mouth);
+  }
+  assert.ok(openings[0]<.01);
+  assert.ok(openings[1]>openings[0]&&openings[2]>openings[1]&&openings[3]>openings[2]);
 });
 
 test('decoded speech uses the same audio-clock lip sync as streaming',()=>{
