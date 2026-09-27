@@ -2,8 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Rabie DAI";
+  src: url("./assets/Rabie-DAI-Arabic.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF;
+}
+
 :root {
-  --font-identity: "Norsal", "Dubai", "Segoe UI Variable", "Segoe UI", Tahoma, Arial, sans-serif;
+  --font-identity: "Rabie DAI", "Segoe UI Variable", "Segoe UI", Tahoma, Arial, sans-serif;
   font-family: var(--font-identity);
   --bg: #101321;
   --panel: #171b2b;
@@ -22,7 +31,7 @@
 html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 320px; overflow: hidden; background: var(--bg); color: var(--text); }
 button, textarea, input, select { font: inherit; }
-body, button, textarea, input, select { font-family: var(--font-identity); }
+body, button, textarea, input, select { font-family: var(--font-identity); font-synthesis: weight; }
 button { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visible {
   outline: 2px solid var(--sakura);
