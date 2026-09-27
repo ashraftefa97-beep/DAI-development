@@ -22,8 +22,8 @@ const COPY:Record<Locale,Copy>={
     nav:{product:'عن ضي',personality:'الشخصية',languages:'اللغات',open:'افتح ضي'},
     hero:{
       eyebrow:'DAI AI · ضي',
-      title1:'ضي مش مجرد شات.',
-      title2:'صوت، شخصية، وذكاء بيتحرك معاك.',
+      title1:'ضي مش مجرد شات',
+      title2:'صوت وشخصية وذكاء بيتحرك معاك',
       body:'مساعدة ذكية تجمع المحادثة الطبيعية، البحث الموثق، البرمجة، الأدوات والصوت في تجربة واحدة لها حضور وشخصية — مش مجرد صندوق شات.',
       primary:'ابدأ مع ضي',
       secondary:'شوف ضي وهي بتتفاعل',
@@ -530,7 +530,12 @@ export default function MarketingPage(){
 
       <div className='dai-v7-hero-copy' data-reveal>
         <span className='dai-v7-kicker'>{copy.hero.eyebrow}</span>
-        <h1><span>{copy.hero.title1}</span><span>{copy.hero.title2}</span></h1>
+        <h1>
+          <span>{copy.hero.title1}</span>
+          {rtl
+            ? <span className='dai-v8-ar-hero-line'><b>صوت وشخصية</b><b>وذكاء بيتحرك معاك</b></span>
+            : <span>{copy.hero.title2}</span>}
+        </h1>
         <p>{copy.hero.body}</p>
 
         <div className='dai-v7-hero-actions'>
