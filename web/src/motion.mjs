@@ -23,6 +23,11 @@ export const gestures = [...new Set([
   'curious',
   'voicewait'
 ])];
+
+const CLASSIC_LEGACY_GESTURES=new Set([
+  'wave','listen','search','found','talk','happy','stretch',
+  'fishing','heart','dance','idea','sleep'
+]);
 const moods = {
   ...Object.fromEntries(product.animationCatalog.map(item => [item.gesture.replace('idle_soft','idle'),item.state])),
   typing:'thinking',
@@ -698,10 +703,18 @@ export class DaiMotion {
       }
     }
 
-    applyAvatarChoreography(p,this);
-    applyAvatarBehaviorToPose(p,this);
-    applyEmotionToPose(p,this);
-    applyActiveMotionPolish(p,this);
+    const classicLegacy=this.avatarStyle==='classic'&&CLASSIC_LEGACY_GESTURES.has(active);
+    if(classicLegacy){
+      // Preserve DAI Classic's original motion language. The newer per-avatar
+      // choreography stack must not overwrite the first-generation gestures.
+      // Search keeps the Classic-only magic props from the behavior registry.
+      if(active==='search')applyAvatarBehaviorToPose(p,this);
+    }else{
+      applyAvatarChoreography(p,this);
+      applyAvatarBehaviorToPose(p,this);
+      applyEmotionToPose(p,this);
+      applyActiveMotionPolish(p,this);
+    }
 
     // Small unprompted expressions keep DAI present without changing its
     // semantic gesture or making idle hands wave on a loop.
