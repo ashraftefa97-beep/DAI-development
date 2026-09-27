@@ -65,7 +65,7 @@ export function handIntentScale(context={}){
   const requested=String(context.requestedGesture||'idle');
   // Only Classic grants search-hand permission. Keep its original magic-search
   // pose alive for the full search instead of fading it after two seconds.
-  if(requested==='search'&&context.allowHands===true)return 1;
+  if((requested==='search'||requested==='found')&&context.allowHands===true)return 1;
   const active=String(context.activeGesture||requested);
   const gesture=HAND_INTENT_WINDOWS[requested]!=null?requested:
     HAND_INTENT_WINDOWS[active]!=null?active:null;
