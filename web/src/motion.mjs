@@ -1,3 +1,4 @@
+import { applyClassicPerformance } from './classicPerformance.mjs';
 import { product } from './product.mjs';
 import { chooseAvatarAnimation, shouldAutoCycleAvatarSlot } from './avatarAnimations/index.mjs';
 import { requestAnimationTransition, animationModeForGesture } from './animationDirector.mjs';
@@ -731,6 +732,8 @@ export class DaiMotion {
       applyEmotionToPose(p,this);
       applyActiveMotionPolish(p,this);
     }
+
+    applyClassicPerformance(p,this);
 
     // Small unprompted expressions keep DAI present without changing its
     // semantic gesture or making idle hands wave on a loop.
