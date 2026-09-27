@@ -851,7 +851,7 @@
 
 /* DAI Marketing V3 — showpiece shell + requested typography */
 :root{
-  --dai-font-en:'Lemon','Trebuchet MS',Arial,sans-serif;
+  --dai-font-en:'Rabie DAI','Segoe UI',Arial,sans-serif;
   --dai-font-ar:'Rabie DAI','Noto Sans Arabic',Tahoma,Arial,sans-serif;
 }
 .dai-marketing-page[data-locale='ar']{
