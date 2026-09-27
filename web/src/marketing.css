@@ -4792,3 +4792,65 @@
 .dai-v8[data-locale='ar'] .dai-v8-live-chat input{
   text-align:right;
 }
+
+
+/* Arabic wide-story layout fix */
+.dai-v8[data-locale='ar'] .dai-v7-bento-card.bento-wide{
+  grid-template-columns:minmax(0,.9fr) minmax(520px,1.1fr);
+  gap:clamp(42px,6vw,96px);
+  align-items:center;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy{
+  order:-1;
+  min-width:0;
+  max-width:760px;
+  justify-self:end;
+  text-align:right;
+  direction:rtl;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy span,
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3,
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy p{
+  width:100%;
+  max-width:none;
+  text-align:right;
+  direction:rtl;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3{
+  margin:14px 0 14px;
+  font-size:clamp(34px,3.4vw,56px);
+  line-height:1.18;
+  text-wrap:pretty;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy p{
+  max-width:700px;
+  margin-right:0;
+  margin-left:auto;
+  font-size:14px;
+  line-height:1.9;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread{
+  order:0;
+  min-width:0;
+  justify-self:stretch;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread .user{
+  align-self:flex-start;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread .dai{
+  align-self:flex-end;
+}
+@media(max-width:900px){
+  .dai-v8[data-locale='ar'] .dai-v7-bento-card.bento-wide{
+    grid-template-columns:1fr;
+    gap:30px;
+  }
+  .dai-v8[data-locale='ar'] .dai-v7-wide-copy{
+    order:-1;
+    justify-self:stretch;
+    max-width:none;
+  }
+  .dai-v8[data-locale='ar'] .dai-v7-wide-copy h3{
+    font-size:clamp(34px,8.8vw,50px);
+  }
+}
