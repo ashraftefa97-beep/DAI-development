@@ -76,7 +76,7 @@ export function applyAvatarBehaviorToPose(p,m){
 
     const magicSearch=profile.legacySearchProps&&gesture==='search';
     if(magicSearch){
-      const wandPhase=clamp(1-Math.max(0,t-2.0)/.34,0,1);
+      const wandPhase=clamp(t/.24,0,1);
       p.hat=1;
       p.wand=wandPhase;
       const sweep=reduced?0:Math.sin(t*2);
