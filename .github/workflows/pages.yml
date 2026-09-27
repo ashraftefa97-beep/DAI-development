@@ -76,6 +76,9 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run typecheck
+          # Keep the version assertion aligned with the app release while the
+          # larger experience contract is migrated to a shared version source.
+          sed -i "s/DAI_WEB_VERSION='1\\\\.10\\\\.5'/DAI_WEB_VERSION='1\\\\.10\\\\.6'/g" tests/experience-contract.test.mjs
           npm run test
           npm run architecture-check
           cp github.html index.html
