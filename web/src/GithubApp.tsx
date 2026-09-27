@@ -115,7 +115,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.5';
+const DAI_WEB_VERSION='1.10.6';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -356,6 +356,8 @@ async function openHtmlPreview(html:string){
     if(!response.ok||!/^[a-f0-9]{64}$/i.test(token)){
       throw new Error(String(payload?.error||'PREVIEW_STORE_FAILED'));
     }
+
+    try{localStorage.setItem('dai-last-preview-token',token)}catch{}
 
     const url=new URL('./preview.html',window.location.href);
     url.searchParams.set('token',token);
