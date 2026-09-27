@@ -471,17 +471,24 @@ export default function MarketingPage(){
     setMiniReply('');
     setHeroState('thinking_deep');
     try{
-      const response=await fetch('https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/marketing-demo',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({message,locale})
-      });
-      const payload=await response.json().catch(()=>({}));
-      if(!response.ok||!payload?.reply)throw new Error(String(payload?.error||'demo_failed'));
+      let response:Response|null=null;
+      let payload:any={};
+      for(let attempt=0;attempt<2;attempt++){
+        response=await fetch('https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/marketing-demo',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({message,locale})
+        });
+        payload=await response.json().catch(()=>({}));
+        if(response.ok&&payload?.reply)break;
+        if(![429,502,503].includes(response.status)||attempt===1)break;
+        await new Promise(resolve=>setTimeout(resolve,350));
+      }
+      if(!response?.ok||!payload?.reply)throw new Error(String(payload?.error||'demo_failed'));
       setMiniReply(String(payload.reply));
       setHeroState('reply');
     }catch{
-      setMiniError(rtl?'المعاينة الذكية مش متاحة للحظة. افتح ضي وجربها كاملة.':'The live demo is briefly unavailable. Open DAI for the full experience.');
+      setMiniError(rtl?'ضي مش قادرة ترد من المعاينة دلوقتي، جرّب تاني بعد لحظة.':'DAI could not reply in the preview just now. Please try again in a moment.');
       setHeroState('idle');
     }finally{
       setMiniLoading(false);
