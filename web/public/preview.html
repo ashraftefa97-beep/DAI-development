@@ -60,13 +60,27 @@
       }
 
       var endpoint='https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/code-preview?token='+encodeURIComponent(token);
-      frame.addEventListener('load',function(){state.hidden=true;},{once:true});
-      frame.addEventListener('error',function(){
-        state.innerHTML='<div><b>حصل خطأ في عرض التصميم</b><span>ارجع لضي وافتح المعاينة من جديد.</span></div>';
+
+      frame.addEventListener('load',function(){
+        state.hidden=true;
       });
-      frame.src=endpoint;
+
+      fetch(endpoint,{cache:'no-store'})
+        .then(function(response){
+          if(!response.ok)throw new Error('PREVIEW_HTTP_'+response.status);
+          return response.text();
+        })
+        .then(function(html){
+          if(!html||html.length<80)throw new Error('PREVIEW_EMPTY');
+          frame.srcdoc=html;
+        })
+        .catch(function(error){
+          console.error('DAI preview render failed',error);
+          state.innerHTML='<div><b>حصل خطأ في عرض التصميم</b><span>ارجع لضي واضغط «فتح الموقع» مرة تانية.</span></div>';
+        });
+
       setTimeout(function(){
-        if(!state.hidden)state.innerHTML='<div><b>المعاينة بتاخد وقت أطول من المتوقع</b><span>جاري إعادة المحاولة…</span></div>';
+        if(!state.hidden)state.innerHTML='<div><b>جاري تجهيز التصميم…</b><span>ضي بتجهز المعاينة الكاملة.</span></div>';
       },3500);
     })();
   </script>
