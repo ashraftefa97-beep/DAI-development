@@ -4,13 +4,14 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "npm run prepare-fonts && vite",
+    "build": "npm run prepare-fonts && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.github.json --noEmit",
     "security-check": "node scripts/security-check.mjs",
-    "test": "node --import tsx --test src/taskRouter.test.ts tests/*.test.mjs",
-    "architecture-check": "node scripts/architecture-check.mjs"
+    "test": "npm run prepare-fonts && node --import tsx --test src/taskRouter.test.ts tests/*.test.mjs",
+    "architecture-check": "node scripts/architecture-check.mjs",
+    "prepare-fonts": "node scripts/prepare-rabie-font.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.469.0",
