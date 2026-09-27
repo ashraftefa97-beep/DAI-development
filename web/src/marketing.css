@@ -4755,3 +4755,40 @@
     padding-top:14px;
   }
 }
+
+
+/* Arabic typography / bidi normalization */
+.dai-v8[data-locale='ar'] h1,
+.dai-v8[data-locale='ar'] h2,
+.dai-v8[data-locale='ar'] h3,
+.dai-v8[data-locale='ar'] p,
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread>div,
+.dai-v8[data-locale='ar'] .dai-v8-experience-prompt p,
+.dai-v8[data-locale='ar'] .dai-v8-experience-result p,
+.dai-v8[data-locale='ar'] .dai-v8-live-output p,
+.dai-v8[data-locale='ar'] input{
+  direction:rtl;
+  text-align:start;
+  unicode-bidi:plaintext;
+  letter-spacing:0!important;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread{
+  direction:rtl;
+}
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread .user,
+.dai-v8[data-locale='ar'] .dai-v7-mini-thread .dai{
+  max-width:min(88%,720px);
+  line-height:1.75;
+}
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3,
+.dai-v8[data-locale='ar'] .dai-v8-experience-head h2,
+.dai-v8[data-locale='ar'] .dai-v8-live-try-copy h2{
+  line-height:1.28;
+  text-wrap:balance;
+}
+.dai-v8[data-locale='ar'] .dai-v8-live-chat form{
+  direction:rtl;
+}
+.dai-v8[data-locale='ar'] .dai-v8-live-chat input{
+  text-align:right;
+}
