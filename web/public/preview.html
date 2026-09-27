@@ -65,7 +65,7 @@
         state.hidden=true;
       });
 
-      fetch(endpoint,{cache:'no-store'})
+      if(false){frame.src=endpoint;}\n\n      fetch(endpoint,{cache:'no-store'})
         .then(function(response){
           if(!response.ok)throw new Error('PREVIEW_HTTP_'+response.status);
           return response.text();
