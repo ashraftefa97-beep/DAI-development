@@ -533,11 +533,6 @@ export default function MarketingPage(){
           <a href='#personality'>{copy.hero.secondary}</a>
         </div>
 
-        <div className='dai-v7-proof' aria-label='DAI highlights'>
-          <div><strong>24</strong><span>{rtl?'شخصية':'Avatars'}</span></div>
-          <div><strong>10</strong><span>{rtl?'لغات':'Languages'}</span></div>
-          <div><strong>{rtl?'مباشر':'Live'}</strong><span>{rtl?'صوت':'Voice'}</span></div>
-        </div>
       </div>
 
       <div className='dai-v7-hero-stage' data-reveal>
