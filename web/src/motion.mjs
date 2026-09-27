@@ -277,22 +277,21 @@ export class DaiMotion {
       let beat=this.voiceDriven ? this.voice : 0;
       beat=clamp(beat,0,1);
 
-      // Stronger, non-linear articulation: quiet vowels are still visible while
-      // loud syllables open significantly wider. Positive transients widen the
-      // mouth briefly, making consonant/word attacks readable.
-      const speechOpen=beat<.022?0:Math.pow(clamp((beat-.022)/.50,0,1),.48);
+      // Reserve the full input range for articulation instead of saturating
+      // halfway through normal speech. Keep conversational jaw travel small.
+      const speechOpen=beat<.022?0:Math.pow(clamp((beat-.022)/.978,0,1),.85);
       const syllable=clamp(this.voiceAccent*2.15,0,1);
       const phonemeWide=clamp(this.voiceWide,0,1);
       const phonemeRound=clamp(this.voiceRound,0,1);
       const mouthWide=clamp(
-        speechOpen*(.34+.58*phonemeWide)+
-        syllable*.20-
+        speechOpen*(.18+.28*phonemeWide)+
+        syllable*.06-
         phonemeRound*.12,
         0,
         1
       );
       const mouthRound=clamp(
-        phonemeRound*(.70+.30*speechOpen),
+        phonemeRound*speechOpen*.45,
         0,
         1
       );
@@ -341,7 +340,7 @@ export class DaiMotion {
         smile:speechSmile,
         cheek:speechCheek,
         brow:clamp(speechBrow,-.2,1.1),
-        mouth:clamp(speechOpen*1.08+syllable*.20,0,1.12),
+        mouth:clamp(speechOpen*.36+syllable*speechOpen*.035,0,.40),
         mouthWide,
         mouthRound,
         tilt:speechTilt,
