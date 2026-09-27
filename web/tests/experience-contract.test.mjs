@@ -411,10 +411,10 @@ test('landing cache refresh ships with visual redesign',()=>{
   assert.match(sw,/dai-web-v22-20260927-server-preview/);
 });
 
-test('landing uses Lemon and official Rabie Arabic typography',()=>{
+test('landing uses official Rabie typography for English and Arabic',()=>{
   const githubHtml=readFileSync(new URL('../github.html',import.meta.url),'utf8');
-  assert.match(githubHtml,/fonts\.googleapis\.com\/css2\?family=Lemon/);
-  assert.match(marketingCss,/--dai-font-en:'Lemon'/);
+  assert.doesNotMatch(githubHtml,/family=Lemon/);
+  assert.match(marketingCss,/--dai-font-en:'Rabie DAI'/);
   assert.match(marketingCss,/--dai-font-ar:'Rabie DAI'/);
 });
 
