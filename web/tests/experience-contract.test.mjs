@@ -411,11 +411,11 @@ test('landing cache refresh ships with visual redesign',()=>{
   assert.match(sw,/dai-web-v22-20260927-server-preview/);
 });
 
-test('landing uses Lemon and requested Narsol typography',()=>{
+test('landing uses Lemon and official Rabie Arabic typography',()=>{
   const githubHtml=readFileSync(new URL('../github.html',import.meta.url),'utf8');
   assert.match(githubHtml,/fonts\.googleapis\.com\/css2\?family=Lemon/);
   assert.match(marketingCss,/--dai-font-en:'Lemon'/);
-  assert.match(marketingCss,/--dai-font-ar:'Narsol','Norsal'/);
+  assert.match(marketingCss,/--dai-font-ar:'Rabie DAI'/);
 });
 
 test('public introduction keeps Classic DAI as the visual identity',()=>{
