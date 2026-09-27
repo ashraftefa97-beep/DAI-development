@@ -6,7 +6,7 @@
   font-family: "Rabie DAI";
   src: url("./assets/Rabie-Variable.woff2") format("woff2");
   font-style: normal;
-  font-weight: 500;
+  font-weight: 100 900;
   font-display: swap;
 }
 
@@ -30,7 +30,7 @@
 html, body, #root { width: 100%; height: 100%; }
 body { margin: 0; min-width: 320px; overflow: hidden; background: var(--bg); color: var(--text); }
 button, textarea, input, select { font: inherit; }
-body, button, textarea, input, select { font-family: var(--font-identity); font-synthesis: weight; }
+body, button, textarea, input, select { font-family: var(--font-identity); font-synthesis: none; }
 button { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visible {
   outline: 2px solid var(--sakura);
