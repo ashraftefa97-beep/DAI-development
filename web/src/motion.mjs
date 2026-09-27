@@ -24,7 +24,7 @@ export const gestures = [...new Set([
   'voicewait'
 ])];
 
-const CLASSIC_LEGACY_GESTURES=new Set([
+const CLASSIC_ASTRA_GESTURES=new Set([
   'wave','listen','search','found','talk','happy','stretch',
   'fishing','heart','dance','idea','sleep'
 ]);
@@ -269,6 +269,27 @@ export class DaiMotion {
     } else if(active==='listen') {
       set({ra:1,rx:111,ry:48-98*enter,rr:-16,tilt:6,left:.42,right:.52,smile:.66,listen:1,cheek:.25,gaze_x:3,happy:.32});
       if(!this.reduced) p.bob+=Math.sin(t*3)*this.audio*2.5;
+    } else if((active==='search'||active==='found')&&this.avatarStyle==='classic') {
+      // Astra / 2026-09-20 Classic DAI reference:
+      // magic hat + left-hand wand are part of both searching and "found".
+      const sweep=this.reduced?0:Math.sin(e*2);
+      set({
+        la:1,
+        lx:-111-sweep*5,
+        ly:65-39*enter,
+        lr:-24+sweep*8,
+        hat:1,
+        wand:1,
+        tilt:-4+sweep*3,
+        gaze_x:-7+sweep*2,
+        gaze_y:-5,
+        left:.65,
+        right:.78,
+        smile:.14
+      });
+      if(active==='found'){
+        set({happy:1,smile:1,mouth:.26,cheek:.8,tilt:-3,sy:1.03,bob:-5,gaze_y:-2});
+      }
     } else if(active==='search') {
       const sweep=this.reduced?0:Math.sin(e*2);
       set({hat:0,wand:0,tilt:-2+sweep*1.2,gaze_x:sweep*4,gaze_y:-4,left:.72,right:.82,smile:.16});
@@ -703,13 +724,8 @@ export class DaiMotion {
       }
     }
 
-    const classicLegacy=this.avatarStyle==='classic'&&CLASSIC_LEGACY_GESTURES.has(active);
-    if(classicLegacy){
-      // Preserve DAI Classic's original motion language. The newer per-avatar
-      // choreography stack must not overwrite the first-generation gestures.
-      // Search keeps the Classic-only magic props from the behavior registry.
-      if(active==='search')applyAvatarBehaviorToPose(p,this);
-    }else{
+    const classicAstra=this.avatarStyle==='classic'&&CLASSIC_ASTRA_GESTURES.has(active);
+    if(!classicAstra){
       applyAvatarChoreography(p,this);
       applyAvatarBehaviorToPose(p,this);
       applyEmotionToPose(p,this);
