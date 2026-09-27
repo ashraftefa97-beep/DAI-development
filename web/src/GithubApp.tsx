@@ -5302,6 +5302,13 @@ export default function GithubApp(){
     <section className='classic-stage'>
       <div className='classic-face-wrap classic-logo-stage'><DaiFaceBoundary><DaiFace state={daiState} reduced={reduced||experiencePreset==='minimal'} quality={renderQuality} avatar={avatarStyle}/></DaiFaceBoundary></div>
 
+      {avatarStyle==='classic'&&<div aria-label='تجربة حركات ضي' style={{display:'flex',flexWrap:'wrap',justifyContent:'center',gap:8,padding:'8px 12px'}}>
+        {([['wave','ترحيب'],['search','العصاية'],['celebrate','فرحة'],['stretch','تمدد'],['dance','رقصة']] as [DaiState,string][]).map(([gesture,label])=><button
+          key={gesture} className='classic-icon-button' style={{width:'auto',padding:'6px 12px',font:'inherit',fontSize:13}}
+          disabled={sending||animationAudioBusy()||!['idle','complete'].includes(corePhaseRef.current)}
+          onClick={()=>animate(gesture,3200)}>{label}</button>)}
+      </div>}
+
       <section className={'classic-chat-panel '+(voiceSessionActive?'voice-live':'')} ref={chatScrollRef} aria-label='المحادثة' aria-live='polite' aria-busy={sending}>
         {voiceSessionActive&&
           <div className='classic-live-voice'>

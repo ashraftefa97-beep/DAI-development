@@ -29,25 +29,25 @@ export function applyClassicPerformance(p,m){
   // Finite accents: holding a state doesn't repeat a greeting or celebration.
   switch(family){
     case 'greeting':
-      p.gaze_x+=2.6*lead;p.tilt-=2*accent;p.smile+=.12*accent;
-      p.bob-=1.8*accent;p.brow+=.09*settle;break;
+      p.gaze_x+=2.6*lead;p.tilt-=5*accent;p.smile+=.12*accent;
+      p.bob-=6*accent;p.brow+=.09*settle;break;
     case 'delight':
-      p.brow+=.15*lead;p.bob+=1.2*lead-3.4*accent;
+      p.brow+=.15*lead;p.bob+=2.4*lead-10*accent;
       p.sx+=.012*lead-.008*accent;p.sy-=.01*lead-.012*accent;
       p.cheek+=.15*accent;p.smile+=.12*settle;break;
     case 'curiosity':
-      p.gaze_x-=3.2*lead;p.gaze_y-=1.1*lead;p.tilt+=2.8*accent;
+      p.gaze_x-=3.2*lead;p.gaze_y-=1.1*lead;p.tilt+=5*accent;
       p.left+=.08*accent;p.right-=.06*accent;p.brow+=.12*settle;break;
     case 'thought':
-      p.gaze_y-=2.2*lead;p.gaze_x+=1.8*accent;p.tilt-=1.6*accent;
+      p.gaze_y-=2.2*lead;p.gaze_x+=1.8*accent;p.tilt-=3*accent;
       p.brow+=.12*accent;p.smile+=.08*settle;break;
     case 'discovery':
       p.gaze_x+=3.8*lead-2.4*accent;p.tilt+=1.5*accent;
       p.brow+=.12*settle;break;
     case 'rhythm': {
       const envelope=pulse(t,0,3.2);
-      p.tilt+=Math.sin(t*4.8)*2*envelope;
-      p.bob-=Math.sin(t*4.8)**2*2.2*envelope;p.cheek+=.09*envelope;break;
+      p.tilt+=Math.sin(t*4.8)*4*envelope;
+      p.bob-=Math.sin(t*4.8)**2*5*envelope;p.cheek+=.09*envelope;break;
     }
     case 'rest':
       p.gaze_y+=1.2*lead;p.tilt-=1.4*accent;

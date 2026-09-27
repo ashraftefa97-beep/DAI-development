@@ -1251,7 +1251,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
   // for explicit gesture requests so they can never drift over the eyes.
   const classicHandStates=new Set([
     'wave','double_wave','high_five','clap','salute','peace','bow',
-    'celebrate','cheer','victory','party','dance','camera_pose'
+    'celebrate','cheer','victory','party','dance','camera_pose',
+    'happy','stretch','side_stretch','heart','fishing','goodbye','hello_shy','music_groove','pose_star'
   ]);
   const allowHands=(avatar!=='classic'||classicHandStates.has(requestedGesture))
     && avatarAllowsHandGesture(avatar,requestedGesture);
