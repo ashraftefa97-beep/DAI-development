@@ -4672,3 +4672,86 @@
   .dai-v8 .dai-v8-live-chat form{grid-template-columns:1fr}
   .dai-v8 .dai-v8-live-chat button{width:100%}
 }
+
+
+/* DAI V8 hero cleanup — remove decorative metrics and strengthen interaction clarity */
+.dai-v8 .dai-v7-hero-copy{
+  max-width:820px;
+}
+.dai-v8 .dai-v7-hero-actions{
+  margin-top:34px;
+  gap:12px;
+}
+.dai-v8 .dai-v7-hero-actions .primary,
+.dai-v8 .dai-v7-hero-actions>a,
+.dai-v8 .dai-v7-open{
+  transition:transform .2s ease,box-shadow .2s ease,background-color .2s ease,border-color .2s ease;
+}
+.dai-v8 .dai-v7-hero-actions .primary:hover,
+.dai-v8 .dai-v7-open:hover{
+  transform:translateY(-2px);
+}
+.dai-v8 .dai-v7-hero-actions>a:hover{
+  transform:translateY(-2px);
+  background:rgba(255,255,255,.76);
+  border-color:rgba(41,29,37,.16);
+}
+.dai-v8 .dai-v7-hero-actions .primary:active,
+.dai-v8 .dai-v7-hero-actions>a:active,
+.dai-v8 .dai-v7-open:active{
+  transform:translateY(0) scale(.985);
+}
+.dai-v8 .dai-v7-stage-card{
+  border-radius:18px;
+  background:rgba(255,255,255,.80);
+  border-color:rgba(45,31,40,.07);
+  box-shadow:0 16px 38px rgba(59,39,52,.085);
+}
+.dai-v8 .dai-v7-stage-card span{
+  color:#776c74;
+  font-size:10px;
+}
+.dai-v8 .dai-v7-stage-card b{
+  color:#292129;
+  font-size:12px;
+}
+.dai-v8 .dai-v7-hero-foot{
+  color:#756b72;
+}
+.dai-v8 .dai-v7-hero-foot small{
+  letter-spacing:.04em;
+}
+.dai-v8 .dai-v7-bento-card,
+.dai-v8 .dai-v7-control-card,
+.dai-v8 .dai-v7-device-grid article,
+.dai-v8 .dai-v7-plan-grid article{
+  border-radius:28px;
+}
+@media(max-width:900px){
+  .dai-v8 .dai-v7-hero{
+    row-gap:18px;
+  }
+  .dai-v8 .dai-v7-hero-copy{
+    max-width:720px;
+  }
+}
+@media(max-width:520px){
+  .dai-v8 .dai-v7-hero{
+    padding-top:42px;
+    row-gap:10px;
+  }
+  .dai-v8 .dai-v7-hero-actions{
+    margin-top:26px;
+    gap:10px;
+  }
+  .dai-v8 .dai-v7-hero-actions .primary,
+  .dai-v8 .dai-v7-hero-actions>a{
+    min-height:50px;
+  }
+  .dai-v8 .dai-v7-hero-stage{
+    margin-top:4px;
+  }
+  .dai-v8 .dai-v7-hero-foot{
+    padding-top:14px;
+  }
+}
