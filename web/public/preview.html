@@ -44,8 +44,19 @@
 
       var token=new URLSearchParams(location.search).get('token')||'';
       if(!/^[a-f0-9]{64}$/i.test(token)){
+        try{token=localStorage.getItem('dai-last-preview-token')||'';}catch(e){}
+      }
+      if(!/^[a-f0-9]{64}$/i.test(token)){
         state.innerHTML='<div><b>المعاينة غير جاهزة</b><span>ارجع لضي واضغط «فتح الموقع» مرة تانية.</span></div>';
         return;
+      }
+
+      if(!new URLSearchParams(location.search).get('token')){
+        try{
+          var recovered=new URL(location.href);
+          recovered.searchParams.set('token',token);
+          history.replaceState(null,'',recovered.href);
+        }catch(e){}
       }
 
       var endpoint='https://buenonmbyudjhpedmoqk.supabase.co/functions/v1/code-preview?token='+encodeURIComponent(token);
