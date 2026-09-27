@@ -4252,3 +4252,263 @@
   .dai-v8 .dai-v7-reaction-controls button,
   .dai-v8 .dai-v7-language-cloud button{transition:none!important}
 }
+
+
+/* DAI V8 interactive product demo */
+.dai-v8 .dai-v8-experience{
+  padding:clamp(96px,11vw,172px) clamp(20px,6vw,96px);
+  color:#fff;
+  background:
+    radial-gradient(760px 480px at 12% 16%,rgba(239,166,191,.11),transparent 72%),
+    radial-gradient(720px 460px at 90% 88%,rgba(170,142,212,.11),transparent 72%),
+    #0c0b10;
+  position:relative;
+  overflow:hidden;
+}
+.dai-v8 .dai-v8-experience::before{
+  content:'';
+  position:absolute;inset:0;pointer-events:none;opacity:.34;
+  background-image:
+    linear-gradient(rgba(255,255,255,.027) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.027) 1px,transparent 1px);
+  background-size:64px 64px;
+  mask-image:linear-gradient(to bottom,transparent,rgba(0,0,0,.9) 18%,rgba(0,0,0,.35) 78%,transparent);
+}
+.dai-v8 .dai-v8-experience-head{
+  position:relative;
+  z-index:2;
+  max-width:940px;
+  margin-inline:auto;
+  text-align:center;
+}
+.dai-v8 .dai-v8-experience-head .dai-v7-kicker{margin-inline:auto}
+.dai-v8 .dai-v8-experience-head h2{
+  margin:22px auto 0;
+  max-width:930px;
+  font-size:clamp(46px,5.9vw,90px);
+  line-height:1.02;
+  letter-spacing:-.058em;
+  text-wrap:balance;
+}
+.dai-v8 .dai-v8-experience-head p{
+  margin:22px auto 0;
+  max-width:720px;
+  color:#a9a2ac;
+  font-size:15px;
+  line-height:1.9;
+}
+.dai-v8 .dai-v8-experience-shell{
+  position:relative;
+  z-index:2;
+  max-width:1460px;
+  margin:64px auto 0;
+  min-height:650px;
+  display:grid;
+  grid-template-columns:180px minmax(360px,.92fr) minmax(380px,1.08fr);
+  gap:14px;
+}
+.dai-v8 .dai-v8-experience-tabs,
+.dai-v8 .dai-v8-experience-stage,
+.dai-v8 .dai-v8-experience-copy{
+  border:1px solid rgba(255,255,255,.075);
+  background:rgba(255,255,255,.025);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.dai-v8 .dai-v8-experience-tabs{
+  padding:10px;
+  border-radius:26px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.dai-v8 .dai-v8-experience-tabs button{
+  min-height:76px;
+  padding:10px 12px;
+  border:1px solid transparent;
+  border-radius:18px;
+  display:grid;
+  grid-template-columns:28px 32px 1fr;
+  align-items:center;
+  gap:8px;
+  color:#8d8690;
+  background:transparent;
+  text-align:start;
+  cursor:pointer;
+  transition:transform .2s ease,background .2s ease,border-color .2s ease,color .2s ease;
+}
+.dai-v8 .dai-v8-experience-tabs button:hover{
+  transform:translateX(2px);
+  color:#e8e0e7;
+  background:rgba(255,255,255,.035);
+}
+.dai-v8[dir='rtl'] .dai-v8-experience-tabs button:hover{transform:translateX(-2px)}
+.dai-v8 .dai-v8-experience-tabs button.active{
+  color:#fff;
+  background:linear-gradient(135deg,rgba(239,166,191,.14),rgba(170,142,212,.08));
+  border-color:rgba(239,166,191,.14);
+}
+.dai-v8 .dai-v8-experience-tabs .index{font-size:8px;color:#6d6770;font-weight:900}
+.dai-v8 .dai-v8-experience-tabs .icon{
+  width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+  color:#efaac1;background:rgba(239,166,191,.07);
+}
+.dai-v8 .dai-v8-experience-tabs strong{font-size:11px}
+.dai-v8 .dai-v8-experience-stage{
+  border-radius:30px;
+  position:relative;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  isolation:isolate;
+  background:
+    radial-gradient(circle at 50% 44%,rgba(76,58,84,.88) 0 25%,rgba(30,24,36,.92) 49%,rgba(13,11,16,.98) 72%),
+    #111016;
+}
+.dai-v8 .dai-v8-experience-stage::before{
+  content:'';
+  position:absolute;
+  width:76%;aspect-ratio:1;border-radius:50%;
+  border:1px solid rgba(255,255,255,.055);
+  box-shadow:0 0 90px rgba(170,142,212,.06);
+}
+.dai-v8 .dai-v8-experience-face{
+  width:min(500px,86%);
+  aspect-ratio:1;
+  position:relative;
+  z-index:2;
+  filter:drop-shadow(0 30px 62px rgba(0,0,0,.28));
+}
+.dai-v8 .dai-v8-experience-face .dai-canvas{width:100%;height:100%}
+.dai-v8 .dai-v8-experience-orbit{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.055);
+  animation:v7Orbit 24s linear infinite;
+}
+.dai-v8 .dai-v8-experience-orbit::after{
+  content:'';
+  position:absolute;top:-4px;left:50%;
+  width:8px;height:8px;border-radius:50%;
+  background:#efa6bf;box-shadow:0 0 20px rgba(239,166,191,.48);
+}
+.dai-v8 .dai-v8-experience-orbit.orbit-one{width:64%;aspect-ratio:1}
+.dai-v8 .dai-v8-experience-orbit.orbit-two{width:88%;aspect-ratio:1;animation-duration:34s;animation-direction:reverse;opacity:.7}
+.dai-v8 .dai-v8-experience-status{
+  position:absolute;
+  left:50%;bottom:22px;transform:translateX(-50%);
+  min-height:38px;padding:0 13px;border-radius:999px;
+  display:flex;align-items:center;gap:8px;
+  color:#dcd4dd;background:rgba(10,9,13,.72);
+  border:1px solid rgba(255,255,255,.07);
+  backdrop-filter:blur(14px);z-index:4;font-size:10px;font-weight:800;
+}
+.dai-v8 .dai-v8-experience-status i{
+  width:7px;height:7px;border-radius:50%;background:#8dd592;
+  box-shadow:0 0 0 5px rgba(141,213,146,.07);
+}
+.dai-v8 .dai-v8-experience-copy{
+  border-radius:30px;
+  padding:clamp(28px,4vw,54px);
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  background:
+    radial-gradient(480px 280px at 100% 0%,rgba(239,166,191,.075),transparent 74%),
+    rgba(255,255,255,.025);
+}
+.dai-v8 .dai-v8-experience-copy .step{
+  color:#8a828d;
+  font-size:9px;
+  letter-spacing:.08em;
+  font-weight:900;
+}
+.dai-v8 .dai-v8-experience-copy h3{
+  margin:18px 0 26px;
+  max-width:650px;
+  font-size:clamp(32px,3.4vw,54px);
+  line-height:1.05;
+  letter-spacing:-.045em;
+  text-wrap:balance;
+}
+.dai-v8 .dai-v8-experience-prompt,
+.dai-v8 .dai-v8-experience-result{
+  padding:15px 16px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.07);
+}
+.dai-v8 .dai-v8-experience-prompt{
+  margin-bottom:9px;
+  background:#211d25;
+}
+.dai-v8 .dai-v8-experience-result{
+  background:linear-gradient(135deg,rgba(239,166,191,.09),rgba(170,142,212,.055));
+}
+.dai-v8 .dai-v8-experience-prompt span,
+.dai-v8 .dai-v8-experience-result span{
+  display:block;margin-bottom:7px;color:#8b838d;font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:.08em
+}
+.dai-v8 .dai-v8-experience-result span{color:#e2a2b8}
+.dai-v8 .dai-v8-experience-prompt p,
+.dai-v8 .dai-v8-experience-result p{
+  margin:0;color:#ddd6de;font-size:12px;line-height:1.75
+}
+.dai-v8 .dai-v8-experience-result p{color:#bbb3bd}
+.dai-v8 .dai-v8-experience-progress{display:flex;gap:6px;margin-top:24px}
+.dai-v8 .dai-v8-experience-progress i{
+  height:3px;flex:1;border-radius:999px;background:rgba(255,255,255,.07);
+  transition:background .25s ease,transform .25s ease;
+}
+.dai-v8 .dai-v8-experience-progress i.active{
+  background:linear-gradient(90deg,#efa6bf,#aa8ed4);
+}
+
+/* extra mobile composition polish */
+@media(max-width:1000px){
+  .dai-v8 .dai-v8-experience-shell{
+    grid-template-columns:1fr;
+    min-height:0;
+  }
+  .dai-v8 .dai-v8-experience-tabs{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    border-radius:22px;
+  }
+  .dai-v8 .dai-v8-experience-tabs button{
+    grid-template-columns:1fr;
+    justify-items:center;
+    text-align:center;
+    min-height:88px;
+  }
+  .dai-v8 .dai-v8-experience-tabs .index{display:none}
+  .dai-v8 .dai-v8-experience-stage{min-height:520px}
+  .dai-v8 .dai-v8-experience-copy{min-height:420px}
+}
+@media(max-width:620px){
+  .dai-v8 .dai-v8-experience{padding:76px 14px}
+  .dai-v8 .dai-v8-experience-head{text-align:start}
+  .dai-v8 .dai-v8-experience-head .dai-v7-kicker{margin-inline:0}
+  .dai-v8 .dai-v8-experience-head h2{font-size:clamp(38px,11vw,54px)}
+  .dai-v8[data-locale='ar'] .dai-v8-experience-head h2{line-height:1.25;letter-spacing:0}
+  .dai-v8 .dai-v8-experience-shell{margin-top:38px}
+  .dai-v8 .dai-v8-experience-tabs{gap:5px;padding:6px}
+  .dai-v8 .dai-v8-experience-tabs button{
+    min-height:74px;
+    padding:8px 4px;
+    border-radius:14px;
+  }
+  .dai-v8 .dai-v8-experience-tabs .icon{width:30px;height:30px}
+  .dai-v8 .dai-v8-experience-tabs strong{font-size:9px}
+  .dai-v8 .dai-v8-experience-stage{min-height:370px;border-radius:24px}
+  .dai-v8 .dai-v8-experience-face{width:min(330px,88%)}
+  .dai-v8 .dai-v8-experience-orbit.orbit-two{display:none}
+  .dai-v8 .dai-v8-experience-copy{min-height:0;padding:26px 20px;border-radius:24px}
+  .dai-v8 .dai-v8-experience-copy h3{font-size:clamp(30px,9vw,42px)}
+  .dai-v8[data-locale='ar'] .dai-v8-experience-copy h3{line-height:1.24;letter-spacing:0}
+  .dai-v8 .dai-v8-experience-prompt,
+  .dai-v8 .dai-v8-experience-result{padding:14px}
+}
+@media(prefers-reduced-motion:reduce){
+  .dai-v8 .dai-v8-experience-orbit{animation:none!important}
+  .dai-v8 .dai-v8-experience-tabs button,
+  .dai-v8 .dai-v8-experience-progress i{transition:none!important}
+}
