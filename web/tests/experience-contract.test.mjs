@@ -303,10 +303,9 @@ test('lip sync has visible syllable articulation',()=>{
   assert.match(draw,/q\.mouth\*39/);
 });
 
-test('voice envelope updates quickly enough for visible lip sync',()=>{
-  assert.match(app,/\(rms-\.0018\)\*14/);
-  assert.match(app,/mapped>smooth \? \.66 : \.34/);
-  assert.match(app,/now-lastEmit>=20/);
+test('decoded speech uses the same audio-clock lip sync as streaming',()=>{
+  assert.match(app,/schedulePcmLipSync\(buffer.getChannelData\(0\),buffer.sampleRate,startAt,ctx/);
+  assert.match(app,/queuePcmLipSync\(ctx,lipFrames,startAt/);
 });
 
 test('streamed and live speech drive lips from exact PCM windows',()=>{

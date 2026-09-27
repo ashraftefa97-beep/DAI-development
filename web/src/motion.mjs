@@ -273,13 +273,8 @@ export class DaiMotion {
     } else if(active==='talk'||this.state==='talking') {
       // Mouth motion is driven only by real voice energy. Text responses use
       // the reply state, so a stopped voice must never leave synthetic speech.
-      // Tiny fallback only prevents a frozen mouth on devices with weak analyser
-      // output. Real audio energy remains dominant so lip motion visibly follows
-      // syllables instead of sitting at one constant opening.
-      const visualFallback=this.reduced?0:(.032+.018*(.5+.5*Math.sin(e*9.1)));
-      let beat=this.voiceDriven
-        ?Math.max(this.voice,visualFallback)+this.voiceAccent*.82
-        :0;
+      // Silence must close the mouth; never synthesize a speech beat.
+      let beat=this.voiceDriven ? this.voice : 0;
       beat=clamp(beat,0,1);
 
       // Stronger, non-linear articulation: quiet vowels are still visible while
@@ -942,7 +937,7 @@ export class DaiMotion {
     }
     if(this.gesture==='fishing'&&this.gestureTime>4.8&&!this.caught) { this.caught=true; this.burst(142,24,18); }
     const mix=(a,b,r)=>a+(b-a)*(1-Math.exp(-r*dt));
-    this.voice=mix(this.voice,this.voiceTarget,30);
+    this.voice=mix(this.voice,this.voiceTarget,70);
     this.voiceWide=mix(this.voiceWide,this.voiceWideTarget,24);
     this.voiceRound=mix(this.voiceRound,this.voiceRoundTarget,20);
     this.audio=mix(this.audio,this.audioTarget,12);
@@ -1011,7 +1006,7 @@ export class DaiMotion {
       if(speechFace&&key==='mouth'){
         // Mouth has to follow PCM quickly; body uses springs, lip sync does not.
         this.poseVelocity[key]=0;
-        this.pose[key]=mix(this.pose[key],target[key],42);
+        this.pose[key]=mix(this.pose[key],target[key],75);
         continue;
       }
       if(speechFace&&key==='mouthWide'){

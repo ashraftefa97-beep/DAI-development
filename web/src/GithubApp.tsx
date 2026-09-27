@@ -1,3 +1,4 @@
+import { queuePcmLipSync } from './pcmLipSync.mjs';
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
 import { DAI_AVATAR_IDS, DAI_AVATAR_OPTIONS, isDaiAvatarStyle, type DaiAvatarStyle } from './avatarCatalog';
@@ -1506,44 +1507,6 @@ export default function GithubApp(){
     emitVoiceMotion(0,false);
   }
 
-  function startVoiceMotionTracking(
-    analyser:AnalyserNode,
-    ref:{current:number|undefined},
-    isActive:()=>boolean
-  ){
-    stopVoiceMotionTracking(ref);
-    const data=new Uint8Array(analyser.fftSize);
-    let smooth=0;
-    let lastEmit=0;
-
-    const tick=(now:number)=>{
-      if(!isActive()){
-        ref.current=undefined;
-        emitVoiceMotion(0,false);
-        return;
-      }
-
-      analyser.getByteTimeDomainData(data);
-      let energy=0;
-      for(let index=0;index<data.length;index++){
-        const sample=(data[index]-128)/128;
-        energy+=sample*sample;
-      }
-      const rms=Math.sqrt(energy/Math.max(1,data.length));
-      const raw=Math.max(0,Math.min(1,(rms-.0018)*14));
-      const mapped=Math.pow(raw,.48);
-      smooth+=(mapped>smooth ? .66 : .34)*(mapped-smooth);
-
-      if(now-lastEmit>=20){
-        emitVoiceMotion(smooth,true);
-        lastEmit=now;
-      }
-      ref.current=requestAnimationFrame(tick);
-    };
-
-    ref.current=requestAnimationFrame(tick);
-  }
-
   async function directSpeech(
     text:string,
     runId:number,
@@ -1850,15 +1813,13 @@ export default function GithubApp(){
       };
 
       source.start(startAt);
+      schedulePcmLipSync(buffer.getChannelData(0),buffer.sampleRate,startAt,ctx,
+        ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.has(source),voiceRate);
       return startAt+(buffer.duration/Math.max(.01,voiceRate));
     };
 
     emitSpeechMood(spoken);
-    startVoiceMotionTracking(
-      analyser,
-      speechMotionRafRef,
-      ()=>runId===speechRunRef.current&&speechStreamSourcesRef.current.size>0
-    );
+
 
     const firstStart=ctx.currentTime+.025;
     let nextStart=playBuffer(firstBuffer,firstStart,speechParts.length===1);
@@ -3710,7 +3671,7 @@ export default function GithubApp(){
     let previousRelative=0;
     const safeRate=Math.max(.05,playbackRate);
 
-    frames.forEach((frame,index)=>{
+    const lipFrames=frames.map((frame)=>{
       const absolute=Math.pow(
         Math.max(0,Math.min(1,(frame.energy-.0009)*25)),
         .38
@@ -3754,20 +3715,10 @@ export default function GithubApp(){
 
       previousRelative=relative;
 
-      const sampleOffset=index*windowSamples;
-      const seconds=(sampleOffset/sampleRate)/safeRate;
-      const delay=Math.max(0,(startAt-ctx.currentTime+seconds)*1000);
-
-      window.setTimeout(()=>{
-        if(isActive()){
-          emitVoiceMotion(level,true,{
-            wide,
-            round,
-            accent:Math.min(1,transient*2.2)
-          });
-        }
-      },delay);
+      return {level,wide,round,accent:Math.min(1,transient*2.2)};
     });
+    queuePcmLipSync(ctx,lipFrames,startAt,windowSamples/sampleRate/safeRate,
+      samples.length/sampleRate/safeRate,isActive,emitVoiceMotion);
   }
 
   function base64PcmToFloat32(base64:string){
