@@ -337,6 +337,8 @@ export default function MarketingPage(){
   const [miniLoading,setMiniLoading]=useState(false);
   const [miniError,setMiniError]=useState('');
   const buddyRef=useRef<HTMLDivElement>(null);
+  const heroManualUntil=useRef(0);
+  const experienceManualUntil=useRef(0);
   const copy=COPY[locale];
   const extra=EXTRA_COPY[locale];
   const rtl=locale==='ar';
@@ -407,6 +409,7 @@ export default function MarketingPage(){
     const sequence:DaiState[]=['idle','curious','relax','look_around','happy','idle'];
     let index=0;
     const timer=window.setInterval(()=>{
+      if(Date.now()<heroManualUntil.current)return;
       index=(index+1)%sequence.length;
       setHeroState(sequence[index]);
     },4200);
@@ -416,6 +419,7 @@ export default function MarketingPage(){
   useEffect(()=>{
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
     const timer=window.setInterval(()=>{
+      if(Date.now()<experienceManualUntil.current)return;
       setExperienceStep(step=>(step+1)%experience.length);
     },5200);
     return()=>window.clearInterval(timer);
@@ -458,6 +462,7 @@ export default function MarketingPage(){
   const languageList=useMemo(()=>Object.entries(LANGUAGE_NAMES) as Array<[Locale,string]>,[]);
 
   const setDemo=(index:number)=>{
+    heroManualUntil.current=Date.now()+9000;
     setDemoIndex(index);
     setHeroState(DEMO_STATES[index]);
   };
@@ -466,6 +471,7 @@ export default function MarketingPage(){
   const runMiniDemo=async()=>{
     const message=miniPrompt.trim();
     if(!message||miniLoading)return;
+    heroManualUntil.current=Date.now()+20000;
     setMiniLoading(true);
     setMiniError('');
     setMiniReply('');
@@ -517,7 +523,7 @@ export default function MarketingPage(){
             {languageList.map(([code,name])=><option value={code} key={code}>{name}</option>)}
           </select>
         </label>
-        <button className='dai-v7-open' onClick={()=>{window.location.href=appUrl()}}>
+        <button type='button' className='dai-v7-open' onClick={()=>{window.location.href=appUrl()}}>
           {copy.nav.open}<ArrowUpRight size={16}/>
         </button>
       </div>
@@ -539,7 +545,7 @@ export default function MarketingPage(){
         <p>{copy.hero.body}</p>
 
         <div className='dai-v7-hero-actions'>
-          <button className='primary' onClick={()=>{window.location.href=appUrl()}}>
+          <button type='button' className='primary' onClick={()=>{window.location.href=appUrl()}}>
             {copy.hero.primary}<ArrowUpRight size={18}/>
           </button>
           <a href='#personality'>{copy.hero.secondary}</a>
@@ -610,7 +616,8 @@ export default function MarketingPage(){
               role='tab'
               aria-selected={experienceStep===index}
               className={experienceStep===index?'active':''}
-              onClick={()=>setExperienceStep(index)}
+              onClick={()=>{experienceManualUntil.current=Date.now()+9000;setExperienceStep(index)}}
+              aria-controls='dai-experience-panel'
               key={item.id}
             >
               <span className='index'>{String(index+1).padStart(2,'0')}</span>
@@ -620,7 +627,7 @@ export default function MarketingPage(){
           })}
         </div>
 
-        <div className='dai-v8-experience-stage'>
+        <div className='dai-v8-experience-stage' id='dai-experience-panel' role='tabpanel'>
           <div className='dai-v8-experience-orbit orbit-one' aria-hidden='true'/>
           <div className='dai-v8-experience-orbit orbit-two' aria-hidden='true'/>
           <div className='dai-v8-experience-face'>
@@ -698,6 +705,7 @@ export default function MarketingPage(){
             key={label}
             className={demoIndex===index?'active':''}
             onClick={()=>setDemo(index)}
+            type='button'
           ><span>{String(index+1).padStart(2,'0')}</span>{label}</button>)}
         </div>
       </div>
@@ -808,7 +816,7 @@ export default function MarketingPage(){
             <li><Check size={16}/>Voice & text</li>
             <li><Check size={16}/>Search & avatars</li>
           </ul>
-          <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
+          <button type='button' onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
         </article>
 
         <article className='pro' data-reveal>
@@ -819,7 +827,7 @@ export default function MarketingPage(){
             <li><Check size={16}/>Desktop controls</li>
             <li><Check size={16}/>Advanced device actions</li>
           </ul>
-          <button onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
+          <button type='button' onClick={()=>{window.location.href=appUrl()}}>{extra.plans.cta}</button>
         </article>
       </div>
 
@@ -861,8 +869,8 @@ export default function MarketingPage(){
 
       <div className='dai-v7-faq-list'>
         {extra.faq.items.map((item,index)=><article key={item.q} className={openFaq===index?'open':''} data-reveal>
-          <button onClick={()=>setOpenFaq(openFaq===index?-1:index)}>
-            <span>{item.q}</span><ChevronDown size={19}/>
+          <button type='button' aria-expanded={openFaq===index} onClick={()=>setOpenFaq(openFaq===index?-1:index)}>
+            <span>{item.q}</span><ChevronDown size={19} aria-hidden='true'/>
           </button>
           <div><p>{item.a}</p></div>
         </article>)}
@@ -875,7 +883,7 @@ export default function MarketingPage(){
         <WandSparkles size={26}/>
         <h2>{copy.final.title}</h2>
         <p>{copy.final.body}</p>
-        <button onClick={()=>{window.location.href=appUrl()}}>{copy.final.button}<ArrowUpRight size={18}/></button>
+        <button type='button' onClick={()=>{window.location.href=appUrl()}}>{copy.final.button}<ArrowUpRight size={18}/></button>
       </div>
     </section>
 
