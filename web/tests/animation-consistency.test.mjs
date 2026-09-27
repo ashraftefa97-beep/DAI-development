@@ -209,9 +209,14 @@ test('rapid state stress keeps the latest DAI state authoritative',()=>{
           assert.ok(Number.isFinite(value),`${avatar}/${gesture}: non-finite pose during stress sequence`);
         }
 
-        if(!['search','fishing'].includes(gesture)){
+        const astraMagicFound=avatar==='classic'&&gesture==='found';
+        if(!['search','fishing'].includes(gesture)&&!astraMagicFound){
           assert.ok((motion.pose.wand||0)<=.01,`${avatar}/${gesture}: stale wand during stress sequence`);
           assert.ok((motion.pose.rod||0)<=.01,`${avatar}/${gesture}: stale rod during stress sequence`);
+        }
+        if(astraMagicFound){
+          assert.ok((motion.pose.wand||0)>.01,'Classic Astra found lost its wand during stress sequence');
+          assert.ok((motion.pose.hat||0)>.01,'Classic Astra found lost its hat during stress sequence');
         }
 
         previousVariant=motion.avatarVariantId;
