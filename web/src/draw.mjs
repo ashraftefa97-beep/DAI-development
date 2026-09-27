@@ -627,6 +627,7 @@ function premiumFaceVolume(c,m,avatar,isLight){
 
 function drawEyeFinish(c,eyePath,w,h,avatar,material,happy){
   if(happy>.86)return;
+  const lidVisibility=clamp((h-4)/18,0,1);
   const visibility=(1-happy)*material.gloss;
   c.save();
   c.clip(eyePath);
@@ -658,12 +659,18 @@ function drawEyeFinish(c,eyePath,w,h,avatar,material,happy){
 
   const tech=PREMIUM_MATERIAL_GROUPS.tech.has(avatar);
   c.save();
-  c.globalAlpha=(1-happy)*(tech?.48:.72);
+  c.clip(eyePath);
+  c.globalAlpha=(1-happy)*(tech?.48:.72)*lidVisibility;
   if(tech){
     line(c,-w*.29,-h*.12,w*.26,-h*.12,material.specular,.75);
     ellipse(c,w*.28,-h*.21,Math.max(1,w*.035),Math.max(1,h*.028),material.specular);
   }else{
-    ellipse(c,-w*.17,-h*.20,Math.max(1.25,w*.052),Math.max(1.45,h*.055),material.specular);
+    // A soft off-axis reflection gives depth without an internal curved outline.
+    const sheen=c.createRadialGradient(-w*.20,-h*.27,0,-w*.20,-h*.27,w*.43);
+    sheen.addColorStop(0,'rgba(255,255,255,.35)');
+    sheen.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=sheen;c.fillRect(-w/2,-h/2,w,h);
+    ellipse(c,-w*.20,-h*.27,Math.max(1.25,w*.060),Math.max(1.45,h*.065),material.specular);
     c.globalAlpha*=.54;
     ellipse(c,w*.12,-h*.05,Math.max(.8,w*.026),Math.max(.9,h*.028),material.specular);
   }
@@ -939,6 +946,15 @@ function buildEyePath(shape,w,h,r){
   p.roundRect(-w/2,-h/2,w,h,r);return p;
 }
 
+// Fast eyelid closure, short contact, gentle reopening; zero endpoint velocity.
+export function blinkOpenness(time){
+  if(!Number.isFinite(time)||time<0||time>=.24)return 1;
+  const smooth=t=>t*t*(3-2*t);
+  if(time<.065)return 1-.97*smooth(time/.065);
+  if(time<.085)return .03;
+  return .03+.97*smooth((time-.085)/.155);
+}
+
 function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   const q=m.pose,theme=avatarTheme(c,avatar),shape=avatarFaceShape(avatar),dna=getAvatarVisualDNA(avatar);
   const isLight=lightTheme(c),material=avatarMaterialProfile(avatar,isLight);
@@ -946,7 +962,7 @@ function eye(c,m,x,openness,width,happy,tilt,avatar='classic') {
   const gazeX=(Number(variant.gazeX)||0)*4.8;
   const gazeY=(Number(variant.gazeY)||0)*3.4;
   c.save();c.translate(x+q.gaze_x+gazeX,-17+q.gaze_y+gazeY);c.rotate(rad(tilt));
-  const blink=m.blinkTime<.19?1-.97*Math.sin(Math.PI*m.blinkTime/.19):1;
+  const blink=m.reduced?1:blinkOpenness(m.blinkTime);
   let w=35*width*theme.eyeW,h=Math.max(4,75*openness*blink*theme.eyeH);
   if(dna.eye==='dot'){w*=.75;h*=.72;}
   if(dna.eye==='slim'){w*=1.08;h*=.78;}

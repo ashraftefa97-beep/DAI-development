@@ -80,9 +80,9 @@ export function applyActiveMotionPolish(p,m){
   const profile=getAvatarBehaviorProfile(m.avatarStyle);
   const mode=motionMode(m);
   const quality=m.quality==='high'?1:m.quality==='medium'?.82:.64;
-  const t=Number(m.gestureTime||0);
-  const gesture=String(m.requestedGesture||m.gesture||'idle');
-  const phase=profile.phase+phaseFrom(String(m.avatarVariantId||m.avatarStyle)+':'+gesture);
+  // Keep ambient life continuous across semantic state / variant changes.
+  const t=Number(m.elapsed ?? m.gestureTime ?? 0);
+  const phase=profile.phase+phaseFrom(String(m.avatarStyle||'classic'));
   const tempo=Math.max(.42,Number(profile.tempo)||1);
   const energy=(MODE_ENERGY[mode]||.55)*quality;
   const gazeEnergy=(MODE_GAZE[mode]||.55)*quality;
