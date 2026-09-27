@@ -172,6 +172,19 @@ test('Classic first-generation gestures remain available as direct gestures',()=
   }
 });
 
+test('Classic Astra search trajectory preserves the 2026-09-20 pose language',()=>{
+  const motion=new DaiMotion(()=>.37);
+  motion.setAvatar('classic');
+  motion.setGesture('search');
+  motion.advance(.35);
+  assert.ok((motion.pose.hat||0)>.1);
+  assert.ok((motion.pose.wand||0)>.1);
+  assert.ok((motion.pose.la||0)>.05);
+  assert.ok((motion.pose.lx||0)<-90);
+  assert.ok((motion.pose.ly||0)<65);
+  assert.ok((motion.pose.gaze_x||0)<0);
+  assert.ok((motion.pose.gaze_y||0)<0);
+});
 test('Classic scan detect and scout stay hand-free',()=>{
   for(const gesture of ['scan','detect','scout']){
     const motion=new DaiMotion(()=>.37);
@@ -186,15 +199,21 @@ test('Classic scan detect and scout stay hand-free',()=>{
 });
 
 
-test('found is a success state without search props',()=>{
+test('Classic Astra found keeps magic props while other avatars do not',()=>{
   for(const avatar of avatarIds){
     const motion=new DaiMotion(()=>.37);
     motion.setAvatar(avatar);
     motion.setGesture('found');
     motion.advance(.35);
-    assert.ok((motion.pose.hat||0)<=.01,`${avatar}: found inherited hat`);
-    assert.ok((motion.pose.wand||0)<=.01,`${avatar}: found inherited wand`);
-    assert.ok((motion.pose.la||0)<=.01,`${avatar}: found inherited left search hand`);
-    assert.ok((motion.pose.ra||0)<=.01,`${avatar}: found inherited right search hand`);
+    if(avatar==='classic'){
+      assert.ok((motion.pose.hat||0)>.1,'Classic found should keep Astra hat');
+      assert.ok((motion.pose.wand||0)>.1,'Classic found should keep Astra wand');
+      assert.ok((motion.pose.la||0)>.05,'Classic found should keep Astra left search hand');
+    }else{
+      assert.ok((motion.pose.hat||0)<=.01,`${avatar}: found inherited Classic hat`);
+      assert.ok((motion.pose.wand||0)<=.01,`${avatar}: found inherited Classic wand`);
+      assert.ok((motion.pose.la||0)<=.01,`${avatar}: found inherited Classic left hand`);
+      assert.ok((motion.pose.ra||0)<=.01,`${avatar}: found inherited Classic right hand`);
+    }
   }
 });
