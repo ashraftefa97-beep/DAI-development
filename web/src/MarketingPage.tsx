@@ -585,7 +585,9 @@ export default function MarketingPage(){
           </div>
           <div className='dai-v7-wide-copy'>
             <span>{extra.chat.eyebrow}</span>
-            <h3>{extra.chat.title}</h3>
+            {rtl
+              ? <h3 className='dai-v8-ar-chat-title'><span>قول اللي في دماغك</span><span>وضي تكمل الباقي</span></h3>
+              : <h3>{extra.chat.title}</h3>}
             <p>{extra.chat.body}</p>
           </div>
         </article>
