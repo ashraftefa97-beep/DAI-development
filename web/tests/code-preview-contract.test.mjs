@@ -7,15 +7,15 @@ const coder=readFileSync(new URL('../src/localCoder.ts',import.meta.url),'utf8')
 const edge=readFileSync(new URL('../../supabase/functions/chat-stream/index.ts',import.meta.url),'utf8');
 const preview=readFileSync(new URL('../public/preview.html',import.meta.url),'utf8');
 
-test('DAI renders generated HTML inline and in a same-origin preview page',()=>{
+test('DAI renders generated HTML inline and in a server-backed preview page',()=>{
   assert.match(app,/function htmlPreviewFromMessage/);
   assert.match(app,/className='dai-site-preview'/);
   assert.match(app,/srcDoc=\{preview\}/);
   assert.match(app,/sandbox='allow-scripts allow-forms allow-modals allow-popups'/);
-  assert.match(app,/localStorage\.setItem\(key,html\)/);
-  assert.match(app,/new URL\('\.\/preview\.html',window\.location\.href\)/);
-  assert.match(preview,/localStorage\.getItem\(key\)/);
-  assert.match(preview,/frame\.srcdoc=html/);
+  assert.match(app,/functions\/v1\/code-preview/);
+  assert.match(app,/previewWindow\.location\.replace/);
+  assert.match(preview,/functions\/v1\/code-preview\?token=/);
+  assert.match(preview,/frame\.src=endpoint/);
 });
 
 test('online coding uses the stronger server DAI Code Studio instead of the small local model',()=>{
