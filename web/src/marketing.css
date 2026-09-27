@@ -5006,3 +5006,22 @@
 .dai-v8[data-locale='ar'] .dai-v8-ar-hero-line b{
   line-height:1.18!important;
 }
+
+
+/* Rabie Arabic shaping fix:
+   Rabie's standard liga feature creates visual collisions in combinations such as شخ.
+   Keep required Arabic shaping, but disable optional/common ligatures. */
+.dai-v8[data-locale='ar'],
+.dai-v8[data-locale='ar'] *{
+  font-feature-settings:"rlig" 1,"calt" 1,"liga" 0,"dlig" 0!important;
+}
+.dai-v8[data-locale='ar'] h1,
+.dai-v8[data-locale='ar'] h2,
+.dai-v8[data-locale='ar'] h3,
+.dai-v8[data-locale='ar'] p,
+.dai-v8[data-locale='ar'] span,
+.dai-v8[data-locale='ar'] button,
+.dai-v8[data-locale='ar'] a,
+.dai-v8[data-locale='ar'] input{
+  font-variant-ligatures:no-common-ligatures no-discretionary-ligatures!important;
+}
