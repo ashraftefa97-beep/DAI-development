@@ -22,12 +22,12 @@ const COPY:Record<Locale,Copy>={
     nav:{product:'عن ضي',personality:'الشخصية',languages:'اللغات',open:'افتح ضي'},
     hero:{
       eyebrow:'DAI AI · ضي',
-      title1:'ضي، مساعدة ذكية.',
-      title2:'تسمعك. تفهمك. وتتحرك معاك.',
-      body:'ضي تجمع بين الكلام الطبيعي، البحث، الأدوات والحركة في شخصية واحدة خفيفة وسريعة — مش مجرد صندوق شات.',
-      primary:'جرب ضي',
-      secondary:'شوف الشخصية',
-      note:'ويب الآن · نسخة الديسكتوب قيد التطوير'
+      title1:'ضي مش مجرد شات.',
+      title2:'صوت، شخصية، وذكاء بيتحرك معاك.',
+      body:'مساعدة ذكية تجمع المحادثة الطبيعية، البحث الموثق، البرمجة، الأدوات والصوت في تجربة واحدة لها حضور وشخصية — مش مجرد صندوق شات.',
+      primary:'ابدأ مع ضي',
+      secondary:'شوف ضي وهي بتتفاعل',
+      note:'DAI Web جاهزة الآن · Desktop بيتطور باستمرار'
     },
     buddy:{
       label:'جرب ردود الفعل',
@@ -37,19 +37,19 @@ const COPY:Record<Locale,Copy>={
     },
     flow:{
       eyebrow:'من السؤال للفعل',
-      title:'مصممة عشان تعمل، مش بس ترد.',
-      body:'الواجهة بتوضح الحالة بدل ما تخبيها: ضي بتفهم، تبحث، تنفذ وترجعلك النتيجة في مسار واحد.',
+      title:'من فكرة لنتيجة، في نفس المكان.',
+      body:'اسأل، ابحث، برمج أو نفّذ. ضي تختار المسار المناسب وتخليك شايف هي بتفهم إيه وبتعمل إيه لحد ما توصل للنتيجة.',
       cards:[
-        {kicker:'01',title:'صوت طبيعي',body:'تكلم بصوتك وخلي ضي ترد بصوت أنثوي مصري واضح ومباشر.'},
-        {kicker:'02',title:'بحث وأدوات',body:'لما السؤال يحتاج معلومة حديثة، ضي تقدر تبحث وتجمع النتيجة بدل التخمين.'},
-        {kicker:'03',title:'شخصية متحركة',body:'العين والرأس وتعبيرات الوجه تتغير حسب الحالة بدل حركة محفوظة واحدة.'},
-        {kicker:'04',title:'من الويب للديسكتوب',body:'الهدف إن نفس الشخصية تكمل معاك من المتصفح لنسخة الكمبيوتر بصلاحيات واضحة.'}
+        {kicker:'01',title:'صوت ومحادثة طبيعية',body:'اتكلم بطريقتك وخلي ضي تسمع، تفهم وترد من غير ما تحس إنك بتتعامل مع واجهة جامدة.'},
+        {kicker:'02',title:'بحث حديث بمصادر',body:'لما المعلومة محتاجة تحديث، ضي تروح للويب وتجمع النتيجة بدل ما تعتمد على التخمين.'},
+        {kicker:'03',title:'برمجة وتصميم',body:'من فكرة بسيطة لواجهة كاملة: ضي تقدر تبني، تراجع وتعرض النتيجة في نفس مسار المحادثة.'},
+        {kicker:'04',title:'شخصية بتتفاعل',body:'العين والوجه والحركة تتغير حسب الحالة عشان تحس إن في حضور حقيقي مش Loop محفوظ.'}
       ]
     },
     personality:{
       eyebrow:'الشخصية والفيزياء',
-      title:'حركة تحسها رد فعل، مش تشغيل ملف أنيميشن.',
-      body:'بنستخدم طبقات حركة مستقلة للرأس والعين والوجه والجسم، مع Spring Dynamics وmicro‑reactions عشان ضي تفضل حية من غير مبالغة.',
+      title:'الشخصية مش زينة. هي جزء من طريقة التواصل.',
+      body:'العين والحواجب والفم والحركة الدقيقة بيتغيروا مع السياق، مع انتقالات ناعمة وmicro‑reactions تخلي ضي حية من غير استعراض زائد.',
       points:['تفاعل مع المؤشر والسحب','انتقالات مرنة بين الحالات','فم مرتبط بالصوت أثناء الكلام','الأيدي هادية وقت الحديث']
     },
     languages:{
@@ -68,7 +68,7 @@ const COPY:Record<Locale,Copy>={
   },
   en:{
     nav:{product:'About',personality:'Personality',languages:'Languages',open:'Open DAI'},
-    hero:{eyebrow:'DAI AI · DAI',title1:'An AI assistant',title2:'that feels present.',body:'DAI brings natural conversation, search, tools and motion into one lightweight character — not just another chat box.',primary:'Try DAI',secondary:'Meet the character',note:'Web now · Desktop in development'},
+    hero:{eyebrow:'DAI AI · DAI',title1:'More than a chat box.',title2:'Voice, personality and intelligence in motion.',body:'DAI brings natural conversation, current search, coding, tools and voice into one assistant with a living visual presence.',primary:'Start with DAI',secondary:'Meet DAI in motion',note:'DAI Web is live · Desktop keeps evolving'},
     buddy:{label:'Try the reactions',title:'A little face. A real presence.',body:'DAI reacts to what is happening: listening, focusing, searching, celebrating and settling down with lightweight, varied motion.',actions:['Listen','Focus','Search','Celebrate']},
     flow:{eyebrow:'From question to action',title:'Built to do, not only answer.',body:'The interface makes every phase visible: DAI understands, searches, acts and returns the result in one flow.',cards:[
       {kicker:'01',title:'Natural voice',body:'Speak naturally and get a clear, direct feminine voice response.'},
@@ -404,7 +404,7 @@ export default function MarketingPage(){
     setHeroState(DEMO_STATES[index]);
   };
 
-  return <main className='dai-marketing-page dai-v7' dir={rtl?'rtl':'ltr'} data-locale={locale}>
+  return <main className='dai-marketing-page dai-v7 dai-v8' dir={rtl?'rtl':'ltr'} data-locale={locale}>
     <header className='dai-v7-nav'>
       <a className='dai-v7-brand' href='#top' aria-label='DAI AI'>
         <img src='./dai-logo.svg' alt=''/>
@@ -449,17 +449,17 @@ export default function MarketingPage(){
         </div>
 
         <div className='dai-v7-proof' aria-label='DAI highlights'>
-          <div><strong>24</strong><span>Avatars</span></div>
-          <div><strong>10</strong><span>Languages</span></div>
-          <div><strong>Live</strong><span>Voice</span></div>
+          <div><strong>24</strong><span>{rtl?'شخصية':'Avatars'}</span></div>
+          <div><strong>10</strong><span>{rtl?'لغات':'Languages'}</span></div>
+          <div><strong>{rtl?'مباشر':'Live'}</strong><span>{rtl?'صوت':'Voice'}</span></div>
         </div>
       </div>
 
       <div className='dai-v7-hero-stage' data-reveal>
         <div className='dai-v7-stage-ring ring-a' aria-hidden='true'/>
         <div className='dai-v7-stage-ring ring-b' aria-hidden='true'/>
-        <div className='dai-v7-stage-card card-voice'><Activity size={15}/><span>Voice</span><b>Live</b></div>
-        <div className='dai-v7-stage-card card-search'><Search size={15}/><span>Search</span><b>Ready</b></div>
+        <div className='dai-v7-stage-card card-voice'><Activity size={15}/><span>{rtl?'الصوت':'Voice'}</span><b>{rtl?'مباشر':'Live'}</b></div>
+        <div className='dai-v7-stage-card card-search'><Search size={15}/><span>{rtl?'البحث':'Search'}</span><b>{rtl?'جاهز':'Ready'}</b></div>
         <div className='dai-v7-face' ref={buddyRef}>
           <DaiFace state={heroState} avatar='classic' quality='high'/>
         </div>
