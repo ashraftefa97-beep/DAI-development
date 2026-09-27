@@ -147,18 +147,30 @@ test('avatar variant motion crossfades instead of snapping',()=>{
 });
 
 
-test('Classic search wand fades before the hand-intent window ends',()=>{
+test('Classic keeps wand and search hand for the full active search state',()=>{
   const motion=new DaiMotion(()=>.37);
   motion.setAvatar('classic');
   motion.setGesture('search');
   motion.advance(.35);
   assert.ok((motion.pose.wand||0)>.1);
+  assert.ok((motion.pose.la||0)>.05||(motion.pose.ra||0)>.05);
   motion.advance(2.35);
-  assert.ok((motion.pose.wand||0)<.08,`wand stayed visible at ${motion.pose.wand}`);
-  assert.ok((motion.pose.la||0)<.08,`search hand stayed visible at ${motion.pose.la}`);
+  assert.ok((motion.pose.wand||0)>.1,`wand disappeared during active search at ${motion.pose.wand}`);
+  assert.ok((motion.pose.la||0)>.05||(motion.pose.ra||0)>.05,`search hand disappeared during active search`);
   assert.ok((motion.pose.hat||0)>.1,'Classic should retain its search hat identity');
 });
 
+
+test('Classic first-generation gestures remain available as direct gestures',()=>{
+  for(const gesture of ['wave','listen','search','found','talk','happy','stretch','fishing','heart','dance','idea','sleep']){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar('classic');
+    motion.setGesture(gesture);
+    motion.advance(.35);
+    assert.equal(motion.requestedGesture,gesture,`${gesture}: request was not preserved`);
+    assert.equal(motion.gesture,gesture,`${gesture}: Classic legacy gesture was replaced`);
+  }
+});
 
 test('Classic scan detect and scout stay hand-free',()=>{
   for(const gesture of ['scan','detect','scout']){
