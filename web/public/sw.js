@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v21-20260926-code-studio-preview';
+const CACHE_NAME = 'dai-web-v22-20260927-server-preview';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
