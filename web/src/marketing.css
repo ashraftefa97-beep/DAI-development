@@ -4982,3 +4982,27 @@
     margin-inline:auto;
   }
 }
+
+
+/* Use the stable static Rabie face for large Arabic display text.
+   This avoids variable-font mark positioning glitches visible at heavy weights. */
+.dai-v8[data-locale='ar'] .dai-v7-hero h1,
+.dai-v8[data-locale='ar'] .dai-v7-wide-copy h3,
+.dai-v8[data-locale='ar'] .dai-v7-section-intro h2,
+.dai-v8[data-locale='ar'] .dai-v8-experience-head h2,
+.dai-v8[data-locale='ar'] .dai-v8-live-try-copy h2{
+  font-family:"Rabie DAI Static","Rabie DAI",Tahoma,Arial,sans-serif!important;
+  font-weight:500!important;
+  font-synthesis:none!important;
+  letter-spacing:0!important;
+}
+.dai-v8[data-locale='ar'] .dai-v7-hero h1{
+  font-size:clamp(52px,5.6vw,88px);
+  line-height:1.16!important;
+}
+.dai-v8[data-locale='ar'] .dai-v8-ar-hero-line{
+  gap:.16em!important;
+}
+.dai-v8[data-locale='ar'] .dai-v8-ar-hero-line b{
+  line-height:1.18!important;
+}
