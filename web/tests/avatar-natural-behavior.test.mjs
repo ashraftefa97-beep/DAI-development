@@ -105,8 +105,13 @@ test('real motion engine keeps head-only gestures hand-free across all avatars',
       motion.setAvatar(avatar);
       motion.setGesture(gesture);
       motion.advance(.18);
-      assert.ok((motion.pose.la||0)<=.01,`${avatar}/${gesture}: left hand remained visible (${motion.pose.la})`);
-      assert.ok((motion.pose.ra||0)<=.01,`${avatar}/${gesture}: right hand remained visible (${motion.pose.ra})`);
+      if(avatar==='classic'&&gesture==='found'){
+        assert.ok((motion.pose.la||0)>.01,'Classic Astra found should keep the wand hand visible');
+        assert.ok((motion.pose.wand||0)>.01,'Classic Astra found should keep the wand visible');
+      }else{
+        assert.ok((motion.pose.la||0)<=.01,`${avatar}/${gesture}: left hand remained visible (${motion.pose.la})`);
+        assert.ok((motion.pose.ra||0)<=.01,`${avatar}/${gesture}: right hand remained visible (${motion.pose.ra})`);
+      }
     }
   }
 });
