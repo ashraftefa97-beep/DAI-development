@@ -35,6 +35,9 @@ function dampTwoHandCrowding(p){
 
 const HAND_INTENT_WINDOWS=Object.freeze({
   wave:1.8,
+  listen:2.4,
+  happy:2.4,
+  idea:2.6,
   double_wave:2.0,
   goodbye:1.9,
   hello_shy:1.5,
