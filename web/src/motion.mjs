@@ -29,6 +29,10 @@ const CLASSIC_ASTRA_GESTURES=new Set([
   'wave','listen','search','found','talk','happy','stretch',
   'fishing','heart','dance','idea','sleep'
 ]);
+
+const SHARED_HAND_GESTURES=new Set([
+  'wave','listen','happy','stretch','fishing','heart','dance','idea'
+]);
 const moods = {
   ...Object.fromEntries(product.animationCatalog.map(item => [item.gesture.replace('idle_soft','idle'),item.state])),
   typing:'thinking',
@@ -727,7 +731,27 @@ export class DaiMotion {
 
     const classicAstra=this.avatarStyle==='classic'&&CLASSIC_ASTRA_GESTURES.has(active);
     if(!classicAstra){
+      const preserveSharedHands=SHARED_HAND_GESTURES.has(active);
+      const baseHands=preserveSharedHands?{
+        la:p.la,ra:p.ra,lx:p.lx,ly:p.ly,rx:p.rx,ry:p.ry,lr:p.lr,rr:p.rr,
+        rod:p.rod,fish:p.fish,heart:p.heart,bulb:p.bulb,listen:p.listen
+      }:null;
+
       applyAvatarChoreography(p,this);
+
+      // Shared gestures keep the Astra/base hand pose on every avatar.
+      // Avatar choreography is allowed to style face/body rhythm, not erase
+      // or replace the semantic hand action itself.
+      if(baseHands){
+        p.la=baseHands.la;p.ra=baseHands.ra;
+        p.lx=baseHands.lx;p.ly=baseHands.ly;
+        p.rx=baseHands.rx;p.ry=baseHands.ry;
+        p.lr=baseHands.lr;p.rr=baseHands.rr;
+        p.rod=baseHands.rod;p.fish=baseHands.fish;
+        p.heart=baseHands.heart;p.bulb=baseHands.bulb;
+        p.listen=baseHands.listen;
+      }
+
       applyAvatarBehaviorToPose(p,this);
       applyEmotionToPose(p,this);
       applyActiveMotionPolish(p,this);
