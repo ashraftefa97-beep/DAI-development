@@ -4074,6 +4074,56 @@ html[data-dai-keyboard="open"] .classic-input-bar {
   white-space:normal !important;
   color:#cdbac7 !important;
 }
+.dai-profile-avatar-label { color:#ecc7dc; }
+.dai-profile-picker-overlay {
+  position:fixed; inset:0; z-index:150; display:grid; place-items:center;
+  padding:16px; background:rgba(7,9,17,.76); backdrop-filter:blur(12px);
+}
+.dai-profile-picker {
+  width:min(620px,100%); max-height:min(780px,calc(100dvh - 32px)); overflow:auto;
+  padding:20px; border:1px solid rgba(246,169,193,.2); border-radius:22px;
+  background:linear-gradient(145deg,#191a2b,#111522 72%); color:#f4edf3;
+  box-shadow:0 28px 90px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.dai-profile-picker-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+.dai-profile-picker-head > div > span { color:#e4a8c2; font-size:10px; font-weight:800; letter-spacing:.08em; }
+.dai-profile-picker-head h3 { margin:4px 0; font-size:20px; }
+.dai-profile-picker-head p { margin:0; color:#aaa4b4; font-size:11px; }
+.dai-profile-picker-actions { margin-top:18px; }
+.dai-profile-upload-option {
+  width:100%; min-height:54px; padding:9px 12px; border:1px solid rgba(230,166,199,.24);
+  border-radius:13px; display:flex; align-items:center; gap:11px; background:rgba(225,157,194,.08);
+  color:#f4eaf1; text-align:right; cursor:pointer;
+}
+.dai-profile-upload-option:hover { border-color:#c98eae; background:rgba(225,157,194,.14); }
+.dai-profile-upload-option > svg { width:20px; height:20px; color:#f1b6d2; }
+.dai-profile-upload-option span,.dai-profile-avatar-choice span { min-width:0; display:grid; gap:3px; }
+.dai-profile-upload-option strong { font-size:12px; }
+.dai-profile-upload-option small { color:#aaa4b4; font-size:10px; }
+.dai-profile-gallery-heading { margin:16px 1px 9px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.dai-profile-gallery-heading > span { display:flex; align-items:center; gap:6px; font-size:12px; }
+.dai-profile-gallery-heading svg { width:15px; height:15px; color:#e7aaca; }
+.dai-profile-gallery-heading > small { color:#a8a1b0; font-size:9px; }
+.dai-profile-avatar-gallery { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.dai-profile-avatar-choice {
+  min-width:0; position:relative; padding:6px; border:1px solid rgba(255,255,255,.1); border-radius:13px;
+  display:grid; grid-template-columns:42px minmax(0,1fr); align-items:center; gap:7px;
+  background:rgba(255,255,255,.035); color:#eee8f0; text-align:right; cursor:pointer;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease;
+}
+.dai-profile-avatar-choice:hover { transform:translateY(-2px); border-color:rgba(233,169,203,.5); background:rgba(233,169,203,.09); }
+.dai-profile-avatar-choice.selected { border-color:#e4a2c4; background:rgba(220,151,187,.14); box-shadow:0 0 0 1px rgba(228,162,196,.22); }
+.dai-profile-avatar-choice > img { width:42px; height:42px; border-radius:10px; object-fit:cover; }
+.dai-profile-avatar-choice strong { overflow:hidden; color:#f7edf4; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.dai-profile-avatar-choice small { overflow:hidden; color:#b7afbd; font-size:8px; text-overflow:ellipsis; white-space:nowrap; }
+.dai-profile-avatar-check { position:absolute; top:4px; left:4px; width:13px; height:13px; color:#ffd6e9; }
+.dai-profile-picker-footer { min-height:36px; margin-top:13px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.dai-profile-picker-footer > span { color:#ddb3c9; font-size:10px; }
+.dai-profile-picker-footer > button {
+  min-height:32px; margin-inline-start:auto; padding:0 15px; border:1px solid rgba(239,176,207,.24);
+  border-radius:10px; background:linear-gradient(135deg,#bd83a5,#866da8); color:white;
+  font:inherit; font-size:11px; font-weight:800; cursor:pointer;
+}
 .dai-settings-account-info {
   min-width:0;
 }
@@ -4216,6 +4266,17 @@ html[data-dai-theme="light"] .dai-settings-account-card {
   background:linear-gradient(135deg,#fff7fa,#f7f2fb);
   border-color:#dfcbd5;
 }
+html[data-dai-theme="light"] .dai-profile-avatar-label { color:#87556e; }
+html[data-dai-theme="light"] .dai-profile-picker {
+  border-color:#dfcbd5; background:linear-gradient(145deg,#fffafd,#f5f0f8 72%); color:#342b36;
+}
+html[data-dai-theme="light"] .dai-profile-picker-head p,
+html[data-dai-theme="light"] .dai-profile-upload-option small,
+html[data-dai-theme="light"] .dai-profile-gallery-heading > small,
+html[data-dai-theme="light"] .dai-profile-avatar-choice small { color:#746a78; }
+html[data-dai-theme="light"] .dai-profile-upload-option { color:#493747; background:#fff7fb; }
+html[data-dai-theme="light"] .dai-profile-avatar-choice { border-color:#e2d8e3; background:#fff; color:#493747; }
+html[data-dai-theme="light"] .dai-profile-avatar-choice strong { color:#342b36; }
 html[data-dai-theme="light"] .dai-settings-account-actions button,
 html[data-dai-theme="light"] .dai-profile-image-actions button {
   background:#fff;
@@ -4261,6 +4322,13 @@ html[data-dai-theme="light"] .classic-setting.compact {
   .dai-profile-image-actions {
     gap:5px;
   }
+  .dai-profile-picker-overlay { padding:8px; }
+  .dai-profile-picker { max-height:calc(100dvh - 16px); padding:14px; border-radius:18px; }
+  .dai-profile-avatar-gallery { grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+  .dai-profile-avatar-choice { grid-template-columns:34px minmax(0,1fr); padding:5px; gap:5px; }
+  .dai-profile-avatar-choice > img { width:34px; height:34px; border-radius:9px; }
+  .dai-profile-avatar-choice strong { font-size:9px; }
+  .dai-profile-avatar-choice small { font-size:7px; }
   .dai-settings-account-actions {
     grid-column:1/-1;
     display:grid;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v24-20260929-profile-image';
+const CACHE_NAME = 'dai-web-v25-20260929-profile-avatars';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {

@@ -3,13 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
 import { type DaiAvatarStyle } from './avatarCatalog';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
+import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Upload, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
 import { createDaiRequest, routeDaiTask, type DaiTaskRoute } from './taskRouter';
 import { analyzeSemanticMotion, semanticPhaseScene, semanticSpeechMood } from './semanticMotionDirector.mjs';
 import { DaiSupervisorError, getSupervisorHealth, resetSupervisorHealth, runSupervised, supervisorHttpError } from './requestSupervisor';
+import { getProfileAvatar, PROFILE_AVATARS } from './profileAvatars';
 
 type SearchSource = { title:string; url:string };
 type Message = { id:string; role:'user'|'assistant'; content:string; createdAt:number; sources?:SearchSource[] };
@@ -104,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.7';
+const DAI_WEB_VERSION='1.10.8';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -556,6 +557,8 @@ export default function GithubApp(){
   const [userId,setUserId]=useState('');
   const [userName,setUserName]=useState('');
   const [profileImage,setProfileImage]=useState('');
+  const [profileAvatarId,setProfileAvatarId]=useState('');
+  const [profileChooserOpen,setProfileChooserOpen]=useState(false);
   const [profileImageBusy,setProfileImageBusy]=useState(false);
   const [profileImageNotice,setProfileImageNotice]=useState('');
   const [desktopMode,setDesktopMode]=useState(false);
@@ -654,14 +657,20 @@ export default function GithubApp(){
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   const profileImageStorageKey=()=>`dai-profile-image:${userId||'local'}`;
+  const profileAvatarStorageKey=()=>`dai-profile-avatar:${userId||'local'}`;
+  const selectedProfileAvatar=getProfileAvatar(profileAvatarId);
 
   useEffect(()=>{
     try{
       const exact=localStorage.getItem(profileImageStorageKey());
       const fallback=userId?localStorage.getItem('dai-profile-image:local'):null;
+      const exactAvatar=localStorage.getItem(profileAvatarStorageKey());
+      const fallbackAvatar=userId?localStorage.getItem('dai-profile-avatar:local'):null;
       setProfileImage(exact||fallback||'');
+      setProfileAvatarId(exactAvatar||fallbackAvatar||'');
     }catch{
       setProfileImage('');
+      setProfileAvatarId('');
     }
   },[userId]);
 
@@ -701,8 +710,12 @@ export default function GithubApp(){
 
       const dataUrl=canvas.toDataURL('image/webp',.86);
       localStorage.setItem(profileImageStorageKey(),dataUrl);
+      localStorage.removeItem(profileAvatarStorageKey());
       if(userId)localStorage.removeItem('dai-profile-image:local');
+      if(userId)localStorage.removeItem('dai-profile-avatar:local');
       setProfileImage(dataUrl);
+      setProfileAvatarId('');
+      setProfileChooserOpen(false);
       setProfileImageNotice('تم تحديث الصورة الشخصية.');
     }catch(error){
       console.debug('DAI profile image update failed',error);
@@ -716,11 +729,32 @@ export default function GithubApp(){
   function removeProfileImage(){
     try{
       localStorage.removeItem(profileImageStorageKey());
+      localStorage.removeItem(profileAvatarStorageKey());
       localStorage.removeItem('dai-profile-image:local');
+      localStorage.removeItem('dai-profile-avatar:local');
     }catch{}
     setProfileImage('');
+    setProfileAvatarId('');
     setProfileImageNotice('تم حذف الصورة الشخصية.');
     if(profileImageInputRef.current)profileImageInputRef.current.value='';
+  }
+
+  function chooseProfileAvatar(id:string){
+    const avatar=getProfileAvatar(id);
+    if(!avatar)return;
+    try{
+      localStorage.setItem(profileAvatarStorageKey(),avatar.id);
+      localStorage.removeItem(profileImageStorageKey());
+      localStorage.removeItem('dai-profile-image:local');
+      if(userId)localStorage.removeItem('dai-profile-avatar:local');
+    }catch{
+      setProfileImageNotice('تعذر حفظ الاختيار على هذا الجهاز.');
+      return;
+    }
+    setProfileImage('');
+    setProfileAvatarId(avatar.id);
+    setProfileImageNotice(`تم اختيار أفاتار ${avatar.name}.`);
+    setProfileChooserOpen(false);
   }
 
     useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -5452,14 +5486,16 @@ export default function GithubApp(){
             <div className='dai-profile-avatar-wrap'>
               <button
                 type='button'
-                className={'dai-settings-avatar dai-profile-avatar '+(profileImage?'has-image':'')}
-                onClick={()=>profileImageInputRef.current?.click()}
+                className={'dai-settings-avatar dai-profile-avatar '+(profileImage||selectedProfileAvatar?'has-image':'')}
+                onClick={()=>setProfileChooserOpen(true)}
                 disabled={profileImageBusy}
-                aria-label={profileImage?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
-                title={profileImage?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
+                aria-label={profileImage||selectedProfileAvatar?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
+                title={profileImage||selectedProfileAvatar?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
               >
                 {profileImage
                   ? <img src={profileImage} alt=''/>
+                  : selectedProfileAvatar
+                    ? <img src={selectedProfileAvatar.image} alt=''/>
                   : <span>{(userName||'D').trim().slice(0,1).toUpperCase()}</span>}
                 <i className='dai-profile-avatar-edit'><Pencil/></i>
               </button>
@@ -5474,11 +5510,12 @@ export default function GithubApp(){
             <div className='dai-settings-account-info'>
               <strong>{userName||'حساب DAI'}</strong>
               <small>{planOwner?'Owner · Professional':professional?'DAI Professional':'DAI Standard'}</small>
+              {selectedProfileAvatar&&<small className='dai-profile-avatar-label'>أفاتار الحساب · {selectedProfileAvatar.name}</small>}
               <div className='dai-profile-image-actions'>
-                <button type='button' onClick={()=>profileImageInputRef.current?.click()} disabled={profileImageBusy}>
-                  <Pencil/> {profileImageBusy?'جاري تجهيز الصورة…':profileImage?'تغيير الصورة':'اختيار صورة'}
+                <button type='button' onClick={()=>setProfileChooserOpen(true)} disabled={profileImageBusy}>
+                  <Pencil/> {profileImageBusy?'جاري تجهيز الصورة…':profileImage||selectedProfileAvatar?'تغيير الصورة':'اختيار صورة'}
                 </button>
-                {profileImage&&<button type='button' className='remove' onClick={removeProfileImage} disabled={profileImageBusy}>
+                {(profileImage||selectedProfileAvatar)&&<button type='button' className='remove' onClick={removeProfileImage} disabled={profileImageBusy}>
                   <Trash2/> حذف
                 </button>}
               </div>
@@ -5614,6 +5651,39 @@ export default function GithubApp(){
       </section>
     </div>}
 
+
+    {profileChooserOpen&&<div className='dai-profile-picker-overlay' onMouseDown={event=>{if(event.target===event.currentTarget)setProfileChooserOpen(false)}}>
+      <section className='dai-profile-picker' role='dialog' aria-modal='true' aria-labelledby='dai-profile-picker-title'>
+        <header className='dai-profile-picker-head'>
+          <div><span>صورة حسابك</span><h3 id='dai-profile-picker-title'>اختار صورة شخصية</h3><p>اختيارك بيتحفظ على الجهاز للحساب ده.</p></div>
+          <button type='button' className='classic-icon-button' aria-label='إغلاق' onClick={()=>setProfileChooserOpen(false)}><X/></button>
+        </header>
+        <div className='dai-profile-picker-actions'>
+          <button type='button' className='dai-profile-upload-option' onClick={()=>profileImageInputRef.current?.click()} disabled={profileImageBusy}>
+            <Upload/><span><strong>ارفع صورة من جهازك</strong><small>JPG أو PNG أو WebP · حتى 6 MB</small></span>
+          </button>
+          <div className='dai-profile-gallery-heading'><span><Sparkles/><strong>أفاتارات جاهزة</strong></span><small>صور شخصية مستقلة عن شكل ضي</small></div>
+        </div>
+        <div className='dai-profile-avatar-gallery' role='list' aria-label='أفاتارات الحساب الجاهزة'>
+          {PROFILE_AVATARS.map(avatar=><button
+            key={avatar.id}
+            type='button'
+            className={'dai-profile-avatar-choice '+(profileAvatarId===avatar.id?'selected':'')}
+            onClick={()=>chooseProfileAvatar(avatar.id)}
+            aria-pressed={profileAvatarId===avatar.id}
+            aria-label={`${avatar.name}، ${avatar.style}`}
+          >
+            <img src={avatar.image} alt=''/>
+            <span><strong>{avatar.name}</strong><small>{avatar.style}</small></span>
+            {profileAvatarId===avatar.id&&<Check className='dai-profile-avatar-check'/>}
+          </button>)}
+        </div>
+        <footer className='dai-profile-picker-footer'>
+          {profileImageNotice&&<span role='status'>{profileImageNotice}</span>}
+          <button type='button' onClick={()=>setProfileChooserOpen(false)}>تم</button>
+        </footer>
+      </section>
+    </div>}
 
     {capabilitiesOpen&&<div className='classic-overlay' onMouseDown={e=>{if(e.target===e.currentTarget)setCapabilitiesOpen(false)}}>
       <section className='dai-web-panel dai-capabilities-panel'>
