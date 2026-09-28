@@ -18,6 +18,74 @@ const profile=(id,motionFamily,searchVisual,thinkingVisual,successVisual,errorVi
   searchHand:Boolean(opts.searchHand)
 });
 
+const SHARED_GESTURES=new Set([
+  'wave','listen','search','found','talk','happy',
+  'stretch','fishing','heart','dance','idea','sleep'
+]);
+
+function applySharedGestureStyle(p,m,profile,gesture,t,reduced){
+  if(!SHARED_GESTURES.has(gesture))return p;
+  const w=reduced?0:Math.sin(t*profile.tempo+profile.phase);
+  const w2=reduced?0:Math.cos(t*profile.tempo*.71+profile.phase*.53);
+  const motionScale=clamp(.72+profile.tempo*.22,.78,1.28);
+
+  // Keep semantic motion common, then add each avatar's own timing/body language.
+  if(gesture==='wave'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.45;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.18;
+    p.bob=(Number(p.bob)||0)+w*profile.bobAmp*.45;
+    if(Number(p.ra)>0.01){
+      p.rx=(Number(p.rx)||0)+w*6*motionScale;
+      p.rr=(Number(p.rr)||0)+w*8*motionScale;
+    }
+  }else if(gesture==='listen'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.22;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.16;
+    p.bob=(Number(p.bob)||0)+w*profile.bobAmp*.30;
+  }else if(gesture==='found'||gesture==='happy'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.38;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.18;
+    p.bob=(Number(p.bob)||0)-Math.abs(w)*profile.bobAmp*.55;
+    p.sx=(Number(p.sx)||1)+Math.abs(w)*profile.scaleAmp*.7;
+    p.sy=(Number(p.sy)||1)-Math.abs(w)*profile.scaleAmp*.42;
+  }else if(gesture==='stretch'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.18;
+    p.bob=(Number(p.bob)||0)-Math.abs(w)*profile.bobAmp*.25;
+    if(Number(p.la)>0.01)p.lx=(Number(p.lx)||0)-Math.abs(w)*5*motionScale;
+    if(Number(p.ra)>0.01)p.rx=(Number(p.rx)||0)+Math.abs(w)*5*motionScale;
+  }else if(gesture==='fishing'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.32;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.24;
+    p.bob=(Number(p.bob)||0)+w*profile.bobAmp*.34;
+  }else if(gesture==='heart'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.30;
+    p.bob=(Number(p.bob)||0)-Math.abs(w)*profile.bobAmp*.34;
+    p.sx=(Number(p.sx)||1)+Math.abs(w)*profile.scaleAmp*.45;
+  }else if(gesture==='dance'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.64;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.22;
+    p.bob=(Number(p.bob)||0)-Math.abs(w)*profile.bobAmp*.80;
+    p.sx=(Number(p.sx)||1)+Math.abs(w)*profile.scaleAmp;
+    p.sy=(Number(p.sy)||1)-Math.abs(w)*profile.scaleAmp*.64;
+  }else if(gesture==='idea'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.26;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.20;
+    p.gaze_y=(Number(p.gaze_y)||0)-Math.abs(w)*Math.min(2.5,profile.gazeAmp*.24);
+    p.bob=(Number(p.bob)||0)-Math.abs(w)*profile.bobAmp*.24;
+  }else if(gesture==='sleep'){
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.10;
+    p.bob=(Number(p.bob)||0)+w*profile.bobAmp*.16;
+    p.sx=(Number(p.sx)||1)-w*profile.scaleAmp*.20;
+    p.sy=(Number(p.sy)||1)+w*profile.scaleAmp*.28;
+  }else if(gesture==='talk'){
+    // Voice remains the only mouth authority; personality only affects head/gaze.
+    p.tilt=(Number(p.tilt)||0)+w*profile.tiltAmp*.10;
+    p.gaze_x=(Number(p.gaze_x)||0)+w2*profile.gazeAmp*.08;
+    p.bob=(Number(p.bob)||0)+w*profile.bobAmp*.08;
+  }
+  return p;
+}
+
 export const AVATAR_BEHAVIOR_PROFILES=Object.freeze({
   classic:profile('classic','magic-arc','magicGlyph','orbitThought','softBurst','softShake',{tempo:1.0,tiltAmp:2.4,gazeAmp:5,bobAmp:1.0,phase:.1,legacySearchProps:true,searchHand:true}),
   minimal:profile('minimal','precision-still','focusBracket','singleDot','cleanTick','flatBlink',{tempo:.62,tiltAmp:.55,gazeAmp:2,bobAmp:.12,scaleAmp:.001,phase:.4}),
@@ -93,6 +161,7 @@ export function applyAvatarBehaviorToPose(p,m){
     }
   }
 
+  applySharedGestureStyle(p,m,profile,gesture,t,reduced);
   return p;
 }
 
