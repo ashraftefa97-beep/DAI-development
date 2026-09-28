@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { gestures } from '../src/motion.mjs';
-import { AVATAR_ANIMATION_LIBRARIES, validateAvatarLibrary } from '../src/avatarAnimations/index.mjs';
-import { REQUIRED_AVATAR_ANIMATION_SLOTS, AVATAR_LIBRARY_SIZE, AVATAR_VARIANT_COUNTS, shouldAutoCycleAvatarSlot } from '../src/avatarAnimations/runtime.mjs';
+import { gestures, DaiMotion } from '../src/motion.mjs';
+import { AVATAR_ANIMATION_LIBRARIES, validateAvatarLibrary, chooseAvatarAnimation } from '../src/avatarAnimations/index.mjs';
+import { REQUIRED_AVATAR_ANIMATION_SLOTS, AVATAR_LIBRARY_SIZE, AVATAR_VARIANT_COUNTS, SHARED_AVATAR_GESTURES, animationSlotForGesture, shouldAutoCycleAvatarSlot } from '../src/avatarAnimations/runtime.mjs';
 
 const catalogText=fs.readFileSync(new URL('../src/avatarCatalog.ts',import.meta.url),'utf8');
 const catalogIds=[...catalogText.matchAll(/\{id:'([^']+)'/g)].map(match=>match[1]);
@@ -102,5 +102,58 @@ test('libraries expose distinct personality signatures and meaningful motion var
 test('no avatar state auto-cycles motion variants',()=>{
   for(const slot of ['idle','listening','thinking','searching','speaking','success','error']){
     assert.equal(shouldAutoCycleAvatarSlot(slot),false,`${slot} changed motion merely because time passed`);
+  }
+});
+
+
+test('every avatar supports the shared DAI gesture set',()=>{
+  assert.deepEqual(
+    SHARED_AVATAR_GESTURES,
+    ['wave','listen','search','found','talk','happy','stretch','fishing','heart','dance','idea','sleep']
+  );
+
+  for(const avatar of catalogIds){
+    for(const gesture of SHARED_AVATAR_GESTURES){
+      assert.ok(animationSlotForGesture(gesture),`${gesture}: missing central animation slot`);
+      const variant=chooseAvatarAnimation(avatar,gesture,{stable:true,reduced:false});
+      assert.ok(variant,`${avatar}/${gesture}: shared gesture is unavailable`);
+      assert.equal(variant.gesture,gesture,`${avatar}/${gesture}: semantic gesture changed`);
+    }
+  }
+});
+
+test('shared gestures keep avatar personality instead of cloning Classic motion',()=>{
+  const gesturesToCompare=['wave','listen','found','happy','stretch','fishing','heart','dance','idea','sleep'];
+  for(const gesture of gesturesToCompare){
+    const signatures=new Set();
+    for(const avatar of catalogIds){
+      const motion=new DaiMotion(()=>.37);
+      motion.setAvatar(avatar);
+      motion.setGesture(gesture);
+      motion.advance(.42);
+      const p=motion.pose;
+      const signature=[
+        p.lx,p.ly,p.rx,p.ry,p.lr,p.rr,p.la,p.ra,
+        p.tilt,p.gaze_x,p.gaze_y,p.bob,p.sx,p.sy
+      ].map(v=>Number(v||0).toFixed(3)).join(':');
+      signatures.add(signature);
+    }
+    assert.ok(signatures.size>=8,`${gesture}: avatar styling collapsed to too few motion signatures (${signatures.size})`);
+  }
+});
+
+test('magic search props stay exclusive to Classic while search works everywhere',()=>{
+  for(const avatar of catalogIds){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar(avatar);
+    motion.setGesture('search');
+    motion.advance(.42);
+    if(avatar==='classic'){
+      assert.ok((motion.pose.wand||0)>.1,'Classic lost Astra wand');
+      assert.ok((motion.pose.hat||0)>.1,'Classic lost Astra hat');
+    }else{
+      assert.ok((motion.pose.wand||0)<=.01,`${avatar}: inherited Classic wand`);
+      assert.ok((motion.pose.hat||0)<=.01,`${avatar}: inherited Classic hat`);
+    }
   }
 });
