@@ -153,11 +153,14 @@ export function applyAvatarBehaviorToPose(p,m){
       p.ly=26;
       p.lr=-24+sweep*8;
     }else{
-      // Scan/detect/scout and all non-Classic search states stay face/body led.
+      // Non-Classic avatars keep their own search hand, but never inherit
+      // Classic's magic hat or wand. Scan/detect/scout remain hand-free.
       p.hat=0;
       p.wand=0;
-      p.la=0;
-      p.ra=0;
+      if(['scan','detect','scout'].includes(gesture)){
+        p.la=0;
+        p.ra=0;
+      }
     }
   }
 
@@ -175,7 +178,7 @@ export function avatarAllowsLegacyAccessory(id,kind,gesture=''){
 export function avatarAllowsHandGesture(id,gesture=''){
   const value=String(gesture||'idle');
   const profile=getAvatarBehaviorProfile(id);
-  if(value==='search'||value==='found')return Boolean(profile.searchHand);
+  if(value==='search'||value==='found')return true;
   if(['scan','detect','scout'].includes(value))return false;
   return true;
 }
