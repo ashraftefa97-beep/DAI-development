@@ -22,7 +22,7 @@ const GESTURE_SLOT_MAP=Object.freeze({
   listen:'listening',nod_yes:'listening',salute:'listening',peace:'listening',curious:'listening',
 
   typing:'thinking',type_fast:'thinking',thinking_deep:'thinking',brainstorm:'thinking',focus:'thinking',
-  code_focus:'thinking',read:'thinking',write:'thinking',idea:'thinking',
+  code_focus:'thinking',read:'thinking',write:'thinking',idea:'thinking',fishing:'thinking',
   lightbulb_pop:'thinking',question:'thinking',thought_orbit:'thinking',working:'thinking',
   response_ready:'thinking',
 
@@ -31,7 +31,7 @@ const GESTURE_SLOT_MAP=Object.freeze({
 
   talk:'speaking',reply:'speaking',music_nod:'speaking',
 
-  found:'success',happy:'success',success:'success',celebrate:'success',victory:'success',
+  found:'success',happy:'success',heart:'success',dance:'success',success:'success',celebrate:'success',victory:'success',
   cheer:'success',approve:'success',proud:'success',excited:'success',high_five:'success',
   pose_star:'success',welcome_back:'success',giggle:'success',laugh:'success',clap:'success',
   double_wave:'success',wave:'success',bow:'success',hello_shy:'success',goodbye:'success',wow:'success',
@@ -39,6 +39,11 @@ const GESTURE_SLOT_MAP=Object.freeze({
   error:'error',alert:'error',shake_no:'error',startled:'error',impatient:'error',
   confused:'error',shy:'error',surprise_soft:'error'
 });
+
+export const SHARED_AVATAR_GESTURES=Object.freeze([
+  'wave','listen','search','found','talk','happy',
+  'stretch','fishing','heart','dance','idea','sleep'
+]);
 
 export function animationSlotForGesture(gesture='idle'){
   const normalized=String(gesture||'idle').replace(/^dai_/,'').replace('idle_soft','idle');
