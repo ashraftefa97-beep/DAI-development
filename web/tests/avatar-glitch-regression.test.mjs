@@ -64,7 +64,7 @@ test('Classic DAI keeps hands off the face during normal conversation',()=>{
     draw.indexOf('const classicHandStates=new Set'),
     draw.indexOf('const allowHands=',draw.indexOf('const classicHandStates=new Set'))
   );
-  for(const state of ['idle','reply','talk','typing','listen','working','search']){
+  for(const state of ['idle','reply','talk','typing','listen','working']){
     assert.equal(block.includes("'"+state+"'"),false);
   }
 });
@@ -73,4 +73,11 @@ test('Classic DAI keeps hands off the face during normal conversation',()=>{
 test('Classic DAI never overlays the happy eye arc on the filled eye',()=>{
   assert.match(draw,/c\.globalAlpha=avatar==='classic'\?1:1-happy\*\.94/);
   assert.match(draw,/if\(avatar!=='classic'\)\{[\s\S]*?M-22 5 C-16 -19 16 -19 22 5/);
+});
+
+
+test('Classic uses actual palms and keeps its magic-search hand enabled',()=>{
+  const block=draw.slice(draw.indexOf('const classicHandStates=new Set'),draw.indexOf('const allowHands=',draw.indexOf('const classicHandStates=new Set')));
+  for(const state of ['wave','stretch','heart','fishing','search','found'])assert.ok(block.includes("'"+state+"'"),state);
+  assert.match(draw,/if\(avatar==='classic'\|\|needsGrip\)\{[\s\S]*?hand\(c,renderedHands.left[\s\S]*?hand\(c,renderedHands.right/);
 });

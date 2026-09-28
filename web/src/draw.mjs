@@ -1252,7 +1252,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
   const classicHandStates=new Set([
     'wave','double_wave','high_five','clap','salute','peace','bow',
     'celebrate','cheer','victory','party','dance','camera_pose',
-    'happy','stretch','side_stretch','heart','fishing','goodbye','hello_shy','music_groove','pose_star'
+    'happy','stretch','side_stretch','heart','fishing','goodbye','hello_shy','music_groove','pose_star',
+    'search','found'
   ]);
   const allowHands=(avatar!=='classic'||classicHandStates.has(requestedGesture))
     && avatarAllowsHandGesture(avatar,requestedGesture);
@@ -1269,7 +1270,8 @@ export function drawDai(c,m,w,h,avatar='classic') {
   );
   if(handIntent>.01&&plan.handScale>.01){
     const needsGrip=plan.accessory==='wand'||plan.accessory==='fishing';
-    if(needsGrip){
+    // Classic uses the original visible palm, including gestures without props.
+    if(avatar==='classic'||needsGrip){
       hand(c,renderedHands.left.x,renderedHands.left.y,q.lr,renderedHands.left.alpha,true,plan.accessory==='wand'&&q.wand>.3,avatar);
       hand(c,renderedHands.right.x,renderedHands.right.y,q.rr,renderedHands.right.alpha,false,plan.accessory==='fishing'&&q.rod>.3,avatar);
     }else{
