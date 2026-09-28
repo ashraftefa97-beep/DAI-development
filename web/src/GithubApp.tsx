@@ -104,7 +104,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.6';
+const DAI_WEB_VERSION='1.10.7';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -555,6 +555,9 @@ export default function GithubApp(){
   const [lastFailedText,setLastFailedText]=useState('');
   const [userId,setUserId]=useState('');
   const [userName,setUserName]=useState('');
+  const [profileImage,setProfileImage]=useState('');
+  const [profileImageBusy,setProfileImageBusy]=useState(false);
+  const [profileImageNotice,setProfileImageNotice]=useState('');
   const [desktopMode,setDesktopMode]=useState(false);
   const [desktopStartup,setDesktopStartup]=useState(false);
   const [plan,setPlan]=useState<DaiPlan>('standard');
@@ -590,6 +593,7 @@ export default function GithubApp(){
   const [browserCanForward,setBrowserCanForward]=useState(false);
   const timer=useRef<number|undefined>(undefined);
   const typingTimer=useRef<number|undefined>(undefined);
+  const profileImageInputRef=useRef<HTMLInputElement|null>(null);
   const sfxWakePlayedRef=useRef(false);
   const sonicRequestRef=useRef(0);
   const corePhaseRef=useRef<DaiCorePhase>('idle');
@@ -649,7 +653,77 @@ export default function GithubApp(){
   const avatarStyleRef=useRef<DaiAvatarStyle>('classic');
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
-  useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
+  const profileImageStorageKey=()=>`dai-profile-image:${userId||'local'}`;
+
+  useEffect(()=>{
+    try{
+      const exact=localStorage.getItem(profileImageStorageKey());
+      const fallback=userId?localStorage.getItem('dai-profile-image:local'):null;
+      setProfileImage(exact||fallback||'');
+    }catch{
+      setProfileImage('');
+    }
+  },[userId]);
+
+  async function selectProfileImage(file:File){
+    setProfileImageNotice('');
+    if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+      setProfileImageNotice('اختار صورة JPG أو PNG أو WebP.');
+      return;
+    }
+    if(file.size>6*1024*1024){
+      setProfileImageNotice('حجم الصورة كبير. الحد الأقصى 6 MB.');
+      return;
+    }
+
+    setProfileImageBusy(true);
+    try{
+      const url=URL.createObjectURL(file);
+      const image=await new Promise<HTMLImageElement>((resolve,reject)=>{
+        const img=new Image();
+        img.onload=()=>resolve(img);
+        img.onerror=()=>reject(new Error('image decode failed'));
+        img.src=url;
+      });
+
+      const size=Math.min(image.naturalWidth,image.naturalHeight);
+      const sx=Math.max(0,(image.naturalWidth-size)/2);
+      const sy=Math.max(0,(image.naturalHeight-size)/2);
+      const canvas=document.createElement('canvas');
+      canvas.width=384;
+      canvas.height=384;
+      const ctx=canvas.getContext('2d');
+      if(!ctx)throw new Error('canvas unavailable');
+      ctx.imageSmoothingEnabled=true;
+      ctx.imageSmoothingQuality='high';
+      ctx.drawImage(image,sx,sy,size,size,0,0,384,384);
+      URL.revokeObjectURL(url);
+
+      const dataUrl=canvas.toDataURL('image/webp',.86);
+      localStorage.setItem(profileImageStorageKey(),dataUrl);
+      if(userId)localStorage.removeItem('dai-profile-image:local');
+      setProfileImage(dataUrl);
+      setProfileImageNotice('تم تحديث الصورة الشخصية.');
+    }catch(error){
+      console.debug('DAI profile image update failed',error);
+      setProfileImageNotice('حصلت مشكلة أثناء تجهيز الصورة. جرّب صورة تانية.');
+    }finally{
+      setProfileImageBusy(false);
+      if(profileImageInputRef.current)profileImageInputRef.current.value='';
+    }
+  }
+
+  function removeProfileImage(){
+    try{
+      localStorage.removeItem(profileImageStorageKey());
+      localStorage.removeItem('dai-profile-image:local');
+    }catch{}
+    setProfileImage('');
+    setProfileImageNotice('تم حذف الصورة الشخصية.');
+    if(profileImageInputRef.current)profileImageInputRef.current.value='';
+  }
+
+    useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
 
   useEffect(()=>{
     try{localStorage.setItem('dai-response-mode',responseMode);}catch{}
@@ -5375,10 +5449,40 @@ export default function GithubApp(){
             <div><UserCog/><span><strong>الحساب</strong><small>إدارة بياناتك وتسجيل الدخول</small></span></div>
           </div>
           <div className='dai-settings-account-card'>
-            <div className='dai-settings-avatar'>{(userName||'D').trim().slice(0,1).toUpperCase()}</div>
+            <div className='dai-profile-avatar-wrap'>
+              <button
+                type='button'
+                className={'dai-settings-avatar dai-profile-avatar '+(profileImage?'has-image':'')}
+                onClick={()=>profileImageInputRef.current?.click()}
+                disabled={profileImageBusy}
+                aria-label={profileImage?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
+                title={profileImage?'تغيير الصورة الشخصية':'اختيار صورة شخصية'}
+              >
+                {profileImage
+                  ? <img src={profileImage} alt=''/>
+                  : <span>{(userName||'D').trim().slice(0,1).toUpperCase()}</span>}
+                <i className='dai-profile-avatar-edit'><Pencil/></i>
+              </button>
+              <input
+                ref={profileImageInputRef}
+                className='dai-profile-image-input'
+                type='file'
+                accept='image/jpeg,image/png,image/webp'
+                onChange={event=>{const file=event.target.files?.[0];if(file)void selectProfileImage(file)}}
+              />
+            </div>
             <div className='dai-settings-account-info'>
               <strong>{userName||'حساب DAI'}</strong>
               <small>{planOwner?'Owner · Professional':professional?'DAI Professional':'DAI Standard'}</small>
+              <div className='dai-profile-image-actions'>
+                <button type='button' onClick={()=>profileImageInputRef.current?.click()} disabled={profileImageBusy}>
+                  <Pencil/> {profileImageBusy?'جاري تجهيز الصورة…':profileImage?'تغيير الصورة':'اختيار صورة'}
+                </button>
+                {profileImage&&<button type='button' className='remove' onClick={removeProfileImage} disabled={profileImageBusy}>
+                  <Trash2/> حذف
+                </button>}
+              </div>
+              {profileImageNotice&&<small className='dai-profile-image-notice'>{profileImageNotice}</small>}
             </div>
             <div className='dai-settings-account-actions'>
               <button onClick={()=>window.dispatchEvent(new CustomEvent('dai:open-account'))}><UserCog/> إدارة الحساب</button>
