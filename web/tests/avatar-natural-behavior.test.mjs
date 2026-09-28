@@ -194,3 +194,36 @@ test('active semantic states keep the same motion variant over time',()=>{
     }
   }
 });
+
+
+test('shared hand gestures visibly render hands on every avatar',()=>{
+  const handGestures=['wave','listen','search','found','happy','stretch','fishing','heart','dance','idea'];
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    for(const gesture of handGestures){
+      const motion=new DaiMotion(()=>.37);
+      motion.setAvatar(avatar);
+      motion.setGesture(gesture);
+      motion.advance(.35);
+      assert.ok(
+        (motion.pose.la||0)>.01||(motion.pose.ra||0)>.01,
+        `${avatar}/${gesture}: shared hand gesture rendered without a visible hand`
+      );
+    }
+  }
+});
+
+test('only Classic uses magic search props after shared hand rollout',()=>{
+  for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
+    const motion=new DaiMotion(()=>.37);
+    motion.setAvatar(avatar);
+    motion.setGesture('search');
+    motion.advance(.35);
+    if(avatar==='classic'){
+      assert.ok((motion.pose.wand||0)>.1);
+      assert.ok((motion.pose.hat||0)>.1);
+    }else{
+      assert.ok((motion.pose.wand||0)<=.01,`${avatar}: inherited Classic wand`);
+      assert.ok((motion.pose.hat||0)<=.01,`${avatar}: inherited Classic hat`);
+    }
+  }
+});
