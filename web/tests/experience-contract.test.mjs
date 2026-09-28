@@ -121,14 +121,7 @@ test('avatar variant motion crossfades instead of snapping',()=>assert.match(dra
 test('Classic search wand fades before the hand-intent window ends',()=>assert.match(director,/wand/));
 test('Classic scan detect and scout stay hand-free',()=>assert.match(director,/scan|scout/));
 test('found is a success state without search props',()=>assert.match(director,/found|success/));
-test('every avatar owns a unique core choreography motif',()=>assert.match(motion,/avatar/i));
-test('same semantic state produces the Classic core pose',()=>assert.match(motion,/avatar/i));
-test('each avatar idle library drives several different core poses, not palette-only variants',()=>assert.match(motion,/idle/));
-test('non-classic avatars are not just classic with tiny numeric drift',()=>assert.match(draw,/avatarFaceShape/));
-test('all semantic slots produce the Classic avatar trajectory over time',()=>assert.match(motion,/avatar/i));
-test('each avatar has meaningfully different trajectories across semantic slots',()=>assert.match(motion,/avatar/i));
 test('core choreography remains inside a sane pre-guard motion envelope',()=>assert.match(motion,/clamp|Math\.min|Math\.max/));
-test('trajectory difference from Classic stays visibly meaningful in every semantic state',()=>assert.match(motion,/classic/));
 test('final render stabilizer keeps post-DNA hand offsets away from the face',()=>assert.match(draw,/stabilizeRenderedHands/));
 test('speaking render stabilizer protects the mouth area',()=>assert.match(draw,/stabilizeRenderedHands/));
 test('pose sanitizer removes invalid numbers and extreme geometry',()=>assert.match(draw,/sanitizePoseForRender/));
@@ -150,8 +143,6 @@ test('animation plans keep head-only semantic reactions hand-free',()=>assert.ma
 test('renderer hard-gates hand draw calls even if pose alpha is stale',()=>assert.match(draw,/avatarAllowsHandGesture/));
 test('long ambient idle never auto-selects hand or locomotion gestures',()=>assert.match(motion,/idle/));
 test('active semantic states keep the same motion variant over time',()=>assert.match(motion,/variant/i));
-test('DAI Classic have unique visual DNA',()=>assert.match(draw,/getAvatarVisualDNA/));
-test('renderer uses structural avatar differences, not palette-only changes',()=>assert.match(draw,/avatarFaceShape/));
 test('emotion profiles are valid and produce distinct energy',()=>assert.match(director,/emotion|mood/i));
 test('emotion director modifies pose without replacing gesture semantics',()=>assert.match(director,/gesture/));
 test('pose guard keeps visible hands outside face zone',()=>assert.match(draw,/stabilizeRenderedHands/));
@@ -183,19 +174,16 @@ test('avatar system keeps all styles on the same motion engine',()=>{
   assert.match(draw,/export function drawDai\(c,m,w,h,avatar='classic'\)/);
 });
 
-test('avatar picker uses the central catalog and keyboard-safe radio behavior',()=>{
+test('main UI exposes no avatar picker and locks rendering to Classic',()=>{
   assert.ok(avatarCatalog.includes('DAI Classic'));
-  assert.match(app,/DAI_AVATAR_OPTIONS\.map/);
-  assert.match(app,/isDaiAvatarStyle/);
-  assert.match(app,/role='radiogroup'/);
-  assert.match(app,/tabIndex=\{avatarStyle===item\.id\?0:-1\}/);
-  assert.match(app,/avatarKeyTarget/);
-  assert.match(app,/data-avatar-choice=\{item\.id\}/);
-  assert.match(app,/aria-live='polite'/);
+  assert.doesNotMatch(app,/DAI_AVATAR_OPTIONS\.map/);
+  assert.doesNotMatch(app,/role='radiogroup'/);
+  assert.doesNotMatch(app,/data-avatar-choice/);
+  assert.match(app,/useState<DaiAvatarStyle>\('classic'\)/);
 });
 
 test('core phase is the only automatic animation authority',()=>assert.match(app,/daiPhase/));
-test('avatar reload hydration is local-first and cannot swap to stale cloud preference',()=>assert.match(app,/localStorage\.getItem\('dai-avatar-style'\)/));
+test('avatar reload is pinned to Classic and rewrites stale local preference',()=>assert.match(app,/localStorage\.setItem\('dai-avatar-style','classic'\)/));
 test('chat-stream owns research and retry resilience',()=>assert.match(chatStream,/research|retry/i));
 test('web research compatibility route delegates to chat-stream',()=>assert.match(webResearch,/chat-stream|chatStream/i));
 test('main UI does not invoke legacy chat endpoint',()=>assert.ok(!/['"]\/api\/chat['"]/.test(app)));
@@ -271,14 +259,11 @@ test('animation cadence stays smooth across quality tiers',()=>{
 });
 
 
-test('premium avatar renderer covers every visual style',()=>{
-  const premiumBlock=draw.match(/PREMIUM_MATERIAL_GROUPS=Object\.freeze\(\{([\s\S]*?)\}\);\nfunction avatarMaterialProfile/)?.[1]||'';
-  for(const id of ['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix']){
-    assert.ok(premiumBlock.includes("'"+id+"'"),id+' missing premium material');
-  }
+test('premium renderer preserves Classic finish',()=>{
   assert.match(draw,/drawEyeFinish/);
   assert.match(draw,/premiumFaceAtmosphere/);
   assert.match(draw,/premiumMouthFinish/);
+  assert.match(draw,/classic/);
 });
 
 test('premium avatar rendering uses HiDPI supersampling and high smoothing',()=>{
@@ -326,7 +311,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
   assert.match(sw,/dai-web-v22-20260927-server-preview/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.5'/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.6'/);
 });
 
 
