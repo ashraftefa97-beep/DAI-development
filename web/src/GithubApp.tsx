@@ -1,7 +1,7 @@
 import { queuePcmLipSync } from './pcmLipSync.mjs';
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
-import { DAI_AVATAR_IDS, DAI_AVATAR_OPTIONS, isDaiAvatarStyle, type DaiAvatarStyle } from './avatarCatalog';
+import { isDaiAvatarStyle, type DaiAvatarStyle } from './avatarCatalog';
 import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
@@ -19,17 +19,6 @@ type ResponseMode = 'auto' | 'text' | 'voice';
 type ThemeMode = 'dark' | 'light' | 'system';
 type ExperiencePreset = 'cinematic'|'calm'|'minimal';
 
-function avatarKeyTarget(key:string,current:DaiAvatarStyle):DaiAvatarStyle|null {
-  const index=DAI_AVATAR_IDS.indexOf(current);
-  if(index<0)return null;
-  if(key==='Home')return DAI_AVATAR_IDS[0];
-  if(key==='End')return DAI_AVATAR_IDS[DAI_AVATAR_IDS.length-1];
-  const columns=typeof window!=='undefined'&&window.matchMedia('(max-width:640px)').matches?1:2;
-  const delta=key==='ArrowRight'?1:key==='ArrowLeft'?-1:key==='ArrowDown'?columns:key==='ArrowUp'?-columns:0;
-  if(!delta)return null;
-  const next=(index+delta+DAI_AVATAR_IDS.length)%DAI_AVATAR_IDS.length;
-  return DAI_AVATAR_IDS[next];
-}
 type RuntimePerf = {
   fps:number;
   droppedFrames:number;
@@ -479,13 +468,7 @@ export default function GithubApp(){
       return value==='calm'||value==='minimal'?value:'cinematic';
     }catch{return 'cinematic';}
   });
-  const [avatarStyle,setAvatarStyle]=useState<DaiAvatarStyle>(()=>{
-    try{
-      const value=localStorage.getItem('dai-avatar-style');
-      return isDaiAvatarStyle(value)?value:'classic';
-    }catch{return 'classic';}
-  });
-  const [avatarSyncing,setAvatarSyncing]=useState(false);
+  const [avatarStyle]=useState<DaiAvatarStyle>('classic');
   const [renderQuality,setRenderQuality]=useState<DaiRenderQuality>(()=>{
     try{
       const memory=Number((navigator as Navigator & {deviceMemory?:number}).deviceMemory||0);
@@ -663,8 +646,7 @@ export default function GithubApp(){
   const lastAnimationRequestRef=useRef('');
   const recentAutoAnimationsRef=useRef<Array<{id:string;at:number}>>([]);
   const perfQualityVotesRef=useRef({down:0,up:0});
-  const avatarPreferenceLoadedRef=useRef(false);
-  const avatarStyleRef=useRef<DaiAvatarStyle>(avatarStyle);
+  const avatarStyleRef=useRef<DaiAvatarStyle>('classic');
   const companionMode=typeof window!=='undefined' && new URLSearchParams(window.location.search).get('companion')==='1';
 
   useEffect(()=>{ activeIdRef.current=activeId; },[activeId]);
@@ -704,94 +686,11 @@ export default function GithubApp(){
 
 
   useEffect(()=>{
-    avatarStyleRef.current=avatarStyle;
-    try{localStorage.setItem('dai-avatar-style',avatarStyle);}catch{}
-    document.documentElement.dataset.daiAvatar=avatarStyle;
+    avatarStyleRef.current='classic';
+    try{localStorage.setItem('dai-avatar-style','classic');}catch{}
+    document.documentElement.dataset.daiAvatar='classic';
     return()=>{delete document.documentElement.dataset.daiAvatar;};
-  },[avatarStyle]);
-
-  useEffect(()=>{
-    if(!supabase||!userId){
-      avatarPreferenceLoadedRef.current=false;
-      return;
-    }
-    let cancelled=false;
-    async function loadAvatarPreference(){
-      let localAvatar:DaiAvatarStyle|null=null;
-      try{
-        const stored=localStorage.getItem('dai-avatar-style');
-        if(isDaiAvatarStyle(stored))localAvatar=stored;
-      }catch{}
-
-      // If this device already knows the user's avatar, keep it visually
-      // authoritative. Cloud reconciliation happens silently in the background
-      // so reload can never flash/swap to an older remote preference.
-      setAvatarSyncing(!localAvatar);
-      try{
-        const {data,error}=await supabase!
-          .from('dai_preferences')
-          .select('avatar_style')
-          .eq('user_id',userId)
-          .maybeSingle();
-        if(cancelled)return;
-
-        const remoteValue=!error&&data?.avatar_style?String(data.avatar_style):'';
-        const remoteAvatar=isDaiAvatarStyle(remoteValue)?remoteValue:null;
-        const currentLocal=(()=>{
-          try{
-            const stored=localStorage.getItem('dai-avatar-style');
-            return isDaiAvatarStyle(stored)?stored:null;
-          }catch{return null;}
-        })();
-
-        if(currentLocal){
-          if(!remoteAvatar||remoteAvatar!==currentLocal){
-            await supabase!.from('dai_preferences').upsert({
-              user_id:userId,
-              avatar_style:currentLocal,
-              updated_at:new Date().toISOString()
-            },{onConflict:'user_id'});
-          }
-        }else if(remoteAvatar){
-          // Cloud is allowed to hydrate only a device that has no local choice.
-          avatarStyleRef.current=remoteAvatar;
-          setAvatarStyle(remoteAvatar);
-        }else if(!error){
-          const current=avatarStyleRef.current;
-          await supabase!.from('dai_preferences').upsert({
-            user_id:userId,
-            avatar_style:current,
-            updated_at:new Date().toISOString()
-          },{onConflict:'user_id'});
-        }
-      }catch(error){
-        console.debug('DAI avatar preference load skipped',error);
-      }finally{
-        if(!cancelled){
-          avatarPreferenceLoadedRef.current=true;
-          setAvatarSyncing(false);
-        }
-      }
-    }
-    void loadAvatarPreference();
-    return()=>{cancelled=true;};
-  },[userId]);
-
-  useEffect(()=>{
-    if(!supabase||!userId||!avatarPreferenceLoadedRef.current)return;
-    const handle=window.setTimeout(async()=>{
-      try{
-        await supabase!.from('dai_preferences').upsert({
-          user_id:userId,
-          avatar_style:avatarStyle,
-          updated_at:new Date().toISOString()
-        },{onConflict:'user_id'});
-      }catch(error){
-        console.debug('DAI avatar preference save skipped',error);
-      }
-    },180);
-    return()=>window.clearTimeout(handle);
-  },[avatarStyle,userId]);
+  },[]);
 
   useEffect(()=>{
     try{localStorage.setItem('dai-reduced-motion',reduced?'1':'0');}catch{}
@@ -5511,47 +5410,6 @@ export default function GithubApp(){
             <div className='dai-setting-grid'>
               <label className='dai-setting-field'><span>شكل الواجهة</span><select value={themeMode} onChange={e=>setThemeMode(e.target.value as ThemeMode)}><option value='dark'>داكن</option><option value='light'>فاتح</option><option value='system'>حسب الجهاز</option></select></label>
               <label className='classic-setting compact'><input type='checkbox' checked={reduced} onChange={e=>setReduced(e.target.checked)}/><span><strong>تقليل الحركة يدويًا</strong><small>يفرض أقل حركة بغض النظر عن أداء الجهاز.</small></span></label>
-            </div>
-          </div>
-        </section>
-
-        <section className='dai-settings-section'>
-          <div className='dai-settings-section-title'>
-            <div><Eye/><span><strong>الأفاتار والشخصية</strong><small>اختار شخصية ضي — نفس العقل، لكن لكل أفاتار مكتبة مستقلة فيها 80 حركة ولمسته الخاصة</small></span></div>
-          </div>
-          <div className='dai-settings-card'>
-            <div className='dai-avatar-grid' role='radiogroup' aria-label='اختيار أفاتار ضي'>
-              {DAI_AVATAR_OPTIONS.map(item=>
-                <button
-                  key={item.id}
-                  type='button'
-                  role='radio'
-                  aria-checked={avatarStyle===item.id}
-                  aria-label={item.label+' — '+item.desc}
-                  data-avatar-choice={item.id}
-                  tabIndex={avatarStyle===item.id?0:-1}
-                  className={'dai-avatar-choice '+item.id+(avatarStyle===item.id?' active':'')}
-                  onClick={()=>setAvatarStyle(item.id)}
-                  onKeyDown={(event:ReactKeyboardEvent<HTMLButtonElement>)=>{
-                    const next=avatarKeyTarget(event.key,item.id);
-                    if(!next)return;
-                    event.preventDefault();
-                    setAvatarStyle(next);
-                    requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('[data-avatar-choice="'+next+'"]')?.focus());
-                  }}
-                >
-                  <span className='dai-avatar-preview' aria-hidden='true'>
-                    <i className='eye left'/><i className='eye right'/><i className='mouth'/>
-                    {item.previewMark&&<i className={item.previewMark}>{item.previewGlyph||null}</i>}
-                  </span>
-                  <span className='dai-avatar-copy'><strong>{item.label}</strong><small>{item.desc}</small></span>
-                  <span className='dai-avatar-selected' aria-hidden='true'>{avatarStyle===item.id?<Check/>:null}</span>
-                </button>
-              )}
-            </div>
-            <div className='dai-avatar-sync' aria-live='polite'>
-              <span>{avatarSyncing?'بزامن اختيارك…':'كل أفاتار عنده 80 حركة مستقلة، مع منع التكرار وحركة خاصة بألوانه وشخصيته.'}</span>
-              <button type='button' onClick={()=>setAvatarStyle('classic')} disabled={avatarStyle==='classic'}>الافتراضي</button>
             </div>
           </div>
         </section>
