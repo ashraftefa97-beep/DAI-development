@@ -113,7 +113,7 @@ test('same search command produces meaningfully different real motion trajectori
     assert.ok(!signatures.has(sig),`${id}: duplicates ${signatures.get(sig)} search trajectory`);
     signatures.set(sig,id);
   }
-  assert.equal(signatures.size,catalogIds.length);
+  assert.equal(signatures.size,avatarIds.length);
 });
 
 
