@@ -773,12 +773,12 @@ export class DaiMotion {
     if(this.elapsed<this.pokeUntil&&['idle','voicewait'].includes(this.requestedGesture)){
       const phase=clamp((t-this.pokeAt)/.72,0,1);
       const bounce=Math.sin(Math.PI*phase);
-      p.bob-=bounce*3.5;
+      p.bob-=bounce*7;
       p.sx+=bounce*.025;
       p.sy-=bounce*.02;
       p.smile+=bounce*.3;
       p.cheek+=bounce*.35;
-      p.left-=bounce*.35;
+      p.left-=bounce*.60;
     }
     if(['idle','voicewait'].includes(this.requestedGesture))p.tilt=clamp(p.tilt,-3,3);
 

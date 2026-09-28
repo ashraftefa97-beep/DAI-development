@@ -25,8 +25,8 @@ export function stabilizeRenderedHands(left,right,context={}){
     right:{...right}
   };
 
-  out.left=pushSideOutside(Number(out.left.x)||-118,Number(out.left.y)||72,-1,10);
-  out.right=pushSideOutside(Number(out.right.x)||118,Number(out.right.y)||72,1,10);
+  out.left={...out.left,...pushSideOutside(Number(out.left.x)||-118,Number(out.left.y)||72,-1,10)};
+  out.right={...out.right,...pushSideOutside(Number(out.right.x)||118,Number(out.right.y)||72,1,10)};
 
   if(mode==='speaking'){
     out.left.x=Math.min(out.left.x,-94);

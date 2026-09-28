@@ -81,3 +81,9 @@ test('Classic uses actual palms and keeps its magic-search hand enabled',()=>{
   for(const state of ['wave','stretch','heart','fishing','search','found'])assert.ok(block.includes("'"+state+"'"),state);
   assert.match(draw,/if\(avatar==='classic'\|\|needsGrip\)\{[\s\S]*?hand\(c,renderedHands.left[\s\S]*?hand\(c,renderedHands.right/);
 });
+
+
+test('Classic does not render rotating face decorations or search glyphs',()=>{
+  for(const channel of ['avatarFx','signatureFx','libraryFx'])assert.ok(draw.includes("if(avatar!=='classic'&&plan.channels."+channel+")"));
+  assert.ok(draw.includes("if(avatar!=='classic')renderAvatarStateFx(c,m,avatar,theme,plan)"));
+});

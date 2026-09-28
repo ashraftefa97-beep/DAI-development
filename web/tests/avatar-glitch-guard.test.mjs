@@ -47,3 +47,12 @@ test('avatar swap envelope softens the first rendered frames',()=>{
   assert.ok(avatarSwapEnvelope(middle)<1);
   assert.equal(avatarSwapEnvelope(end),1);
 });
+
+
+test('render hand stabilization preserves visibility including fully hidden hands',()=>{
+  for(const alpha of [0,.15,.65,1]){
+    const out=stabilizeRenderedHands({x:-118,y:26,alpha},{x:118,y:72,alpha:0},{mode:'searching'});
+    assert.equal(out.left.alpha,alpha);
+    assert.equal(out.right.alpha,0);
+  }
+});

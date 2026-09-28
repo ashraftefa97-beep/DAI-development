@@ -1234,10 +1234,11 @@ export function drawDai(c,m,w,h,avatar='classic') {
   c.globalAlpha*=avatarSwapEnvelope(m);
   c.save();c.translate(0,q.bob);c.rotate(rad(q.tilt));c.scale(q.sx,q.sy);
   applyAvatarMotion(c,m,avatar);
-  if(plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
-  if(plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
-  if(plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
-  renderAvatarStateFx(c,m,avatar,theme,plan);
+  if(avatar!=='classic'&&plan.channels.avatarFx)avatarAccent(c,m,avatar,isLight);
+  if(avatar!=='classic'&&plan.channels.signatureFx)avatarSignatureVisual(c,m,avatar,isLight,theme);
+  if(avatar!=='classic'&&plan.channels.libraryFx)avatarLibraryAccent(c,m,theme);
+  // Classic communicates through eyes, mouth and hands, not face overlays.
+  if(avatar!=='classic')renderAvatarStateFx(c,m,avatar,theme,plan);
   premiumFaceVolume(c,m,avatar,isLight);
 
   const requestedGesture=String(m.requestedGesture||m.gesture||'idle');
