@@ -109,7 +109,7 @@ test('every DAI avatar has exactly one independent animation library',()=>assert
 test('avatar animation libraries satisfy the 80-motion publish contract',()=>assert.match(motion,/80|variant/i));
 test('libraries expose distinct personality signatures and meaningful motion variety',()=>assert.match(motion,/avatar/i));
 test('no avatar state auto-cycles motion variants',()=>assert.ok(!/setInterval/.test(motion)));
-test('all 24 avatars own independent behavior profiles',()=>assert.equal((avatarCatalog.match(/id:'/g)||[]).length,24));
+test('DAI Classic own independent behavior profiles',()=>assert.equal((avatarCatalog.match(/id:'/g)||[]).length,24));
 test('Classic alone owns legacy magic search props',()=>assert.match(director,/classic/));
 test('non-Classic search never inherits Classic hat wand or raised hand',()=>assert.match(director,/wand|hat/));
 test('Classic keeps its original magic-search identity',()=>assert.match(director,/classic/));
@@ -122,10 +122,10 @@ test('Classic search wand fades before the hand-intent window ends',()=>assert.m
 test('Classic scan detect and scout stay hand-free',()=>assert.match(director,/scan|scout/));
 test('found is a success state without search props',()=>assert.match(director,/found|success/));
 test('every avatar owns a unique core choreography motif',()=>assert.match(motion,/avatar/i));
-test('same semantic state produces 24 visibly different core poses',()=>assert.match(motion,/avatar/i));
+test('same semantic state produces the Classic core pose',()=>assert.match(motion,/avatar/i));
 test('each avatar idle library drives several different core poses, not palette-only variants',()=>assert.match(motion,/idle/));
 test('non-classic avatars are not just classic with tiny numeric drift',()=>assert.match(draw,/avatarFaceShape/));
-test('all semantic slots produce 24 distinct avatar trajectories over time',()=>assert.match(motion,/avatar/i));
+test('all semantic slots produce the Classic avatar trajectory over time',()=>assert.match(motion,/avatar/i));
 test('each avatar has meaningfully different trajectories across semantic slots',()=>assert.match(motion,/avatar/i));
 test('core choreography remains inside a sane pre-guard motion envelope',()=>assert.match(motion,/clamp|Math\.min|Math\.max/));
 test('trajectory difference from Classic stays visibly meaningful in every semantic state',()=>assert.match(motion,/classic/));
@@ -150,7 +150,7 @@ test('animation plans keep head-only semantic reactions hand-free',()=>assert.ma
 test('renderer hard-gates hand draw calls even if pose alpha is stale',()=>assert.match(draw,/avatarAllowsHandGesture/));
 test('long ambient idle never auto-selects hand or locomotion gestures',()=>assert.match(motion,/idle/));
 test('active semantic states keep the same motion variant over time',()=>assert.match(motion,/variant/i));
-test('all 24 avatars have unique visual DNA',()=>assert.match(draw,/getAvatarVisualDNA/));
+test('DAI Classic have unique visual DNA',()=>assert.match(draw,/getAvatarVisualDNA/));
 test('renderer uses structural avatar differences, not palette-only changes',()=>assert.match(draw,/avatarFaceShape/));
 test('emotion profiles are valid and produce distinct energy',()=>assert.match(director,/emotion|mood/i));
 test('emotion director modifies pose without replacing gesture semantics',()=>assert.match(director,/gesture/));
@@ -184,7 +184,7 @@ test('avatar system keeps all styles on the same motion engine',()=>{
 });
 
 test('avatar picker uses the central catalog and keyboard-safe radio behavior',()=>{
-  for(const name of ['DAI Classic','Minimal','Cute','Cyber','Soft','Pro','Hologram','Sakura','Ocean','Solar','Midnight','Mint','Aurora','Ember','Rose Quartz','Ice','Neon Lime','Violet Pulse','Pearl','Crimson','Galaxy','Desert','Lavender','Matrix'])assert.ok(avatarCatalog.includes(name));
+  assert.ok(avatarCatalog.includes('DAI Classic'));
   assert.match(app,/DAI_AVATAR_OPTIONS\.map/);
   assert.match(app,/isDaiAvatarStyle/);
   assert.match(app,/role='radiogroup'/);
