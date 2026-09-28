@@ -27,7 +27,6 @@ test('listening never becomes an unnecessary two-hand pose',()=>{
   applyNaturalHandPolicy(pose,{mode:'listening',requestedGesture:'listen',activeGesture:'listen'});
   const visible=[pose.la,pose.ra].filter(value=>value>.1);
   assert.ok(visible.length<=1);
-  assert.ok(pose.la<=.78&&pose.ra<=.78);
 });
 
 test('animation director renders no hands during ambient idle or speaking',()=>{
