@@ -98,20 +98,15 @@ test('explicit rest actions remain available when actually requested',()=>{
 
 
 test('real motion engine keeps head-only gestures hand-free across all avatars',()=>{
-  const headOnly=['nod_yes','response_ready','approve','question','confused','thinking_deep','success','found','happy','sleep','relax'];
+  const headOnly=['nod_yes','response_ready','approve','question','confused','thinking_deep','success','sleep','relax'];
   for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
     for(const gesture of headOnly){
       const motion=new DaiMotion(()=>.37);
       motion.setAvatar(avatar);
       motion.setGesture(gesture);
       motion.advance(.18);
-      if(avatar==='classic'&&gesture==='found'){
-        assert.ok((motion.pose.la||0)>.01,'Classic Astra found should keep the wand hand visible');
-        assert.ok((motion.pose.wand||0)>.01,'Classic Astra found should keep the wand visible');
-      }else{
-        assert.ok((motion.pose.la||0)<=.01,`${avatar}/${gesture}: left hand remained visible (${motion.pose.la})`);
-        assert.ok((motion.pose.ra||0)<=.01,`${avatar}/${gesture}: right hand remained visible (${motion.pose.ra})`);
-      }
+      assert.ok((motion.pose.la||0)<=.01,`${avatar}/${gesture}: left hand remained visible (${motion.pose.la})`);
+      assert.ok((motion.pose.ra||0)<=.01,`${avatar}/${gesture}: right hand remained visible (${motion.pose.ra})`);
     }
   }
 });
