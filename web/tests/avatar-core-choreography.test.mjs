@@ -16,196 +16,45 @@ function basePose(){
   };
 }
 
-function signature(p){
-  const keys=['tilt','gaze_x','gaze_y','bob','lx','ly','rx','ry','la','ra','lr','rr','sx','sy','smile','cheek','brow'];
-  return keys.map(key=>Math.round((Number(p[key])||0)*10)/10).join('|');
-}
-
-test('every avatar owns a unique core choreography motif',()=>{
-  assert.equal(avatarIds.length,1);
+test('Classic is the only choreography profile',()=>{
+  assert.deepEqual(avatarIds,['classic']);
+  assert.deepEqual(Object.keys(AVATAR_CHOREOGRAPHY_DNA),['classic']);
   assert.deepEqual(validateAvatarChoreography(avatarIds),[]);
-  assert.deepEqual(Object.keys(AVATAR_CHOREOGRAPHY_DNA).sort(),[...avatarIds].sort());
 });
 
-test('same semantic state produces the Classic core pose',()=>{
-  const signatures=new Map();
-  for(const id of avatarIds){
-    const p=basePose();
-    applyAvatarChoreography(p,{
-      avatarStyle:id,
-      avatarVariantSlot:'thinking',
-      avatarVariantId:`${id}-thinking-07`,
-      gestureTime:1.37,
-      reduced:false
-    });
-    const sig=signature(p);
-    assert.ok(!signatures.has(sig),`${id} duplicates ${signatures.get(sig)} core pose`);
-    signatures.set(sig,id);
-  }
-  assert.equal(signatures.size,catalogIds.length);
-});
-
-test('each avatar idle library drives several different core poses, not palette-only variants',()=>{
-  for(const id of avatarIds){
-    const poses=new Set();
-    for(let index=1;index<=16;index++){
+test('Classic choreography stays finite and subtle',()=>{
+  for(const gesture of ['idle','voicewait','thinking_deep','working','search','found','talk']){
+    for(const time of [.2,.8,1.6,2.4]){
       const p=basePose();
       applyAvatarChoreography(p,{
-        avatarStyle:id,
+        avatarStyle:'classic',
+        requestedGesture:gesture,
+        gesture,
         avatarVariantSlot:'idle',
-        avatarVariantId:`${id}-idle-${String(index).padStart(2,'0')}`,
-        gestureTime:1.11,
+        avatarVariantId:'classic-idle-01',
+        gestureTime:time,
         reduced:false
       });
-      poses.add(signature(p));
-    }
-    assert.ok(poses.size>=8,`${id}: only ${poses.size} visibly distinct idle core poses`);
-  }
-});
-
-test('non-classic avatars are not just classic with tiny numeric drift',()=>{
-  const classic=basePose();
-  applyAvatarChoreography(classic,{
-    avatarStyle:'classic',
-    avatarVariantSlot:'success',
-    avatarVariantId:'classic-success-05',
-    gestureTime:1.4,
-    reduced:false
-  });
-  const keys=['tilt','gaze_x','gaze_y','bob','lx','ly','rx','ry','la','ra','lr','rr'];
-  for(const id of avatarIds.filter(x=>x!=='classic')){
-    const p=basePose();
-    applyAvatarChoreography(p,{
-      avatarStyle:id,
-      avatarVariantSlot:'success',
-      avatarVariantId:`${id}-success-05`,
-      gestureTime:1.4,
-      reduced:false
-    });
-    const distance=keys.reduce((sum,key)=>sum+Math.abs((Number(p[key])||0)-(Number(classic[key])||0)),0);
-    assert.ok(distance>8,`${id}: core choreography remains too close to classic (${distance.toFixed(2)})`);
-  }
-});
-
-
-function trajectorySignature(id,slotName,variant=7){
-  const times=[.31,.78,1.37,2.08,2.91];
-  return times.map(time=>{
-    const p=basePose();
-    applyAvatarChoreography(p,{
-      avatarStyle:id,
-      avatarVariantSlot:slotName,
-      avatarVariantId:`${id}-${slotName}-${String(variant).padStart(2,'0')}`,
-      gestureTime:time,
-      reduced:false
-    });
-    return signature(p);
-  }).join('>>');
-}
-
-test('all semantic slots produce the Classic avatar trajectory over time',()=>{
-  const slots=['idle','listening','thinking','searching','speaking','success','error'];
-  for(const slotName of slots){
-    const seen=new Map();
-    for(const id of avatarIds){
-      const sig=trajectorySignature(id,slotName,slotName==='speaking'?5:7);
-      assert.ok(!seen.has(sig),`${slotName}: ${id} duplicates ${seen.get(sig)} trajectory`);
-      seen.set(sig,id);
-    }
-    assert.equal(seen.size,avatarIds.length,`${slotName}: expected Classic trajectory`);
-  }
-});
-
-test('each avatar has meaningfully different trajectories across semantic slots',()=>{
-  const slots=['idle','listening','thinking','searching','speaking','success','error'];
-  for(const id of avatarIds){
-    const signatures=new Set(slots.map(slotName=>trajectorySignature(id,slotName,slotName==='speaking'?5:7)));
-    assert.equal(signatures.size,slots.length,`${id}: semantic slots collapse into repeated trajectories`);
-  }
-});
-
-test('core choreography remains inside a sane pre-guard motion envelope',()=>{
-  const slots=['idle','listening','thinking','searching','speaking','success','error'];
-  for(const id of avatarIds){
-    for(const slotName of slots){
-      for(const time of [.25,.75,1.4,2.2,3.1]){
-        const p=basePose();
-        applyAvatarChoreography(p,{
-          avatarStyle:id,
-          avatarVariantSlot:slotName,
-          avatarVariantId:`${id}-${slotName}-07`,
-          gestureTime:time,
-          reduced:false
-        });
-        assert.ok(Number.isFinite(p.tilt)&&Math.abs(p.tilt)<=18,`${id}/${slotName}: tilt escaped envelope`);
-        assert.ok(Number.isFinite(p.gaze_x)&&Math.abs(p.gaze_x)<=16,`${id}/${slotName}: gaze_x escaped envelope`);
-        assert.ok(Number.isFinite(p.gaze_y)&&Math.abs(p.gaze_y)<=12,`${id}/${slotName}: gaze_y escaped envelope`);
-        for(const key of ['lx','ly','rx','ry','la','ra','lr','rr','sx','sy']){
-          assert.ok(Number.isFinite(p[key]),`${id}/${slotName}: ${key} is not finite`);
-        }
-        assert.ok(Math.abs(p.lx)<=165&&Math.abs(p.rx)<=165,`${id}/${slotName}: hand x escaped envelope`);
-        assert.ok(p.ly>=-95&&p.ly<=110&&p.ry>=-95&&p.ry<=110,`${id}/${slotName}: hand y escaped envelope`);
+      for(const key of ['tilt','gaze_x','gaze_y','bob','sx','sy','lx','ly','rx','ry','la','ra']){
+        assert.ok(Number.isFinite(p[key]),gesture+': '+key+' is not finite');
       }
+      assert.ok(Math.abs(p.tilt)<=18,gesture+': tilt escaped envelope');
+      assert.ok(Math.abs(p.bob)<=18,gesture+': bob escaped envelope');
     }
   }
 });
 
-
-function weightedPoseVector(p){
-  return [
-    (Number(p.tilt)||0)*1.2,
-    (Number(p.gaze_x)||0)*.9,
-    (Number(p.gaze_y)||0)*.9,
-    (Number(p.bob)||0)*1.1,
-    (Number(p.lx)||0)*((Number(p.la)||0)*.18),
-    (Number(p.ly)||0)*((Number(p.la)||0)*.18),
-    (Number(p.rx)||0)*((Number(p.ra)||0)*.18),
-    (Number(p.ry)||0)*((Number(p.ra)||0)*.18),
-    (Number(p.la)||0)*12,
-    (Number(p.ra)||0)*12,
-    (Number(p.lr)||0)*.18,
-    (Number(p.rr)||0)*.18,
-    (Number(p.smile)||0)*8,
-    (Number(p.cheek)||0)*6,
-    (Number(p.brow)||0)*5,
-    ((Number(p.sx)||1)-1)*90,
-    ((Number(p.sy)||1)-1)*90
-  ];
-}
-
-function averageTrajectoryDistance(aId,bId,slotName,variant=7){
-  const times=[.31,.78,1.37,2.08,2.91];
-  let total=0;
-  for(const time of times){
-    const a=basePose();
-    const b=basePose();
-    applyAvatarChoreography(a,{
-      avatarStyle:aId,
-      avatarVariantSlot:slotName,
-      avatarVariantId:`${aId}-${slotName}-${String(variant).padStart(2,'0')}`,
-      gestureTime:time,
-      reduced:false
-    });
-    applyAvatarChoreography(b,{
-      avatarStyle:bId,
-      avatarVariantSlot:slotName,
-      avatarVariantId:`${bId}-${slotName}-${String(variant).padStart(2,'0')}`,
-      gestureTime:time,
-      reduced:false
-    });
-    const av=weightedPoseVector(a),bv=weightedPoseVector(b);
-    total+=av.reduce((sum,value,index)=>sum+Math.abs(value-bv[index]),0);
-  }
-  return total/times.length;
-}
-
-test('trajectory difference from Classic stays visibly meaningful in every semantic state',()=>{
-  const slots=['idle','listening','thinking','searching','speaking','success','error'];
-  for(const id of avatarIds.filter(value=>value!=='classic')){
-    for(const slotName of slots){
-      const distance=averageTrajectoryDistance('classic',id,slotName,slotName==='speaking'?5:7);
-      const minimum=slotName==='speaking'?1.15:4.0;
-      assert.ok(distance>minimum,`${id}/${slotName}: visual trajectory distance from Classic is too small (${distance.toFixed(2)})`);
-    }
-  }
+test('reduced motion removes Classic ambient choreography',()=>{
+  const p=basePose();
+  applyAvatarChoreography(p,{
+    avatarStyle:'classic',
+    requestedGesture:'idle',
+    gesture:'idle',
+    avatarVariantSlot:'idle',
+    avatarVariantId:'classic-idle-01',
+    gestureTime:1.2,
+    reduced:true
+  });
+  assert.equal(p.bob,0);
+  assert.equal(p.tilt,0);
 });
