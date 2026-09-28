@@ -306,7 +306,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
   assert.match(sw,/dai-web-v23-20260929-classic-only/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.6'/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.7'/);
 });
 
 
@@ -442,3 +442,13 @@ test('classic hero has cinematic visual presence on light background',()=>{
   assert.match(marketingCss,/contrast\(1\.17\)/);
 });
 
+
+
+test('profile image picker supports local image upload and removal',()=>{
+  assert.match(app,/profileImageInputRef/);
+  assert.match(app,/accept='image\/jpeg,image\/png,image\/webp'/);
+  assert.match(app,/selectProfileImage/);
+  assert.match(app,/removeProfileImage/);
+  assert.match(app,/toDataURL\('image\/webp',\.86\)/);
+  assert.match(app,/dai-profile-image:/);
+});
