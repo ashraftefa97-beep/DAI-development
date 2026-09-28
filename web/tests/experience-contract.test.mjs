@@ -24,19 +24,17 @@ const marketingCss=readFileSync(new URL('../src/marketing.css',import.meta.url),
 // Experience contracts intentionally assert stable architecture/user-facing invariants,
 // not incidental implementation details.
 
-test('animation timing stays consistent at 60 30 and 20 FPS across all avatars',async()=>{
+test('animation timing stays consistent at 60 30 and 20 FPS for Classic',async()=>{
   const mod=await import('../src/motion.mjs');
-  for(const avatar of ['classic','minimal','cute','cyber','soft','pro','hologram','sakura','ocean','solar','midnight','mint','aurora','ember','rose','ice','lime','violet','pearl','crimson','galaxy','desert','lavender','matrix']){
-    const samples=[];
-    for(const fps of [60,30,20]){
-      const m=mod.createMotionState?.()||{};
-      m.avatar=avatar;
-      let t=0;
-      for(let i=0;i<fps*2;i++){t+=1000/fps;mod.stepMotion?.(m,1000/fps,t);}
-      samples.push(m.elapsed??t/1000);
-    }
-    assert.ok(Math.max(...samples)-Math.min(...samples)<0.15,avatar);
+  const samples=[];
+  for(const fps of [60,30,20]){
+    const m=mod.createMotionState?.()||{};
+    m.avatar='classic';
+    let t=0;
+    for(let i=0;i<fps*2;i++){t+=1000/fps;mod.stepMotion?.(m,1000/fps,t);}
+    samples.push(m.elapsed??t/1000);
   }
+  assert.ok(Math.max(...samples)-Math.min(...samples)<0.15,'classic');
 });
 
 test('active semantic animation never changes itself during a 30 second state hold',()=>{
@@ -109,12 +107,9 @@ test('every DAI avatar has exactly one independent animation library',()=>assert
 test('avatar animation libraries satisfy the 80-motion publish contract',()=>assert.match(motion,/80|variant/i));
 test('libraries expose distinct personality signatures and meaningful motion variety',()=>assert.match(motion,/avatar/i));
 test('no avatar state auto-cycles motion variants',()=>assert.ok(!/setInterval/.test(motion)));
-test('DAI Classic own independent behavior profiles',()=>assert.equal((avatarCatalog.match(/id:'/g)||[]).length,24));
+test('DAI Classic is the only behavior profile',()=>assert.equal((avatarCatalog.match(/id:'/g)||[]).length,1));
 test('Classic alone owns legacy magic search props',()=>assert.match(director,/classic/));
-test('non-Classic search never inherits Classic hat wand or raised hand',()=>assert.match(director,/wand|hat/));
 test('Classic keeps its original magic-search identity',()=>assert.match(director,/classic/));
-test('switching away from Classic clears all magic and hand state immediately',()=>assert.match(director,/classic/));
-test('same search command produces meaningfully different real motion trajectories',()=>assert.match(motion,/avatar/i));
 test('renderer uses the correct visual family for each state',()=>assert.match(draw,/avatarTheme/));
 test('idle motion is intentionally calmer than active motion',()=>assert.match(motion,/idle/));
 test('avatar variant motion crossfades instead of snapping',()=>assert.match(draw,/avatarVariantBlend/));
@@ -310,7 +305,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v22-20260927-server-preview/);
+  assert.match(sw,/dai-web-v23-20260929-classic-only/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.6'/);
 });
 
@@ -393,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v22-20260927-server-preview/);
+  assert.match(sw,/dai-web-v23-20260929-classic-only/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -431,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v22-20260927-server-preview/);
+  assert.match(sw,/dai-web-v23-20260929-classic-only/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
