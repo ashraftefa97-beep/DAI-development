@@ -31,7 +31,7 @@ const CLASSIC_ASTRA_GESTURES=new Set([
 ]);
 
 const SHARED_HAND_GESTURES=new Set([
-  'wave','listen','happy','stretch','fishing','heart','dance','idea'
+  'wave','listen','search','found','happy','stretch','fishing','heart','dance','idea'
 ]);
 const moods = {
   ...Object.fromEntries(product.animationCatalog.map(item => [item.gesture.replace('idle_soft','idle'),item.state])),
@@ -297,10 +297,19 @@ export class DaiMotion {
       }
     } else if(active==='search') {
       const sweep=this.reduced?0:Math.sin(e*2);
-      set({hat:0,wand:0,tilt:-2+sweep*1.2,gaze_x:sweep*4,gaze_y:-4,left:.72,right:.82,smile:.16});
+      set({
+        hat:0,wand:0,
+        la:.78,lx:-104-sweep*6,ly:34,lr:-24+sweep*10,
+        tilt:-2+sweep*1.2,gaze_x:sweep*4,gaze_y:-4,
+        left:.72,right:.82,smile:.16
+      });
     } else if(active==='found') {
       const settle=this.reduced?0:Math.sin(e*2.4)*Math.exp(-e*.7);
-      set({happy:1,smile:.88,mouth:.18,cheek:.62,tilt:-2+settle*2,sy:1.015,bob:-2,gaze_y:-2,gaze_x:settle*2});
+      set({
+        happy:1,smile:.88,mouth:.18,cheek:.62,
+        tilt:-2+settle*2,sy:1.015,bob:-2,gaze_y:-2,gaze_x:settle*2,
+        ra:.88,rx:124,ry:-18,rr:14+settle*6
+      });
     } else if(active==='talk'||this.state==='talking') {
       // Mouth motion is driven only by real voice energy. Text responses use
       // the reply state, so a stopped voice must never leave synthetic speech.
