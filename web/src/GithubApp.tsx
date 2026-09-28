@@ -1,7 +1,7 @@
 import { queuePcmLipSync } from './pcmLipSync.mjs';
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
-import { isDaiAvatarStyle, type DaiAvatarStyle } from './avatarCatalog';
+import { type DaiAvatarStyle } from './avatarCatalog';
 import DaiFaceBoundary from './DaiFaceBoundary';
 import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
