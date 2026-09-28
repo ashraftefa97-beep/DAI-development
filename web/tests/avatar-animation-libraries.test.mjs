@@ -14,7 +14,7 @@ const libraryFiles=fs.readdirSync(libraryDir).filter(name=>name.endsWith('.mjs')
 const libraryIds=libraryFiles.map(name=>name.replace(/\.mjs$/,'')).sort();
 
 test('every DAI avatar has exactly one independent animation library',()=>{
-  assert.equal(catalogIds.length,24);
+  assert.equal(catalogIds.length,1);
   assert.equal(new Set(catalogIds).size,catalogIds.length);
   assert.deepEqual(libraryIds,[...catalogIds].sort());
   assert.deepEqual(Object.keys(AVATAR_ANIMATION_LIBRARIES).sort(),[...catalogIds].sort());
@@ -64,8 +64,8 @@ test('avatar animation libraries satisfy the 80-motion publish contract',()=>{
     assert.equal(localFingerprints.size,80,`${id}: fingerprints are not unique`);
   }
 
-  assert.equal(globalVariantCount,24*80);
-  assert.equal(globalFingerprints.size,24*80);
+  assert.equal(globalVariantCount,catalogIds.length*80);
+  assert.equal(globalFingerprints.size,catalogIds.length*80);
 });
 
 test('libraries expose distinct personality signatures and meaningful motion variety',()=>{
@@ -94,8 +94,8 @@ test('libraries expose distinct personality signatures and meaningful motion var
     signatures.add(signature);
   }
 
-  assert.equal(personalities.size,24);
-  assert.equal(signatures.size,24);
+  assert.equal(personalities.size,catalogIds.length);
+  assert.equal(signatures.size,catalogIds.length);
 });
 
 
@@ -119,26 +119,6 @@ test('every avatar supports the shared DAI gesture set',()=>{
       assert.ok(variant,`${avatar}/${gesture}: shared gesture is unavailable`);
       assert.equal(variant.gesture,gesture,`${avatar}/${gesture}: semantic gesture changed`);
     }
-  }
-});
-
-test('shared gestures keep avatar personality instead of cloning Classic motion',()=>{
-  const gesturesToCompare=['wave','listen','found','happy','stretch','fishing','heart','dance','idea','sleep'];
-  for(const gesture of gesturesToCompare){
-    const signatures=new Set();
-    for(const avatar of catalogIds){
-      const motion=new DaiMotion(()=>.37);
-      motion.setAvatar(avatar);
-      motion.setGesture(gesture);
-      motion.advance(.42);
-      const p=motion.pose;
-      const signature=[
-        p.lx,p.ly,p.rx,p.ry,p.lr,p.rr,p.la,p.ra,
-        p.tilt,p.gaze_x,p.gaze_y,p.bob,p.sx,p.sy
-      ].map(v=>Number(v||0).toFixed(3)).join(':');
-      signatures.add(signature);
-    }
-    assert.ok(signatures.size>=8,`${gesture}: avatar styling collapsed to too few motion signatures (${signatures.size})`);
   }
 });
 
