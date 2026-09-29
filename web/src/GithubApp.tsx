@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import DaiFace, { type DaiRenderQuality, type DaiState } from './DaiFace';
 import { type DaiAvatarStyle } from './avatarCatalog';
 import DaiFaceBoundary from './DaiFaceBoundary';
-import { Activity, AppWindow, ArrowLeft, ArrowRight, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Upload, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
+import { Activity, AppWindow, ArrowLeft, ArrowRight, AudioWaveform, BookOpen, Brain, Check, Clapperboard, Crown, Database, Download, ExternalLink, Eye, Gamepad2, Globe2, Headphones, History, Info, LayoutPanelTop, LockKeyhole, LogOut, MessageSquareWarning, Mic, Orbit, Pencil, Pin, Plus, RefreshCw, RotateCcw, Search, Send, Settings, ShieldCheck, Sparkles, Square, Trash2, Upload, UserCog, Volume2, WandSparkles, Wifi, X } from 'lucide-react';
 import { supabase, supabasePublishableKey, supabaseUrl } from './supabaseClient';
 import { product } from './product.mjs';
 import { daiSfx, type DaiSfxMode, type DaiSonicState } from './daiSfx';
@@ -105,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.9';
+const DAI_WEB_VERSION='1.10.10';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -5427,6 +5427,16 @@ export default function GithubApp(){
         <input id='github-file' type='file' hidden onChange={e=>{const f=e.target.files?.[0];if(f)setFiles(p=>[...p,f.name]);}}/>
         <textarea disabled={voiceSessionActive||voiceNoteRecording||voiceNoteProcessing} value={input} onChange={e=>handleInputChange(e.target.value)} placeholder={voiceNoteRecording?'بسجّل صوتك…':voiceNoteProcessing?'ضي بتفهم التسجيل…':voiceSessionActive?'محادثة صوتية مباشرة شغالة…':'اسأل ضي'} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}}}/>
         <div className='classic-input-actions'>
+          <button
+            className={'classic-live-chat-button '+(voiceSessionActive?'active ':'')+voiceSessionStatus}
+            aria-pressed={voiceSessionActive}
+            disabled={!voiceSessionActive&&(loadingData||sending||voiceNoteRecording||voiceNoteProcessing||!online)}
+            onClick={toggleLiveVoice}
+            aria-label={voiceSessionActive?'إنهاء المحادثة الصوتية المباشرة':'بدء Live Chat مع ضي'}
+            title={voiceSessionActive?'إنهاء Live Chat':'Live Chat مع ضي'}
+          >
+            {voiceSessionActive?<Square className='h-4 w-4'/>:<AudioWaveform className='h-5 w-5'/>}
+          </button>
           <button
             className={'classic-mic-button '+(voiceNoteRecording?'recording':'')+' '+(voiceNoteProcessing?'processing':'')}
             aria-pressed={voiceNoteRecording}
