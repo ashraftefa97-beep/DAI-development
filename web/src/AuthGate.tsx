@@ -430,21 +430,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               </div>
             </div>
 
-              <div className='auth-hero-dai' aria-hidden='true'>
-                <div className='auth-hero-dai-halo'/>
-                <div className='auth-hero-dai-face'>
-                  <i className='auth-hero-dai-brow brow-left'/>
-                  <i className='auth-hero-dai-brow brow-right'/>
-                  <i className='auth-hero-dai-eye eye-left'/>
-                  <i className='auth-hero-dai-eye eye-right'/>
-                  <i className='auth-hero-dai-mouth'/>
-                  <i className='auth-hero-dai-cheek cheek-left'/>
-                  <i className='auth-hero-dai-cheek cheek-right'/>
-                </div>
-                <i className='auth-hero-dai-ring ring-one'/>
-                <i className='auth-hero-dai-ring ring-two'/>
-              </div>
-
             <div className='auth-showcase-foot'>
               <span className='auth-ready'><i/> ضي جاهزة</span>
               <span>Web · Desktop</span>
