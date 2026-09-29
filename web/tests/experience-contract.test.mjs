@@ -305,7 +305,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v26-20260929-auth-polish/);
+  assert.match(sw,/dai-web-v27-20260929-auth-dai-face/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.8'/);
 });
 
@@ -388,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v26-20260929-auth-polish/);
+  assert.match(sw,/dai-web-v27-20260929-auth-dai-face/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -426,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v26-20260929-auth-polish/);
+  assert.match(sw,/dai-web-v27-20260929-auth-dai-face/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
@@ -451,4 +451,10 @@ test('profile image picker supports local image upload and removal',()=>{
   assert.match(app,/removeProfileImage/);
   assert.match(app,/toDataURL\('image\/webp',\.86\)/);
   assert.match(app,/dai-profile-image:/);
+});
+
+
+test('auth hero uses minimal Classic face instead of logo badge',()=>{
+  assert.match(authBootstrap,/auth-hero-dai-face/);
+  assert.doesNotMatch(authBootstrap,/auth-hero-mark'[^>]*>[\s\S]*dai-logo\.svg/);
 });
