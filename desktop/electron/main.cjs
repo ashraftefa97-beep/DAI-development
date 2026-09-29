@@ -288,9 +288,46 @@ function ps(script, env = {}) {
   });
 }
 
+function runProcess(command, args = [], env = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, {
+      windowsHide: true,
+      env: { ...process.env, ...env },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.on('data', (chunk) => { stdout += String(chunk); });
+    child.stderr?.on('data', (chunk) => { stderr += String(chunk); });
+    child.on('error', (error) => resolve({ ok: false, message: error.message }));
+    child.on('close', (code) => resolve({
+      ok: code === 0,
+      message: (stdout || stderr || ('exit ' + code)).trim(),
+    }));
+  });
+}
+
+function osa(lines = []) {
+  const args = [];
+  for (const line of lines) args.push('-e', line);
+  return runProcess('/usr/bin/osascript', args);
+}
+
+
 async function openApp(target) {
   const query = safeProgramQuery(target);
   if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
+
+  if (process.platform === 'darwin') {
+    const result = await runProcess('/usr/bin/open', ['-a', query]);
+    return result.ok
+      ? { ok: true, message: 'فتحت ' + query }
+      : { ok: false, message: 'ملقتش تطبيق على macOS باسم ' + query };
+  }
+
+  if (process.platform !== 'win32') {
+    return { ok: false, message: 'فتح البرامج محليًا غير متاح على النظام ده حاليًا.' };
+  }
+
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -309,6 +346,20 @@ async function openApp(target) {
 async function focusApp(target) {
   const query = safeProgramQuery(target);
   if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
+
+  if (process.platform === 'darwin') {
+    const result = await osa([
+      'tell application ' + JSON.stringify(query) + ' to activate'
+    ]);
+    return result.ok
+      ? { ok: true, message: 'ركزت على ' + query }
+      : { ok: false, message: 'مش لاقية تطبيق مفتوح باسم ' + query };
+  }
+
+  if (process.platform !== 'win32') {
+    return { ok: false, message: 'التركيز على البرامج غير متاح على النظام ده حاليًا.' };
+  }
+
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -324,6 +375,20 @@ async function focusApp(target) {
 async function closeApp(target) {
   const query = safeProgramQuery(target);
   if (!query) return { ok: false, message: 'اسم البرنامج غير صالح أو غير مسموح.' };
+
+  if (process.platform === 'darwin') {
+    const result = await osa([
+      'tell application ' + JSON.stringify(query) + ' to quit'
+    ]);
+    return result.ok
+      ? { ok: true, message: 'قفلت ' + query }
+      : { ok: false, message: 'مش لاقية تطبيق مفتوح باسم ' + query };
+  }
+
+  if (process.platform !== 'win32') {
+    return { ok: false, message: 'إغلاق البرامج محليًا غير متاح على النظام ده حاليًا.' };
+  }
+
   const script = [
     "$ErrorActionPreference='Stop'",
     "$q=$env:DAI_TARGET",
@@ -599,6 +664,7 @@ function createCompanionWindow() {
 }
 
 async function applyInstallerPreferences() {
+  if (process.platform !== 'win32') return;
   const script = [
     "$path='HKCU:\\Software\\DAI AI'",
     "if(!(Test-Path $path)){ exit 2 }",
@@ -691,7 +757,9 @@ app.whenReady().then(async () => {
       owner: desktopEntitlement.owner,
       requiresProfessional: true,
       actions: professional
-        ? ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion','screenSnapshot','nativeBrowser']
+        ? (process.platform === 'darwin'
+          ? ['openApp','focusApp','closeApp','openExternal','pickAndOpenFile','startup','floatingCompanion','screenSnapshot','nativeBrowser']
+          : ['openApp','focusApp','closeApp','media','shortcut','openExternal','pickAndOpenFile','startup','runningApps','windowLayout','floatingCompanion','screenSnapshot','nativeBrowser'])
         : ['nativeBrowser'],
     };
   });
@@ -789,9 +857,18 @@ app.whenReady().then(async () => {
       if (answer.response !== 1) return { ok: false, message: 'المستخدم ألغى إغلاق البرنامج.' };
       return closeApp(target);
     }
-    if (type === 'media') return mediaKey(String(action.key || ''));
-    if (type === 'shortcut') return sendShortcut(String(action.key || ''));
-    if (type === 'windowLayout') return arrangeWindow(action.target, action.layout);
+    if (type === 'media') {
+      if (process.platform !== 'win32') return { ok: false, message: 'أوامر الميديا المحلية دي متاحة على Windows حاليًا.' };
+      return mediaKey(String(action.key || ''));
+    }
+    if (type === 'shortcut') {
+      if (process.platform !== 'win32') return { ok: false, message: 'الاختصارات المحلية دي متاحة على Windows حاليًا.' };
+      return sendShortcut(String(action.key || ''));
+    }
+    if (type === 'windowLayout') {
+      if (process.platform !== 'win32') return { ok: false, message: 'ترتيب النوافذ التلقائي متاح على Windows حاليًا.' };
+      return arrangeWindow(action.target, action.layout);
+    }
 
     if (type === 'openExternal') {
       const url = safeExternalUrl(action.url);
