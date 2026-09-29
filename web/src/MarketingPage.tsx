@@ -101,7 +101,7 @@ const COPY:Record<Locale,Copy>={
   },
   en:{
     nav:{product:'About',personality:'Personality',languages:'Languages',open:'Open DAI'},
-    hero:{eyebrow:'DAI AI · DAI',title1:'More than a chat box.',title2:'Voice, personality and intelligence in motion.',body:'DAI brings natural conversation, current search, coding, tools and voice into one assistant with a living visual presence.',primary:'Start with DAI',secondary:'Meet DAI in motion',note:'DAI Web is live · Desktop keeps evolving'},
+    hero:{eyebrow:'DAI AI · DAI',title1:'More than a chat box.',title2:'Voice, personality, and intelligence in motion.',body:'DAI brings natural conversation, current search, coding, tools and voice into one assistant with a living visual presence.',primary:'Start with DAI',secondary:'Meet DAI in motion',note:'DAI Web is live · Desktop keeps evolving'},
     buddy:{label:'Try the reactions',title:'A little face. A real presence.',body:'DAI reacts to what is happening: listening, focusing, searching, celebrating and settling down with lightweight, varied motion.',actions:['Listen','Focus','Search','Celebrate']},
     flow:{eyebrow:'From question to action',title:'Built to do, not only answer.',body:'The interface makes every phase visible: DAI understands, searches, acts and returns the result in one flow.',cards:[
       {kicker:'01',title:'Natural voice',body:'Speak naturally and get a clear, direct feminine voice response.'},
