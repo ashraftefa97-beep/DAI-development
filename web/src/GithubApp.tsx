@@ -598,6 +598,7 @@ export default function GithubApp(){
   const [lastFailedText,setLastFailedText]=useState('');
   const [userId,setUserId]=useState('');
   const [userName,setUserName]=useState('');
+  const [userGender,setUserGender]=useState<'male'|'female'|'unspecified'>('unspecified');
   const [profileImage,setProfileImage]=useState('');
   const [profileAvatarId,setProfileAvatarId]=useState('');
   const [profileChooserOpen,setProfileChooserOpen]=useState(false);
@@ -2075,8 +2076,11 @@ export default function GithubApp(){
         ''
       ).trim();
       if(!alive)return;
+      const rawGender=String(authData.user?.user_metadata?.gender||'').trim().toLowerCase();
+      const resolvedGender: 'male'|'female'|'unspecified' = rawGender==='male'||rawGender==='female'?rawGender:'unspecified';
       setUserId(uid);
       setUserName(displayName);
+      setUserGender(resolvedGender);
       if(!uid){setPlan('standard');setPlanOwner(false);setPlanLoading(false);setLoadingData(false);return;}
 
       const [conversationsResult,entitlementResult]=await Promise.all([
@@ -4422,7 +4426,7 @@ export default function GithubApp(){
       const model=String(data.model||'gemini-3.8-live');
       const currentName=String(data.userName||userName||'صاحب الحساب').trim();
       const currentFirstName=currentName.split(/\s+/).filter(Boolean)[0]||'صاحب الحساب';
-      const currentGender=String(data.userGender||'unspecified');
+      const currentGender=String(data.userGender||userGender||'unspecified');
       const recentLiveHistory=(active?.messages||[])
         .slice(-10)
         .map(message=>({
@@ -4604,9 +4608,9 @@ export default function GithubApp(){
               automaticActivityDetection:{
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
-                endOfSpeechSensitivity:'END_SENSITIVITY_LOW',
-                prefixPaddingMs:80,
-                silenceDurationMs:1200
+                endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
+                prefixPaddingMs:60,
+                silenceDurationMs:600
               },
               activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
               turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'
