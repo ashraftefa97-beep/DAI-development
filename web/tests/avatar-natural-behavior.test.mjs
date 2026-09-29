@@ -110,6 +110,22 @@ test('real motion engine keeps head-only gestures hand-free across all avatars',
   }
 });
 
+test('hand fade-out eases instead of snapping',()=>{
+  const motion=new DaiMotion(()=>.37);
+  motion.setAvatar('classic');
+  motion.setGesture('wave');
+  motion.advance(1.82);
+  const early=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  const earlyX=(motion.pose.ra||0)>=(motion.pose.la||0)?motion.pose.rx:motion.pose.lx;
+  motion.advance(.28);
+  const middle=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  const middleX=(motion.pose.ra||0)>=(motion.pose.la||0)?motion.pose.rx:motion.pose.lx;
+  motion.advance(.32);
+  const late=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  assert.ok(early>middle&&middle>late,`hand alpha should ease down: ${early}, ${middle}, ${late}`);
+  assert.ok(Math.abs(Number(middleX)-118)<Math.abs(Number(earlyX)-118)||Math.abs(Number(middleX)+118)<Math.abs(Number(earlyX)+118),'hand should move toward rest while fading');
+});
+
 test('intentional hand gestures are brief and return to rest automatically',()=>{
   for(const avatar of Object.keys(AVATAR_ANIMATION_LIBRARIES)){
     const motion=new DaiMotion(()=>.37);
