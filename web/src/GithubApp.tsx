@@ -105,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.12';
+const DAI_WEB_VERSION='1.10.13';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -684,6 +684,11 @@ export default function GithubApp(){
   const liveBargeFramesRef=useRef(0);
   const liveNoiseFloorRef=useRef(.012);
   const liveLastSpeechAtRef=useRef(0);
+  const liveClientActivityRef=useRef(false);
+  const liveClientSpeechStartedAtRef=useRef(0);
+  const liveClientLastVoiceAtRef=useRef(0);
+  const liveClientStartCandidateAtRef=useRef(0);
+  const livePreRollPacketsRef=useRef<string[]>([]);
   const liveInputPcmBufferRef=useRef<Float32Array>(new Float32Array(0));
   const voiceRecorderRef=useRef<MediaRecorder|null>(null);
   const voiceRecorderStreamRef=useRef<MediaStream|null>(null);
@@ -3924,54 +3929,53 @@ export default function GithubApp(){
     liveInputSourceRef.current=source;
     liveProcessorRef.current=processor;
     liveSilentGainRef.current=silent;
+    liveClientActivityRef.current=false;
+    liveClientSpeechStartedAtRef.current=0;
+    liveClientLastVoiceAtRef.current=0;
+    liveClientStartCandidateAtRef.current=0;
+    livePreRollPacketsRef.current=[];
+    liveInputPcmBufferRef.current=new Float32Array(0);
+
+    const sendActivity=(kind:'start'|'end')=>{
+      if(socket.readyState!==WebSocket.OPEN)return;
+      try{
+        socket.send(JSON.stringify({
+          realtimeInput:kind==='start'?{activityStart:{}}:{activityEnd:{}}
+        }));
+      }catch(error){
+        console.debug('DAI live activity signal failed',kind,error);
+      }
+    };
+
+    const sendAudioPacket=(audioData:string)=>{
+      if(socket.readyState!==WebSocket.OPEN)return;
+      socket.send(JSON.stringify({
+        realtimeInput:{
+          audio:{
+            data:audioData,
+            mimeType:'audio/pcm;rate=16000'
+          }
+        }
+      }));
+    };
+
+    const incompleteSpeechTail=()=>{
+      const tail=liveInputTranscriptRef.current
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .slice(-3)
+        .join(' ');
+      return /(?:^|\s)(?:و|بس|يعني|عشان|علشان|لأن|لان|لو|طب|طيب|and|but|so|because|if|then|like|well)$/.test(tail);
+    };
 
     processor.onaudioprocess=(event)=>{
       if(!voiceSessionActiveRef.current||socket.readyState!==WebSocket.OPEN)return;
 
       const channel=event.inputBuffer.getChannelData(0);
-      const outputSpeaking=liveOutputSourcesRef.current.size>0;
+      const now=Date.now();
       const level=audioRms(channel);
-
-      if(outputSpeaking){
-        const speakingFor=Date.now()-liveSpeakingStartedAtRef.current;
-        if(speakingFor<280){
-          liveBargeFramesRef.current=0;
-          return;
-        }
-
-        // Adaptive interruption threshold: learn the room noise while DAI is not
-        // speaking, then require a clear sustained rise over that floor.
-        const threshold=Math.max(.034,Math.min(.095,liveNoiseFloorRef.current*2.85));
-        if(level<threshold){
-          liveBargeFramesRef.current=Math.max(0,liveBargeFramesRef.current-1);
-          return;
-        }
-
-        liveLastSpeechAtRef.current=Date.now();
-        liveBargeFramesRef.current++;
-        const requiredFrames=level>threshold*1.65?2:3;
-        if(liveBargeFramesRef.current<requiredFrames)return;
-
-        liveBargeFramesRef.current=0;
-        liveTurnCompleteRef.current=false;
-        stopLivePlayback();
-        liveNextPlayTimeRef.current=Number.POSITIVE_INFINITY;
-        setVoiceSessionStatus('listening');
-        transitionCorePhase('listening',{force:true});
-      }else{
-        liveBargeFramesRef.current=0;
-        const now=Date.now();
-        if(now-liveLastSpeechAtRef.current>320){
-          const ceiling=Math.max(.055,liveNoiseFloorRef.current*2.8);
-          if(level<ceiling){
-            liveNoiseFloorRef.current=
-              liveNoiseFloorRef.current*.965+
-              Math.max(.003,level)*.035;
-          }else{
-            liveLastSpeechAtRef.current=now;
-          }
-        }
-      }
+      const outputSpeaking=liveOutputSourcesRef.current.size>0;
 
       const resampled=resampleMono(channel,ctx.sampleRate,16000);
       if(!resampled.length)return;
@@ -3981,29 +3985,96 @@ export default function GithubApp(){
       combined.set(previous,0);
       combined.set(resampled,previous.length);
 
-      // Smaller packets reduce microphone-to-model latency without flooding the socket.
-      // 320 samples at 16 kHz = 20 ms for lower microphone-to-model latency.
-      const chunkSamples=320;
+      const packets:string[]=[];
+      const chunkSamples=320; // 20 ms at 16 kHz.
       let offset=0;
       while(offset+chunkSamples<=combined.length){
         const packet=combined.slice(offset,offset+chunkSamples);
         offset+=chunkSamples;
-        const audioData=pcm16ToBase64(packet);
-        socket.send(JSON.stringify({
-          realtimeInput:{
-            audio:{
-              data:audioData,
-              mimeType:'audio/pcm;rate=16000'
-            }
-          }
-        }));
+        packets.push(pcm16ToBase64(packet));
       }
       liveInputPcmBufferRef.current=combined.slice(offset);
+
+      const baseStartThreshold=Math.max(.016,Math.min(.060,liveNoiseFloorRef.current*2.35));
+      const startThreshold=outputSpeaking
+        ? Math.max(.026,baseStartThreshold*1.28)
+        : baseStartThreshold;
+      const continueThreshold=Math.max(.010,startThreshold*.58);
+
+      if(!liveClientActivityRef.current){
+        // Preserve about 200 ms before the detected onset so the first syllable
+        // is never clipped when we switch from silence to active speech.
+        if(packets.length){
+          livePreRollPacketsRef.current.push(...packets);
+          if(livePreRollPacketsRef.current.length>10){
+            livePreRollPacketsRef.current.splice(0,livePreRollPacketsRef.current.length-10);
+          }
+        }
+
+        // Learn the actual room floor only while the user is not speaking.
+        if(!outputSpeaking&&level<Math.max(.032,liveNoiseFloorRef.current*2.3)){
+          liveNoiseFloorRef.current=
+            liveNoiseFloorRef.current*.975+
+            Math.max(.0025,level)*.025;
+        }
+
+        if(level>=startThreshold){
+          if(!liveClientStartCandidateAtRef.current){
+            liveClientStartCandidateAtRef.current=now;
+          }
+          const heldMs=now-liveClientStartCandidateAtRef.current;
+          if(heldMs>=55){
+            liveClientActivityRef.current=true;
+            liveClientSpeechStartedAtRef.current=now;
+            liveClientLastVoiceAtRef.current=now;
+            liveLastSpeechAtRef.current=now;
+            liveTurnCompleteRef.current=false;
+
+            // Manual activityStart is the authoritative barge-in signal.
+            // Stop local playback immediately so the user never talks over DAI.
+            if(outputSpeaking)stopLivePlayback();
+            sendActivity('start');
+
+            for(const preRoll of livePreRollPacketsRef.current)sendAudioPacket(preRoll);
+            livePreRollPacketsRef.current=[];
+            liveClientStartCandidateAtRef.current=0;
+            setVoiceSessionStatus('listening');
+            transitionCorePhase('listening',{force:true});
+          }
+        }else if(level<startThreshold*.72){
+          liveClientStartCandidateAtRef.current=0;
+        }
+        return;
+      }
+
+      for(const packet of packets)sendAudioPacket(packet);
+
+      if(level>=continueThreshold){
+        liveClientLastVoiceAtRef.current=now;
+        liveLastSpeechAtRef.current=now;
+        return;
+      }
+
+      const spokenMs=now-liveClientSpeechStartedAtRef.current;
+      const silentMs=now-liveClientLastVoiceAtRef.current;
+      let endHoldMs=spokenMs<650?1450:1120;
+      if(incompleteSpeechTail())endHoldMs=1750;
+
+      if(silentMs>=endHoldMs){
+        sendActivity('end');
+        liveClientActivityRef.current=false;
+        liveClientSpeechStartedAtRef.current=0;
+        liveClientLastVoiceAtRef.current=0;
+        liveClientStartCandidateAtRef.current=0;
+        livePreRollPacketsRef.current=[];
+        setVoiceNotice('سمعتك… ضي بترد.');
+        transitionCorePhase('understanding',{force:true});
+      }
     };
 
     setListening(true);
     setVoiceSessionStatus('listening');
-    setVoiceNotice('الميكروفون شغال والصوت جاهز.');
+    setVoiceNotice('اتكلم براحتك… ضي مستنياك.');
     transitionCorePhase('listening',{force:true});
   }
 
@@ -4109,7 +4180,9 @@ export default function GithubApp(){
     const socket=liveSocketRef.current;
     liveSocketRef.current=null;
     if(socket&&socket.readyState===WebSocket.OPEN){
-      try{socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));}catch{}
+      if(liveClientActivityRef.current){
+        try{socket.send(JSON.stringify({realtimeInput:{activityEnd:{}}}));}catch{}
+      }
       try{socket.close(1000,'user-ended');}catch{}
     }
 
@@ -4130,6 +4203,11 @@ export default function GithubApp(){
     liveTurnCompleteRef.current=false;
     liveSpeakingStartedAtRef.current=0;
     liveBargeFramesRef.current=0;
+    liveClientActivityRef.current=false;
+    liveClientSpeechStartedAtRef.current=0;
+    liveClientLastVoiceAtRef.current=0;
+    liveClientStartCandidateAtRef.current=0;
+    livePreRollPacketsRef.current=[];
     liveInputPcmBufferRef.current=new Float32Array(0);
     stopLivePlayback();
     if(liveOutputContextRef.current){
@@ -4351,6 +4429,11 @@ export default function GithubApp(){
     liveBargeFramesRef.current=0;
     liveNoiseFloorRef.current=.012;
     liveLastSpeechAtRef.current=0;
+    liveClientActivityRef.current=false;
+    liveClientSpeechStartedAtRef.current=0;
+    liveClientLastVoiceAtRef.current=0;
+    liveClientStartCandidateAtRef.current=0;
+    livePreRollPacketsRef.current=[];
 
     let warmMicPromise:Promise<MediaStream>|null=null;
     try{
@@ -4572,13 +4655,9 @@ export default function GithubApp(){
               }
             },
             realtimeInputConfig:{
-              automaticActivityDetection:{
-                disabled:false,
-                startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
-                endOfSpeechSensitivity:'END_SENSITIVITY_LOW',
-                prefixPaddingMs:90,
-                silenceDurationMs:900
-              }
+              automaticActivityDetection:{disabled:true},
+              activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
+              turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'
             },
             systemInstruction:{parts:[{text:systemText}]},
             tools:[
@@ -4658,7 +4737,7 @@ export default function GithubApp(){
         const parts=server?.modelTurn?.parts||[];
         for(const part of parts){
           const inline=part?.inlineData;
-          if(inline?.data&&Number.isFinite(liveNextPlayTimeRef.current)){
+          if(inline?.data){
             await playLiveAudio(
               String(inline.data),
               String(inline.mimeType||inline.mime_type||'audio/pcm;rate=24000')
