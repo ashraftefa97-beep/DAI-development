@@ -422,11 +422,19 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <h2>أفكارك، شغلك، يومك.<br/><em>كلهم مع ضي.</em></h2>
               <p>اسأل، ابحث، اتكلم، وابعت ملفاتك. ضي مصممة تبقى مساعدتك اليومية بهدوء وسرعة من غير زحمة.</p>
 
-              <div className='auth-hero-mark' aria-hidden='true'>
-                <div className='auth-hero-glow'/>
-                <img src='./dai-logo.svg' alt='' />
-                <i className='auth-orbit auth-orbit-one'/>
-                <i className='auth-orbit auth-orbit-two'/>
+              <div className='auth-hero-dai' aria-hidden='true'>
+                <div className='auth-hero-dai-halo'/>
+                <div className='auth-hero-dai-face'>
+                  <i className='auth-hero-dai-brow brow-left'/>
+                  <i className='auth-hero-dai-brow brow-right'/>
+                  <i className='auth-hero-dai-eye eye-left'/>
+                  <i className='auth-hero-dai-eye eye-right'/>
+                  <i className='auth-hero-dai-mouth'/>
+                  <i className='auth-hero-dai-cheek cheek-left'/>
+                  <i className='auth-hero-dai-cheek cheek-right'/>
+                </div>
+                <i className='auth-hero-dai-ring ring-one'/>
+                <i className='auth-hero-dai-ring ring-two'/>
               </div>
 
               <div className='auth-feature-pills' aria-label='مميزات ضي'>
