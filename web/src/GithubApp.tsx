@@ -3994,11 +3994,10 @@ export default function GithubApp(){
       }
       liveInputPcmBufferRef.current=combined.slice(offset);
 
-      // Hybrid VAD: continuously feed the provider so it can preserve the
-      // beginning of speech, while local VAD only accelerates end-of-turn and
-      // mutes DAI immediately when the user genuinely barges in.
-      for(const packet of packets)sendAudioPacket(packet);
-
+      // Gate realtime audio with local VAD. While the user is silent (or DAI is
+      // replying), keep only a short local pre-roll and do NOT send PCM to the
+      // provider. This prevents audioStreamEnd from being immediately followed
+      // by silence packets that reopen the stream and interrupt DAI's reply.
       const baseStartThreshold=Math.max(.016,Math.min(.060,liveNoiseFloorRef.current*2.35));
       const startThreshold=outputSpeaking
         ? Math.max(.045,baseStartThreshold*1.80)
@@ -4006,6 +4005,13 @@ export default function GithubApp(){
       const continueThreshold=Math.max(.010,startThreshold*.56);
 
       if(!liveClientActivityRef.current){
+        if(packets.length){
+          livePreRollPacketsRef.current.push(...packets);
+          if(livePreRollPacketsRef.current.length>12){
+            livePreRollPacketsRef.current=livePreRollPacketsRef.current.slice(-12);
+          }
+        }
+
         if(!outputSpeaking&&level<Math.max(.032,liveNoiseFloorRef.current*2.3)){
           liveNoiseFloorRef.current=
             liveNoiseFloorRef.current*.975+
@@ -4025,6 +4031,13 @@ export default function GithubApp(){
             liveTurnCompleteRef.current=false;
 
             if(outputSpeaking)stopLivePlayback();
+
+            // audioStreamEnd closes the current realtime audio stream. The first
+            // speech after it reopens the stream, including a short pre-roll so
+            // the first syllable is not clipped.
+            const preRoll=livePreRollPacketsRef.current.splice(0);
+            for(const packet of preRoll)sendAudioPacket(packet);
+
             liveClientStartCandidateAtRef.current=0;
             setVoiceSessionStatus('listening');
             transitionCorePhase('listening',{force:true});
@@ -4034,6 +4047,10 @@ export default function GithubApp(){
         }
         return;
       }
+
+      // Once speech is confirmed, stream only that active turn (including its
+      // natural short pauses) until local endpointing closes the audio stream.
+      for(const packet of packets)sendAudioPacket(packet);
 
       if(level>=continueThreshold){
         liveClientLastVoiceAtRef.current=now;
@@ -4052,6 +4069,7 @@ export default function GithubApp(){
         liveClientSpeechStartedAtRef.current=0;
         liveClientLastVoiceAtRef.current=0;
         liveClientStartCandidateAtRef.current=0;
+        livePreRollPacketsRef.current=[];
         setVoiceNotice('سمعتك… ضي بترد.');
         transitionCorePhase('understanding',{force:true});
       }
