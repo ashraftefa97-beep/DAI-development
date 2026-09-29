@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v30-20260929-auth-clean';
+const CACHE_NAME = 'dai-web-v31-20260929-desktop-platforms';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
