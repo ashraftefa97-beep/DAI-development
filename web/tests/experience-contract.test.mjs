@@ -305,7 +305,7 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v28-20260929-auth-face-position/);
+  assert.match(sw,/dai-web-v29-20260929-auth-face-anchor/);
   assert.match(app,/DAI_WEB_VERSION='1\.10\.8'/);
 });
 
@@ -388,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v28-20260929-auth-face-position/);
+  assert.match(sw,/dai-web-v29-20260929-auth-face-anchor/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -426,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v28-20260929-auth-face-position/);
+  assert.match(sw,/dai-web-v29-20260929-auth-face-anchor/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
@@ -457,4 +457,13 @@ test('profile image picker supports local image upload and removal',()=>{
 test('auth hero uses minimal Classic face instead of logo badge',()=>{
   assert.match(authBootstrap,/auth-hero-dai-face/);
   assert.doesNotMatch(authBootstrap,/auth-hero-mark'[^>]*>[\s\S]*dai-logo\.svg/);
+});
+
+
+test('auth hero face is outside the headline content block',()=>{
+  const mainStart=authBootstrap.indexOf("<div className='auth-showcase-main'>");
+  const mainEnd=authBootstrap.indexOf("<div className='auth-showcase-foot'>");
+  const hero=authBootstrap.indexOf("<div className='auth-hero-dai'");
+  assert.ok(mainStart>=0&&mainEnd>mainStart&&hero>mainStart);
+  assert.ok(hero>authBootstrap.lastIndexOf("</div>",mainEnd-1),'hero should render outside the headline content block');
 });
