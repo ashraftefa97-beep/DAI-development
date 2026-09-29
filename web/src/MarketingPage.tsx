@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, TimerReset, WandSparkles, Zap } from 'lucide-react';
+import { Activity, Apple, ArrowUpRight, Check, ChevronDown, Clock3, Download, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, TimerReset, WandSparkles, Zap } from 'lucide-react';
 import DaiFace, { type DaiState } from './DaiFace';
 import './marketing.css';
 
@@ -15,6 +15,39 @@ type Copy={
   privacy:{eyebrow:string;title:string;body:string;points:string[]};
   final:{title:string;body:string;button:string};
   footer:string;
+};
+
+const DESKTOP_COPY:Record<Locale,{eyebrow:string;title:string;body:string;windows:string;windowsBody:string;mac:string;macBody:string;soon:string;note:string}>={
+  ar:{
+    eyebrow:'DAI Desktop',
+    title:'ضي على الكمبيوتر، بنفس شخصيتها.',
+    body:'نسخة مستقلة لسطح المكتب تخلي ضي أقرب لأوامرك اليومية، بصوتها وواجهتها وحضورها الكامل.',
+    windows:'DAI for Windows',
+    windowsBody:'مصممة لـ Windows مع تجربة Desktop كاملة واستجابة سريعة وتحكم أوسع.',
+    mac:'DAI for macOS',
+    macBody:'نسخة macOS بنفس تجربة ضي، متناسقة مع بيئة Mac ومصممة للاستخدام اليومي.',
+    soon:'قريبًا',
+    note:'ملفات التثبيت الرسمية هتظهر هنا أول ما النسخ تبقى جاهزة للنشر.'
+  },
+  en:{
+    eyebrow:'DAI Desktop',
+    title:'DAI on your computer, with the same personality.',
+    body:'A standalone desktop experience that brings DAI closer to your daily commands, voice and workflow.',
+    windows:'DAI for Windows',
+    windowsBody:'Built for Windows with the full desktop experience, fast response and deeper controls.',
+    mac:'DAI for macOS',
+    macBody:'A native-feeling macOS edition designed for everyday use with the same DAI experience.',
+    soon:'Coming soon',
+    note:'Official installers will appear here as soon as the desktop builds are ready.'
+  },
+  fr:{eyebrow:'DAI Desktop',title:'DAI sur votre ordinateur.',body:'Une expérience bureau autonome avec la voix et la personnalité de DAI.',windows:'DAI pour Windows',windowsBody:'Une version Windows complète et rapide.',mac:'DAI pour macOS',macBody:'Une version macOS pensée pour le quotidien.',soon:'Bientôt',note:'Les installateurs officiels apparaîtront ici dès qu’ils seront prêts.'},
+  es:{eyebrow:'DAI Desktop',title:'DAI en tu ordenador.',body:'Una experiencia de escritorio independiente con la voz y personalidad de DAI.',windows:'DAI para Windows',windowsBody:'Una versión completa y rápida para Windows.',mac:'DAI para macOS',macBody:'Una versión de macOS diseñada para el uso diario.',soon:'Próximamente',note:'Los instaladores oficiales aparecerán aquí cuando estén listos.'},
+  de:{eyebrow:'DAI Desktop',title:'DAI auf deinem Computer.',body:'Eine eigenständige Desktop-Erfahrung mit DAI Stimme und Persönlichkeit.',windows:'DAI für Windows',windowsBody:'Eine vollständige und schnelle Windows-Version.',mac:'DAI für macOS',macBody:'Eine macOS-Version für den täglichen Einsatz.',soon:'Demnächst',note:'Die offiziellen Installer erscheinen hier, sobald sie bereit sind.'},
+  it:{eyebrow:'DAI Desktop',title:'DAI sul tuo computer.',body:'Un’esperienza desktop autonoma con voce e personalità DAI.',windows:'DAI per Windows',windowsBody:'Una versione Windows completa e veloce.',mac:'DAI per macOS',macBody:'Una versione macOS pensata per l’uso quotidiano.',soon:'Prossimamente',note:'Gli installer ufficiali appariranno qui appena saranno pronti.'},
+  pt:{eyebrow:'DAI Desktop',title:'DAI no seu computador.',body:'Uma experiência desktop independente com a voz e personalidade da DAI.',windows:'DAI para Windows',windowsBody:'Uma versão Windows completa e rápida.',mac:'DAI para macOS',macBody:'Uma versão macOS feita para o uso diário.',soon:'Em breve',note:'Os instaladores oficiais aparecerão aqui quando estiverem prontos.'},
+  tr:{eyebrow:'DAI Desktop',title:'DAI bilgisayarında.',body:'DAI’nin sesi ve kişiliğiyle bağımsız bir masaüstü deneyimi.',windows:'Windows için DAI',windowsBody:'Tam ve hızlı bir Windows sürümü.',mac:'macOS için DAI',macBody:'Günlük kullanım için tasarlanmış macOS sürümü.',soon:'Yakında',note:'Resmî kurulum dosyaları hazır olduğunda burada yayınlanacak.'},
+  ja:{eyebrow:'DAI Desktop',title:'DAIをあなたのコンピューターに。',body:'DAIの声と個性をそのまま持つデスクトップ体験。',windows:'Windows版 DAI',windowsBody:'高速でフル機能のWindows版。',mac:'macOS版 DAI',macBody:'日常利用のために設計されたmacOS版。',soon:'近日公開',note:'正式なインストーラーは準備ができ次第ここに表示されます。'},
+  ko:{eyebrow:'DAI Desktop',title:'컴퓨터에서도 DAI를 만나보세요.',body:'DAI의 목소리와 개성을 그대로 담은 독립형 데스크톱 경험입니다.',windows:'Windows용 DAI',windowsBody:'빠르고 완전한 Windows 데스크톱 버전입니다.',mac:'macOS용 DAI',macBody:'일상 사용을 위해 설계된 macOS 버전입니다.',soon:'출시 예정',note:'공식 설치 파일이 준비되면 이곳에 표시됩니다.'}
 };
 
 const COPY:Record<Locale,Copy>={
@@ -340,6 +373,7 @@ export default function MarketingPage(){
   const heroManualUntil=useRef(0);
   const experienceManualUntil=useRef(0);
   const copy=COPY[locale];
+  const desktop=DESKTOP_COPY[locale];
   const extra=EXTRA_COPY[locale];
   const rtl=locale==='ar';
 
@@ -771,6 +805,48 @@ export default function MarketingPage(){
             </div>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section className='dai-v7-desktop' id='desktop'>
+      <div className='dai-v7-desktop-head' data-reveal>
+        <span className='dai-v7-kicker'>{desktop.eyebrow}</span>
+        <h2>{desktop.title}</h2>
+        <p>{desktop.body}</p>
+      </div>
+
+      <div className='dai-v7-desktop-grid'>
+        <article className='windows' data-reveal>
+          <div className='platform-mark'><Laptop2 size={30}/></div>
+          <span className='platform-label'>Windows</span>
+          <h3>{desktop.windows}</h3>
+          <p>{desktop.windowsBody}</p>
+          <div className='desktop-meta'>
+            <span>Windows 10 / 11</span>
+            <span>x64</span>
+          </div>
+          <button type='button' disabled aria-disabled='true'>
+            <Download size={17}/>{desktop.soon}
+          </button>
+        </article>
+
+        <article className='mac' data-reveal>
+          <div className='platform-mark'><Apple size={31}/></div>
+          <span className='platform-label'>macOS</span>
+          <h3>{desktop.mac}</h3>
+          <p>{desktop.macBody}</p>
+          <div className='desktop-meta'>
+            <span>macOS</span>
+            <span>Apple Silicon / Intel</span>
+          </div>
+          <button type='button' disabled aria-disabled='true'>
+            <Download size={17}/>{desktop.soon}
+          </button>
+        </article>
+      </div>
+
+      <div className='dai-v7-desktop-note' data-reveal>
+        <ShieldCheck size={16}/><span>{desktop.note}</span>
       </div>
     </section>
 
