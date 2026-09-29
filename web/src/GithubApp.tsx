@@ -105,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.13';
+const DAI_WEB_VERSION='1.10.14';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -4605,11 +4605,13 @@ export default function GithubApp(){
             ? 'المستخدمة أنثى؛ خاطبيها بصيغة المؤنث عند الحاجة. '
             : 'جنس المستخدم غير محدد؛ تجنبي افتراض الجنس قدر الإمكان. ';
 
-        const recentLiveContext=(active?.messages||[])
-          .slice(-8)
-          .map(message=>(message.role==='user'?'المستخدم: ':'ضي: ')+String(message.content||'').replace(/\s+/g,' ').trim().slice(0,700))
-          .filter(Boolean)
-          .join('\n');
+        const recentLiveHistory=(active?.messages||[])
+          .slice(-10)
+          .map(message=>({
+            role:message.role==='assistant'?'model':'user',
+            parts:[{text:String(message.content||'').replace(/\s+/g,' ').trim().slice(0,1200)}]
+          }))
+          .filter(turn=>Boolean(turn.parts[0].text));
 
         const systemText=
           'أنتِ ضي، مساعدة صوتية أنثى دائمًا، ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
@@ -4635,12 +4637,11 @@ export default function GithubApp(){
           'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي أداة web_research الموحدة بدل التخمين. اعتمدي على نتيجة الأداة ومصادرها، وقارني النتائج قبل الحكم. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
           'في Live Chat اتصرفي كمكالمة بشرية مستمرة، مش سؤال وجواب. أهم قاعدة: ما تحاوليش كل مرة تدي إجابة كاملة ومقفولة. في الكلام العادي ردي غالبًا بجملة واحدة أو جملتين قصيرين، وسيبي مساحة طبيعية للطرف التاني يكمل. '+
           'ممنوع في اللايف القوائم، العناوين، التعداد، أو أسلوب المقال إلا لو المستخدم طلب شرح منظم صراحة. ممنوع تعيدي صياغة سؤاله قبل الرد، وممنوع تبدأي كل مرة بـ«أكيد» أو «طبعًا» أو باسمه. '+
-          'استخدمي ردود محادثة طبيعية حسب السياق زي «أيوه»، «فاهمة»، «تمام»، «كمّل»، «آه فهمتك» لما تكون مجرد متابعة، وبعدها اسكتي بدل ما تفتحي موضوع جديد. '+
+          'استخدمي ردود محادثة طبيعية حسب السياق زي «أيوه»، «فاهمة»، «تمام»، «كمّل»، «آه فهمتك» لما تكون مجرد متابعة. ومش لازم تردي على كل صوت أو كلمة متابعة: أحيانًا الطبيعي إنك تسكتي وتسيبي المستخدم يكمل. '+
           'لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل، استني. وقفات زي «مم…»، «يعني…»، «استنى…» أو نفس قصير مش معناها إن دوره خلص. '+
           'لو المستخدم قاطعك أو بدأ يتكلم فوق صوتك، اقطعي ردك فورًا، ما ترجعيش تكمليه، واسمعي الجملة الجديدة كأنها الأولوية الوحيدة. '+
           'لو السؤال بسيط، جاوبي ببساطة ومن غير تفاصيل إضافية. لو السؤال محتاج تفاصيل، ابدئي بالزبدة في جملة قصيرة وبعدها كمّلي فقط لو السياق محتاج. '+
           'ما تختميش كل دور بسؤال خدمة، وما تقوليش «هل تريد المزيد؟» أو ما يشبهها إلا لو في اختيار حقيقي لازم المستخدم يحدده. '+
-          (recentLiveContext?'ده آخر سياق قبل بدء اللايف؛ كمّلي منه طبيعيًا من غير ما تقولي إنك قرأتي سجل: '+recentLiveContext+' ':'')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
@@ -4659,6 +4660,8 @@ export default function GithubApp(){
               activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
               turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'
             },
+            historyConfig:{initialHistoryInClientContent:true},
+            contextWindowCompression:{slidingWindow:{}},
             systemInstruction:{parts:[{text:systemText}]},
             tools:[
               ...researchToolDeclarations,
@@ -4698,6 +4701,16 @@ export default function GithubApp(){
         if(payload?.setupComplete){
           liveReconnectAttemptsRef.current=0;
           setErrorText('');
+          try{
+            socket.send(JSON.stringify({
+              clientContent:{
+                turns:recentLiveHistory,
+                turnComplete:true
+              }
+            }));
+          }catch(error){
+            console.debug('DAI live initial history failed',error);
+          }
           void (warmMicPromise||Promise.reject(new Error('microphone-unavailable')))
             .then(stream=>startLiveCapture(socket,stream))
             .catch(error=>{
