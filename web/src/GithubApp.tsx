@@ -668,6 +668,7 @@ export default function GithubApp(){
   const liveSocketRef=useRef<WebSocket|null>(null);
   const liveReconnectAttemptsRef=useRef(0);
   const liveReconnectTimerRef=useRef<number|undefined>(undefined);
+  const liveSetupTimeoutRef=useRef<number|undefined>(undefined);
   const liveSessionResumeHandleRef=useRef('');
   const livePrefetchedTokenRef=useRef<{token:string;model:string;expiresAt:number;newSessionExpiresAt:number}|null>(null);
   const liveTokenPrefetchPromiseRef=useRef<Promise<void>|null>(null);
@@ -2122,10 +2123,10 @@ export default function GithubApp(){
   },[]);
 
   useEffect(()=>{
-    if(!supabase||loadingData||!userId)return;
-    const timer=window.setTimeout(()=>{ void prefetchLiveToken(); },250);
+    if(!supabase||!userId)return;
+    const timer=window.setTimeout(()=>{ void prefetchLiveToken(); },0);
     return()=>window.clearTimeout(timer);
-  },[loadingData,userId]);
+  },[userId]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -4120,6 +4121,10 @@ export default function GithubApp(){
       liveIntentionalCloseRef.current=true;
       liveReconnectAttemptsRef.current=0;
       liveSessionResumeHandleRef.current='';
+      if(liveSetupTimeoutRef.current){
+        window.clearTimeout(liveSetupTimeoutRef.current);
+        liveSetupTimeoutRef.current=undefined;
+      }
       if(liveReconnectTimerRef.current){
         window.clearTimeout(liveReconnectTimerRef.current);
         liveReconnectTimerRef.current=undefined;
@@ -4443,9 +4448,12 @@ export default function GithubApp(){
       });
 
       const outputCtx=new AudioContext();
-      await outputCtx.resume();
       liveOutputContextRef.current=outputCtx;
       liveOutputAnalyserRef.current=null;
+      // Do not block token/WebSocket startup on the output audio context. The
+      // user click already gives us an unlock opportunity, and playLiveAudio()
+      // resumes again before the first PCM frame if the context is still suspended.
+      void outputCtx.resume().catch(()=>undefined);
 
       let data:any=null;
 
@@ -4505,6 +4513,16 @@ export default function GithubApp(){
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
       );
       liveSocketRef.current=socket;
+
+      if(liveSetupTimeoutRef.current)window.clearTimeout(liveSetupTimeoutRef.current);
+      liveSetupTimeoutRef.current=window.setTimeout(()=>{
+        liveSetupTimeoutRef.current=undefined;
+        if(!voiceSessionActiveRef.current||liveSocketRef.current!==socket)return;
+        if(socket.readyState===WebSocket.CONNECTING||socket.readyState===WebSocket.OPEN){
+          setVoiceNotice('اتصال الصوت اتأخر، ضي بتعيده بسرعة…');
+          try{socket.close(4000,'setup-timeout');}catch{}
+        }
+      },4200);
 
       socket.onopen=()=>{
         const researchToolDeclarations=[{
@@ -4674,8 +4692,8 @@ export default function GithubApp(){
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-                prefixPaddingMs:60,
-                silenceDurationMs:600
+                prefixPaddingMs:40,
+                silenceDurationMs:500
               },
               activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
               turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'
@@ -4725,8 +4743,13 @@ export default function GithubApp(){
         }
 
         if(payload?.setupComplete){
+          if(liveSetupTimeoutRef.current){
+            window.clearTimeout(liveSetupTimeoutRef.current);
+            liveSetupTimeoutRef.current=undefined;
+          }
           liveReconnectAttemptsRef.current=0;
           setErrorText('');
+          setVoiceNotice('ضي سامعاك… اتكلم.');
           if(!resumeHandle){
             try{
               socket.send(JSON.stringify({
@@ -4800,6 +4823,10 @@ export default function GithubApp(){
       };
 
       socket.onclose=(event)=>{
+        if(liveSetupTimeoutRef.current){
+          window.clearTimeout(liveSetupTimeoutRef.current);
+          liveSetupTimeoutRef.current=undefined;
+        }
         console.debug('DAI live socket closed',{code:event.code,reason:event.reason||''});
         if(!voiceSessionActiveRef.current)return;
 
