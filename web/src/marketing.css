@@ -5101,3 +5101,17 @@
     bottom:24px;
   }
 }
+
+
+/* English hero copy polish */
+.dai-v8[data-locale='en'] .dai-v7-hero h1 span:last-child{
+  max-width:900px;
+  font-size:.84em;
+  line-height:1.04;
+  text-wrap:balance;
+}
+@media(max-width:820px){
+  .dai-v8[data-locale='en'] .dai-v7-hero h1 span:last-child{
+    font-size:.88em;
+  }
+}
