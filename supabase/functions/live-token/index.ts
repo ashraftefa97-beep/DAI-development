@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
   try {
     const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/auth_tokens',
+      'https://generativelanguage.googleapis.com/v1alpha/auth_tokens',
       {
         method: 'POST',
         headers: {
