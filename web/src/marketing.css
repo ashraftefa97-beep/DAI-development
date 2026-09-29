@@ -4979,6 +4979,12 @@
 .dai-v7-desktop-grid article.mac .platform-mark{
   background:linear-gradient(145deg,#efe8ff,#c9b0ea);
 }
+.dai-v7-desktop-grid .apple-mark svg{
+  width:31px;
+  height:31px;
+  display:block;
+  fill:currentColor;
+}
 .dai-v7-desktop-grid .platform-label{
   display:block;
   margin-top:34px;
