@@ -105,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.11';
+const DAI_WEB_VERSION='1.10.12';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -3955,6 +3955,7 @@ export default function GithubApp(){
         liveBargeFramesRef.current=0;
         liveTurnCompleteRef.current=false;
         stopLivePlayback();
+        liveNextPlayTimeRef.current=Number.POSITIVE_INFINITY;
         setVoiceSessionStatus('listening');
         transitionCorePhase('listening',{force:true});
       }else{
@@ -4549,10 +4550,13 @@ export default function GithubApp(){
             ? 'عندك أداة perform_animation مرتبطة بمكتبة ضي الفعلية المكونة من 84 حركة. لو المستخدم طلب حركة استخدمي الأداة بدل ما تقولي إنك مش قادرة تتحرك. وممكن تختاري حركة من نفسك أحيانًا لما تكون مناسبة جدًا للسياق، لكن بشكل خفيف ومش مع كل رد، ومن غير حركات احتفالية في المواقف الجادة أو الحساسة. '
             : '')+
           'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي أداة web_research الموحدة بدل التخمين. اعتمدي على نتيجة الأداة ومصادرها، وقارني النتائج قبل الحكم. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
-          'في Live Chat اتصرفي كمكالمة طبيعية مستمرة، مش سلسلة أسئلة وأجوبة منفصلة. حافظي على نفس الموضوع والسياق من دور لدور، وما تعيديش مقدمة أو تلخيص الكلام اللي اتقال إلا لو المستخدم طلب. '+
-          'خلي الردود الصوتية قصيرة وطبيعية غالبًا من جملة لثلاث جمل، وبعدها سيبي مساحة للمستخدم يكمل؛ لو طلب شرح مفصل ساعتها وسعي الرد. ما تختميش كل دور بسؤال خدمة أو جملة ختامية. '+
-          'لو المستخدم عمل وقفة قصيرة وهو بيتكلم، ما تستعجليش الرد. لو قاطعك أو بدأ يتكلم فوق صوتك، توقفي فورًا واسمعيه وكَمّلي على كلامه الجديد من غير ما تعيدي الرد القديم. '+
-          'تعاملِي مع كلمات المتابعة القصيرة زي «آه»، «مم»، «تمام»، «أيوه» كإشارات استماع حسب السياق، وماتحوّليش كل واحدة منهم لموضوع أو رد طويل. '+
+          'في Live Chat اتصرفي كمكالمة بشرية مستمرة، مش سؤال وجواب. أهم قاعدة: ما تحاوليش كل مرة تدي إجابة كاملة ومقفولة. في الكلام العادي ردي غالبًا بجملة واحدة أو جملتين قصيرين، وسيبي مساحة طبيعية للطرف التاني يكمل. '+
+          'ممنوع في اللايف القوائم، العناوين، التعداد، أو أسلوب المقال إلا لو المستخدم طلب شرح منظم صراحة. ممنوع تعيدي صياغة سؤاله قبل الرد، وممنوع تبدأي كل مرة بـ«أكيد» أو «طبعًا» أو باسمه. '+
+          'استخدمي ردود محادثة طبيعية حسب السياق زي «أيوه»، «فاهمة»، «تمام»، «كمّل»، «آه فهمتك» لما تكون مجرد متابعة، وبعدها اسكتي بدل ما تفتحي موضوع جديد. '+
+          'لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل، استني. وقفات زي «مم…»، «يعني…»، «استنى…» أو نفس قصير مش معناها إن دوره خلص. '+
+          'لو المستخدم قاطعك أو بدأ يتكلم فوق صوتك، اقطعي ردك فورًا، ما ترجعيش تكمليه، واسمعي الجملة الجديدة كأنها الأولوية الوحيدة. '+
+          'لو السؤال بسيط، جاوبي ببساطة ومن غير تفاصيل إضافية. لو السؤال محتاج تفاصيل، ابدئي بالزبدة في جملة قصيرة وبعدها كمّلي فقط لو السياق محتاج. '+
+          'ما تختميش كل دور بسؤال خدمة، وما تقوليش «هل تريد المزيد؟» أو ما يشبهها إلا لو في اختيار حقيقي لازم المستخدم يحدده. '+
           (recentLiveContext?'ده آخر سياق قبل بدء اللايف؛ كمّلي منه طبيعيًا من غير ما تقولي إنك قرأتي سجل: '+recentLiveContext+' ':'')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
@@ -4571,9 +4575,9 @@ export default function GithubApp(){
               automaticActivityDetection:{
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
-                endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
+                endOfSpeechSensitivity:'END_SENSITIVITY_LOW',
                 prefixPaddingMs:90,
-                silenceDurationMs:680
+                silenceDurationMs:900
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
@@ -4631,6 +4635,7 @@ export default function GithubApp(){
         if(server.interrupted){
           liveTurnCompleteRef.current=false;
           stopLivePlayback();
+          liveNextPlayTimeRef.current=0;
           setVoiceSessionStatus('listening');
           transitionCorePhase('listening',{force:true});
         }
@@ -4653,7 +4658,7 @@ export default function GithubApp(){
         const parts=server?.modelTurn?.parts||[];
         for(const part of parts){
           const inline=part?.inlineData;
-          if(inline?.data){
+          if(inline?.data&&Number.isFinite(liveNextPlayTimeRef.current)){
             await playLiveAudio(
               String(inline.data),
               String(inline.mimeType||inline.mime_type||'audio/pcm;rate=24000')
@@ -4662,6 +4667,7 @@ export default function GithubApp(){
         }
 
         if(server.turnComplete){
+          liveNextPlayTimeRef.current=0;
           finishLiveTurn();
           liveTurnCompleteRef.current=true;
           settleLiveListening();
