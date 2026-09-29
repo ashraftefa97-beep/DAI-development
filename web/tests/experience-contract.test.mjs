@@ -493,22 +493,26 @@ test('Live Chat behaves like a continuous conversation',()=>{
 test('Live Chat avoids assistant-style monologues',()=>{
   assert.match(voiceLive,/ممنوع في اللايف القوائم/);
   assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
-  assert.match(voiceLive,/livePreRollPacketsRef/);
-  assert.match(voiceLive,/endHoldMs=spokenMs<650\?1450:1120/);
+  assert.match(voiceLive,/automaticActivityDetection/);
+  assert.match(voiceLive,/endHoldMs=spokenMs<650\?1050:850/);
+  assert.match(voiceLive,/audioStreamEnd:true/);
 });
 
 
-test('Live Chat injects real conversation history before microphone capture',()=>{
-  assert.match(voiceLive,/historyConfig:\{initialHistoryInClientContent:true\}/);
+test('Live Chat injects history once and resumes the same live session after reconnects',()=>{
+  assert.match(voiceLive,/historyConfig:\{initialHistoryInClientContent:!resumeHandle\}/);
+  assert.match(voiceLive,/sessionResumption:resumeHandle\?\{handle:resumeHandle\}:\{\}/);
+  assert.match(voiceLive,/sessionResumptionUpdate/);
   assert.match(voiceLive,/clientContent:recentLiveHistory\.length/);
   assert.match(voiceLive,/turns:recentLiveHistory/);
   assert.match(voiceLive,/contextWindowCompression:\{slidingWindow:\{\}\}/);
   assert.doesNotMatch(voiceLive,/recentLiveContext/);
 });
 
-test('Live Voice button uses DAI brand colors instead of blue',()=>{
+test('Live Voice button uses DAI identity tokens instead of blue',()=>{
   const css=readFileSync(new URL('../src/index.css',import.meta.url),'utf8');
   const block=css.match(/\.classic-live-chat-button\{[\s\S]*?@keyframes daiLiveButtonPulse/)?.[0]||'';
-  assert.match(block,/#f3a8c2|#d98fb5|#b28bdc/);
+  assert.match(block,/var\(--sakura\)|var\(--sakura-light\)|var\(--sakura-dark\)/);
+  assert.match(block,/var\(--lilac\)|var\(--lilac-light\)/);
   assert.doesNotMatch(block,/#2f6fd6|#3b7be3|#2b63bf|#3f79d9/);
 });
