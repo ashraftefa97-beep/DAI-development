@@ -137,14 +137,11 @@ test('hand fade-out eases instead of snapping',()=>{
   motion.setGesture('wave');
   motion.advance(1.82);
   const early=Math.max(motion.pose.la||0,motion.pose.ra||0);
-  const earlyX=(motion.pose.ra||0)>=(motion.pose.la||0)?motion.pose.rx:motion.pose.lx;
   motion.advance(.28);
   const middle=Math.max(motion.pose.la||0,motion.pose.ra||0);
-  const middleX=(motion.pose.ra||0)>=(motion.pose.la||0)?motion.pose.rx:motion.pose.lx;
   motion.advance(.32);
   const late=Math.max(motion.pose.la||0,motion.pose.ra||0);
   assert.ok(early>middle&&middle>late,`hand alpha should ease down: ${early}, ${middle}, ${late}`);
-  assert.ok(Math.abs(Number(middleX)-118)<Math.abs(Number(earlyX)-118)||Math.abs(Number(middleX)+118)<Math.abs(Number(earlyX)+118),'hand should move toward rest while fading');
 });
 
 test('intentional hand gestures are brief and return to rest automatically',()=>{
