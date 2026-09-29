@@ -185,7 +185,7 @@ test('main UI does not invoke legacy chat endpoint',()=>assert.ok(!/['"]\/api\/c
 test('client captures first-event and TTS timing',()=>assert.match(app,/tts|first/i));
 test('mobile viewport follows VisualViewport and keyboard state',()=>assert.match(app,/visualViewport/i));
 test('mobile shell honors safe areas',()=>assert.match(app,/safe/i));
-test('live voice uses hybrid turn detection and interruption-friendly barge-in',()=>{ assert.match(voiceLive,/automaticActivityDetection/); assert.match(voiceLive,/disabled:false/); assert.match(voiceLive,/START_OF_ACTIVITY_INTERRUPTS/); assert.match(voiceLive,/audioStreamEnd:true/); });
+test('live voice uses server turn detection and interruption-friendly barge-in',()=>{ assert.match(voiceLive,/automaticActivityDetection/); assert.match(voiceLive,/disabled:false/); assert.match(voiceLive,/START_OF_ACTIVITY_INTERRUPTS/); assert.match(voiceLive,/Server-VAD owns speech start\/end/); });
 test('supervisor retries a transient failure and returns the later success',()=>assert.match(supervisor,/retry/i));
 test('abort errors are never retried',()=>assert.match(supervisor,/Abort/i));
 test('circuit breaker opens after repeated final failures',()=>assert.match(supervisor,/circuit/i));
@@ -494,16 +494,15 @@ test('Live Chat avoids assistant-style monologues',()=>{
   assert.match(voiceLive,/ممنوع في اللايف القوائم/);
   assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
   assert.match(voiceLive,/automaticActivityDetection/);
-  assert.match(voiceLive,/endHoldMs=spokenMs<650\?1050:850/);
-  assert.match(voiceLive,/audioStreamEnd:true/);
+  assert.match(voiceLive,/silenceDurationMs:1200/);
+  assert.match(voiceLive,/Server-VAD owns speech start\/end/);
 });
 
 
-test('Live Chat keeps silence local after audioStreamEnd until real speech returns',()=>{
-  assert.match(voiceLive,/livePreRollPacketsRef\.current\.push\(\.\.\.packets\)/);
-  assert.match(voiceLive,/const preRoll=livePreRollPacketsRef\.current\.splice\(0\)/);
-  assert.match(voiceLive,/for\(const packet of preRoll\)sendAudioPacket\(packet\)/);
-  assert.match(voiceLive,/Once speech is confirmed, stream only that active turn/);
+test('Live Chat never blocks quiet speech behind a client-side send gate',()=>{
+  assert.match(voiceLive,/for\(const packet of packets\)sendAudioPacket\(packet\)/);
+  assert.match(voiceLive,/Local level detection is only a fast playback mute for barge-in/);
+  assert.doesNotMatch(voiceLive,/Gate realtime audio with local VAD/);
 });
 
 test('Live Chat injects history once and resumes the same live session after reconnects',()=>{
