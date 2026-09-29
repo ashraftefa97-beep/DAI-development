@@ -185,7 +185,7 @@ test('main UI does not invoke legacy chat endpoint',()=>assert.ok(!/['"]\/api\/c
 test('client captures first-event and TTS timing',()=>assert.match(app,/tts|first/i));
 test('mobile viewport follows VisualViewport and keyboard state',()=>assert.match(app,/visualViewport/i));
 test('mobile shell honors safe areas',()=>assert.match(app,/safe/i));
-test('live voice has adaptive barge-in and provider VAD',()=>assert.match(voiceLive,/vad|barge/i));
+test('live voice owns turn detection and explicit barge-in',()=>{ assert.match(voiceLive,/activityStart/); assert.match(voiceLive,/activityEnd/); assert.match(voiceLive,/automaticActivityDetection:\{disabled:true\}/); });
 test('supervisor retries a transient failure and returns the later success',()=>assert.match(supervisor,/retry/i));
 test('abort errors are never retried',()=>assert.match(supervisor,/Abort/i));
 test('circuit breaker opens after repeated final failures',()=>assert.match(supervisor,/circuit/i));
@@ -305,8 +305,8 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.12'/);
+  assert.match(sw,/dai-web-v37-20260929-client-vad/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.13'/);
 });
 
 
@@ -388,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
+  assert.match(sw,/dai-web-v37-20260929-client-vad/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -426,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
+  assert.match(sw,/dai-web-v37-20260929-client-vad/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
@@ -482,16 +482,17 @@ test('composer exposes direct Live Chat control',()=>{
 
 
 test('Live Chat behaves like a continuous conversation',()=>{
-  assert.match(voiceLive,/silenceDurationMs:900/);
   assert.match(voiceLive,/recentLiveContext/);
   assert.match(voiceLive,/كمكالمة بشرية مستمرة/);
   assert.match(voiceLive,/اقطعي ردك فورًا/);
+  assert.match(voiceLive,/TURN_INCLUDES_ONLY_ACTIVITY/);
+  assert.match(voiceLive,/START_OF_ACTIVITY_INTERRUPTS/);
 });
 
 
 test('Live Chat avoids assistant-style monologues',()=>{
   assert.match(voiceLive,/ممنوع في اللايف القوائم/);
   assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
-  assert.match(voiceLive,/END_SENSITIVITY_LOW/);
-  assert.match(voiceLive,/Number\.POSITIVE_INFINITY/);
+  assert.match(voiceLive,/livePreRollPacketsRef/);
+  assert.match(voiceLive,/endHoldMs=spokenMs<650\?1450:1120/);
 });
