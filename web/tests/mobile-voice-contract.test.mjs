@@ -32,7 +32,7 @@ test('live voice uses deterministic client VAD and explicit activity signals',()
 
 
 test('live voice carries context and preserves natural pauses locally',()=>{
-  assert.match(app,/recentLiveContext/);
+  assert.match(app,/recentLiveHistory/);
   assert.match(app,/livePreRollPacketsRef/);
   assert.match(app,/endHoldMs=spokenMs<650\?1450:1120/);
   assert.match(app,/incompleteSpeechTail/);
