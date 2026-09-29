@@ -4510,7 +4510,7 @@ export default function GithubApp(){
       const resumeHandle=reconnecting?liveSessionResumeHandleRef.current:'';
 
       const socket=new WebSocket(
-        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
+        'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
       );
       liveSocketRef.current=socket;
 
