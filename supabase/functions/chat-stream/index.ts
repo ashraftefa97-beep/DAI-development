@@ -285,10 +285,13 @@ function websiteCodeLooksComplete(answer:string) {
   const value=String(answer||'').trim();
   if(!value) return false;
   const hasHtml=/(?:```html\b|<!doctype\s+html\b|<html\b)/i.test(value);
+  const hasViewport=/<meta[^>]+name=["']viewport["']/i.test(value);
   const hasBodyClose=/<\/body\s*>/i.test(value);
   const hasHtmlClose=/<\/html\s*>/i.test(value);
-  const suspiciousTail=/(?:\.\.\.|…|TODO|continue|يتبع|أكمل|الباقي|remaining)\s*(?:```)?\s*$/i.test(value);
-  return hasHtml && hasBodyClose && hasHtmlClose && !suspiciousTail;
+  const hasVisibleStructure=/<(?:main|section|header|nav|article|div)\b/i.test(value);
+  const suspiciousTail=/(?:\.\.\.|…|TODO|FIXME|continue|يتبع|أكمل|الباقي|remaining)\s*(?:```)?\s*$/i.test(value);
+  const brokenFence=(value.match(/```/g)||[]).length%2!==0;
+  return hasHtml && hasViewport && hasBodyClose && hasHtmlClose && hasVisibleStructure && !suspiciousTail && !brokenFence;
 }
 
 async function generateCodeStudioPass(
@@ -2505,19 +2508,20 @@ Deno.serve(async (req) => {
           const websiteRequest=isWebsiteCodeRequest(message);
           const codeStudioSystem=
             systemPrompt +
-            '\nأنت الآن في DAI Code Studio. اشتغل كمبرمج Senior ومصمم Product/UI قوي في نفس الوقت. ' +
-            'فكر في المعمارية والـlayout والـresponsive behavior داخليًا قبل كتابة الناتج، ثم أرسل النسخة النهائية فقط. ' +
-            'أي موقع أو صفحة لازم تكون كاملة وقابلة للتشغيل فورًا، self-contained قدر الإمكان، ومصممة بمستوى Premium: hierarchy واضحة، spacing متزن، typography قوية، contrast ممتاز، responsive حقيقي للموبايل والديسكتوب، hover/focus/active states، micro-interactions هادئة، accessibility، وحالات empty/loading عند الحاجة. ' +
-            'تجنب شكل القوالب العامة الرخيصة، المبالغة في gradients/glows، lorem ipsum، TODO، placeholders، أو أجزاء ناقصة. ' +
-            'لو المستخدم لم يحدد Stack لموقع بسيط، أرجع ملف HTML واحد كامل بداخله CSS وJavaScript. ' +
-            'ضع الملف كاملًا داخل fenced code block باسم اللغة، ولا تختصر منتصف الملف. راجع الوسوم والأقواس والإغلاق قبل الإرسال.';
+            '\nأنت الآن في DAI Code Studio. اشتغل كـ Senior Software Engineer + Senior Frontend Engineer + Product Designer. ' +
+            'قبل كتابة أي كود حلل الطلب داخليًا وحدد المعمارية، الملفات، الحالات، التفاعلات، والـedge cases، ثم أرسل النسخة النهائية فقط من غير شرح طويل. ' +
+            'أي موقع أو صفحة لازم تكون كاملة وقابلة للتشغيل فورًا وself-contained قدر الإمكان، بمستوى production: semantic HTML، viewport صحيح، hierarchy واضحة، spacing متزن، typography قوية، contrast ممتاز، responsive فعلي للموبايل والديسكتوب، hover/focus/active states، accessibility، loading/empty/error states عند الحاجة، ومحتوى حقيقي بدل lorem ipsum أو placeholders. ' +
+            'أي JavaScript لازم يكون defensive: افحص العناصر قبل استخدامها، تجنب globals غير الضرورية، ومتخليش خطأ جزئي يفرغ الصفحة كلها. ممنوع document.write وeval وjavascript: URLs. ' +
+            'لو المستخدم طلب تعديل أو إصلاح، أصلح السبب الجذري وحافظ على السلوك الصحيح بدل patch مؤقت. لو المستخدم محتاج معاينة، رجع ملف كامل مش snippets متفرقة. ' +
+            'لو المستخدم لم يحدد Stack لموقع بسيط، أرجع ملف HTML واحد كامل بداخله CSS وJavaScript من غير imports خارجية غير لازمة. ' +
+            'ضع كل ملف كاملًا داخل fenced code block باسم اللغة. قبل الإرسال اعمل self-review: راجع إغلاق الوسوم، توازن الأقواس، imports، أسماء العناصر، event handlers، mobile layout، وأن الرد لا ينتهي في منتصف الملف.';
 
           const firstPass=await generateCodeStudioPass(
             apiKey,
             configuredModel,
             codeStudioSystem,
             contents,
-            websiteRequest?7800:6500,
+            websiteRequest?9200:7200,
             req.signal,
           );
 
@@ -2536,11 +2540,12 @@ Deno.serve(async (req) => {
           // quality path: refine layout, completeness, mobile behavior and visual polish.
           if(websiteRequest && !req.signal.aborted){
             const reviewSystem=
-              'أنت Senior Frontend Engineer وProduct Designer بتراجع مسودة موقع قبل تسليمها. ' +
-              'أعد كتابة الناتج كاملًا كنسخة نهائية أقوى بصريًا وتقنيًا. لا تشرح المراجعة ولا ترجع Patch. ' +
-              'حافظ على طلب المستخدم، أصلح أي HTML/CSS/JS ناقص، حسّن hierarchy وspacing وtypography وresponsive mobile، ' +
-              'وتأكد إن كل التفاعلات الأساسية شغالة. تجنب القوالب العامة والمبالغة البصرية. ' +
-              'أخرج فقط الرد النهائي ومعه ملف HTML كامل داخل ```html. لازم ينتهي بـ </body></html>.';
+              'أنت Lead Frontend Engineer وProduct Designer بتعمل final QA قبل تسليم موقع للمستخدم. ' +
+              'أعد كتابة الناتج كاملًا كنسخة نهائية أقوى بصريًا وتقنيًا، من غير شرح للمراجعة ومن غير Patch. ' +
+              'اختبر ذهنيًا: HTML semantics، viewport، إغلاق الوسوم، CSS responsive، overflow، mobile spacing، contrast، keyboard focus، event handlers، selectors، وحالات JavaScript runtime. ' +
+              'لو في أي كود ممكن يخلي الصفحة فاضية أو يرمي exception، أصلحه وخلي المحتوى الأساسي يفضل ظاهر حتى لو تفاعل ثانوي فشل. ' +
+              'حافظ على طلب المستخدم وهوية التصميم، وتجنب القوالب العامة والمبالغة في gradients/glows. ' +
+              'أخرج فقط النسخة النهائية ومعها ملف HTML كامل داخل ```html، ويجب أن يحتوي viewport وينتهي بـ </body></html>.';
 
             const reviewContents=[{
               role:'user',
@@ -2556,7 +2561,7 @@ Deno.serve(async (req) => {
               configuredModel,
               reviewSystem,
               reviewContents,
-              8200,
+              9800,
               req.signal,
             );
 
