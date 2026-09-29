@@ -46,3 +46,11 @@ test('live voice waits through pauses and barge-in stops local playback immediat
   assert.match(app,/sendActivity\('start'\)/);
   assert.match(app,/sendActivity\('end'\)/);
 });
+
+
+test('live voice starts from structured chat history',()=>{
+  assert.match(app,/const recentLiveHistory=/);
+  assert.match(app,/role:message\.role==='assistant'\?'model':'user'/);
+  assert.match(app,/historyConfig:\{initialHistoryInClientContent:true\}/);
+  assert.match(app,/turns:recentLiveHistory/);
+});
