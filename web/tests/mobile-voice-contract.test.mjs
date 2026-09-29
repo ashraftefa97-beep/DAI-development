@@ -20,35 +20,32 @@ test('mobile shell honors safe areas',()=>{
   assert.match(css,/safe-area-inset-right/);
 });
 
-test('live voice uses hybrid VAD with server speech detection and fast local finalization',()=>{
+test('live voice uses provider VAD and continuously streams microphone PCM',()=>{
   assert.match(app,/liveNoiseFloorRef/);
   assert.match(app,/disabled:false/);
   assert.match(app,/startOfSpeechSensitivity:'START_SENSITIVITY_HIGH'/);
   assert.match(app,/endOfSpeechSensitivity:'END_SENSITIVITY_LOW'/);
   assert.match(app,/silenceDurationMs:1200/);
   assert.match(app,/activityHandling:'START_OF_ACTIVITY_INTERRUPTS'/);
-  assert.match(app,/audioStreamEnd:true/);
   assert.match(app,/const chunkSamples=320/);
-  assert.match(app,/livePreRollPacketsRef\.current\.push\(\.\.\.packets\)/);
-  assert.match(app,/for\(const packet of preRoll\)sendAudioPacket\(packet\)/);
-  assert.match(app,/Once speech is confirmed, stream only that active turn/);
-  assert.doesNotMatch(app,/Hybrid VAD: continuously feed the provider/);
+  assert.match(app,/Server-VAD owns speech start\/end/);
+  assert.match(app,/for\(const packet of packets\)sendAudioPacket\(packet\)/);
+  assert.doesNotMatch(app,/Gate realtime audio with local VAD/);
 });
 
 
-test('live voice carries context and preserves natural pauses locally',()=>{
+test('live voice carries context while provider VAD preserves natural pauses',()=>{
   assert.match(app,/recentLiveHistory/);
-  assert.match(app,/sendAudioStreamEnd/);
-  assert.match(app,/endHoldMs=spokenMs<650\?1050:850/);
-  assert.match(app,/incompleteSpeechTail/);
+  assert.match(app,/silenceDurationMs:1200/);
+  assert.match(app,/TURN_INCLUDES_ONLY_ACTIVITY/);
   assert.match(app,/لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل/);
 });
 
 
-test('live voice preserves natural pauses and barge-in stops local playback immediately',()=>{
-  assert.match(app,/heldMs>=70/);
-  assert.match(app,/if\(outputSpeaking\)stopLivePlayback\(\)/);
-  assert.match(app,/audioStreamEnd:true/);
+test('live voice keeps local detection only for fast barge-in playback mute',()=>{
+  assert.match(app,/Local level detection is only a fast playback mute for barge-in/);
+  assert.match(app,/stopLivePlayback\(\)/);
+  assert.match(app,/bargeThreshold/);
 });
 
 
