@@ -84,7 +84,8 @@
         "NSMicrophoneUsageDescription": "DAI AI uses the microphone only when you choose voice mode.",
         "NSCameraUsageDescription": "DAI AI may use the camera only when you explicitly choose a camera feature.",
         "NSScreenCaptureDescription": "DAI AI can capture the screen only when you explicitly request a screen action."
-      }
+      },
+      "icon": "build/icon.png"
     },
     "dmg": {
       "title": "DAI AI ${version}",
