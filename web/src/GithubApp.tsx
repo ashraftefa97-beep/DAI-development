@@ -277,10 +277,53 @@ function splitCodeSegments(content:string):DaiCodeSegment[]{
   return [{type:'text',value:source}];
 }
 
+function repairPreviewDocument(value:string){
+  let html=String(value||'').trim();
+  if(!html)return '';
+
+  if(!/<!doctype\s+html/i.test(html))html='<!DOCTYPE html>'+html;
+  if(!/<html\b/i.test(html)){
+    html='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+html.replace(/^<!DOCTYPE html>/i,'')+'</body></html>';
+  }
+  if(!/<head\b/i.test(html)){
+    html=html.replace(/<html([^>]*)>/i,'<html$1><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>');
+  }
+  if(!/<meta[^>]+name=["']viewport["']/i.test(html)){
+    html=html.replace(/<head([^>]*)>/i,'<head$1><meta name="viewport" content="width=device-width,initial-scale=1">');
+  }
+  if(!/<body\b/i.test(html)){
+    html=html.replace(/<\/head>/i,'</head><body>');
+  }
+  if(!/<\/body\s*>/i.test(html))html=html.replace(/<\/html\s*>/i,'</body></html>');
+  if(!/<\/html\s*>/i.test(html))html+='</html>';
+
+  const runtimeGuard=`<script>
+  (function(){
+    function showDaiPreviewError(message){
+      if(document.getElementById('dai-preview-runtime-error'))return;
+      var box=document.createElement('div');
+      box.id='dai-preview-runtime-error';
+      box.setAttribute('role','alert');
+      box.style.cssText='position:fixed;z-index:2147483647;left:16px;right:16px;bottom:16px;padding:12px 14px;border-radius:12px;background:rgba(20,16,24,.94);color:#fff;border:1px solid rgba(246,169,193,.35);font:12px/1.6 system-ui;box-shadow:0 14px 40px rgba(0,0,0,.28)';
+      box.innerHTML='<b style="display:block;margin-bottom:3px;color:#ffd1df">DAI Preview</b><span>في جزء من JavaScript محتاج إصلاح: '+String(message||'Runtime error').replace(/[<>]/g,'')+'</span>';
+      (document.body||document.documentElement).appendChild(box);
+    }
+    window.addEventListener('error',function(event){showDaiPreviewError(event.message);});
+    window.addEventListener('unhandledrejection',function(event){showDaiPreviewError(event.reason&&event.reason.message||event.reason);});
+  })();
+  <\/script>`;
+
+  html=/<\/body>/i.test(html)
+    ? html.replace(/<\/body>/i,runtimeGuard+'</body>')
+    : html+runtimeGuard;
+  return html;
+}
+
 function htmlPreviewFromMessage(content:string){
   const code=splitCodeSegments(content).filter(
     (segment):segment is Extract<DaiCodeSegment,{type:'code'}>=>segment.type==='code'
   );
+
   const htmlBlock=code.find(segment=>
     ['html','htm',''].includes(segment.lang) &&
     /(?:<!doctype\s+html|<html\b|<body\b|<main\b|<section\b|<div\b)/i.test(segment.value)
@@ -297,23 +340,21 @@ function htmlPreviewFromMessage(content:string){
     .join('\n\n');
 
   let html=htmlBlock.value.trim();
-  if(!/<html\b/i.test(html)){
-    html='<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+html+'</body></html>';
-  }
   if(css){
-    const style='<style>'+css+'</style>';
+    const style='<style data-dai-preview-style>'+css+'</style>';
     html=/<\/head>/i.test(html)
       ? html.replace(/<\/head>/i,style+'</head>')
       : style+html;
   }
   if(js){
     const safeJs=js.replace(/<\/script/gi,'<\\/script');
-    const script='<script>'+safeJs+'</script>';
+    const script='<script data-dai-preview-script>'+safeJs+'</script>';
     html=/<\/body>/i.test(html)
       ? html.replace(/<\/body>/i,script+'</body>')
       : html+script;
   }
-  return html;
+
+  return repairPreviewDocument(html);
 }
 
 async function openHtmlPreview(html:string){
@@ -397,6 +438,7 @@ function DaiMessageContent({
         title='معاينة الموقع من ضي'
         srcDoc={preview}
         sandbox='allow-scripts allow-forms allow-modals allow-popups'
+        referrerPolicy='no-referrer'
         loading='eager'
       />
     </section>}
