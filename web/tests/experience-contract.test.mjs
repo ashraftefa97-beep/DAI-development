@@ -482,7 +482,7 @@ test('composer exposes direct Live Chat control',()=>{
 
 
 test('Live Chat behaves like a continuous conversation',()=>{
-  assert.match(voiceLive,/recentLiveContext/);
+  assert.match(voiceLive,/recentLiveHistory/);
   assert.match(voiceLive,/كمكالمة بشرية مستمرة/);
   assert.match(voiceLive,/اقطعي ردك فورًا/);
   assert.match(voiceLive,/TURN_INCLUDES_ONLY_ACTIVITY/);
@@ -500,7 +500,7 @@ test('Live Chat avoids assistant-style monologues',()=>{
 
 test('Live Chat injects real conversation history before microphone capture',()=>{
   assert.match(voiceLive,/historyConfig:\{initialHistoryInClientContent:true\}/);
-  assert.match(voiceLive,/clientContent:\{/);
+  assert.match(voiceLive,/clientContent:recentLiveHistory\.length/);
   assert.match(voiceLive,/turns:recentLiveHistory/);
   assert.match(voiceLive,/contextWindowCompression:\{slidingWindow:\{\}\}/);
   assert.doesNotMatch(voiceLive,/recentLiveContext/);
