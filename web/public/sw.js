@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v32-20260929-apple-logo';
+const CACHE_NAME = 'dai-web-v33-20260929-code-studio-preview';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
