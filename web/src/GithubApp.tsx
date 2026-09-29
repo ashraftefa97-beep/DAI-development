@@ -669,6 +669,8 @@ export default function GithubApp(){
   const liveReconnectAttemptsRef=useRef(0);
   const liveReconnectTimerRef=useRef<number|undefined>(undefined);
   const liveSessionResumeHandleRef=useRef('');
+  const livePrefetchedTokenRef=useRef<{token:string;model:string;expiresAt:number;newSessionExpiresAt:number}|null>(null);
+  const liveTokenPrefetchPromiseRef=useRef<Promise<void>|null>(null);
   const liveIntentionalCloseRef=useRef(false);
   const liveInputContextRef=useRef<AudioContext|null>(null);
   const liveOutputContextRef=useRef<AudioContext|null>(null);
@@ -2118,6 +2120,12 @@ export default function GithubApp(){
     load();
     return()=>{alive=false;};
   },[]);
+
+  useEffect(()=>{
+    if(!supabase||loadingData||!userId)return;
+    const timer=window.setTimeout(()=>{ void prefetchLiveToken(); },250);
+    return()=>window.clearTimeout(timer);
+  },[loadingData,userId]);
 
   useEffect(()=>{
     let cancelled=false;
@@ -4331,6 +4339,43 @@ export default function GithubApp(){
     return {ok:false,message:'الأمر المحلي غير معروف.'};
   }
 
+  async function prefetchLiveToken(){
+    if(!supabase||voiceSessionActiveRef.current)return;
+
+    const cached=livePrefetchedTokenRef.current;
+    if(cached&&cached.newSessionExpiresAt>Date.now()+5000)return;
+    if(liveTokenPrefetchPromiseRef.current){
+      await liveTokenPrefetchPromiseRef.current;
+      return;
+    }
+
+    const task=(async()=>{
+      try{
+        const result=await supabase.functions.invoke('live-token',{body:{}});
+        const data=result.data;
+        if(result.error||!data?.token)return;
+
+        const newSessionExpiresAt=Date.parse(String(data.newSessionExpiresAt||''));
+        const expiresAt=Date.parse(String(data.expiresAt||''));
+        if(!Number.isFinite(newSessionExpiresAt)||newSessionExpiresAt<=Date.now()+5000)return;
+
+        livePrefetchedTokenRef.current={
+          token:String(data.token),
+          model:String(data.model||'gemini-3.8-live'),
+          expiresAt:Number.isFinite(expiresAt)?expiresAt:Date.now()+25*60*1000,
+          newSessionExpiresAt
+        };
+      }catch(error){
+        console.debug('DAI live token prewarm skipped',error);
+      }finally{
+        liveTokenPrefetchPromiseRef.current=null;
+      }
+    })();
+
+    liveTokenPrefetchPromiseRef.current=task;
+    await task;
+  }
+
   async function startLiveVoice(reconnecting=false){
     if(!supabase||loadingData||sending||voiceSessionActiveRef.current)return;
     const clientSupabase=supabase;
@@ -4402,28 +4447,48 @@ export default function GithubApp(){
       liveOutputContextRef.current=outputCtx;
       liveOutputAnalyserRef.current=null;
 
-      const data=await runSupervised('live-token',async()=>{
-        const result=await clientSupabase.functions.invoke('live-token',{body:{}});
-        if(result.error||!result.data?.token){
-          throw new DaiSupervisorError(
-            'LIVE_TOKEN',
-            String((result.error as any)?.message||'live token unavailable'),
-            {retryable:true,cause:result.error}
-          );
-        }
-        return result.data;
-      },{
-        onRetry:(_failure,context)=>{
-          console.debug('DAI request supervisor retry',{
-            channel:'live-token',
-            attempt:context.attempt+1
-          });
-          setVoiceNotice('اتصال الصوت بيتجهز، ضي بتحاول تاني تلقائيًا…');
-        }
-      });
+      let data:any=null;
+
+      if(!reconnecting&&liveTokenPrefetchPromiseRef.current){
+        await liveTokenPrefetchPromiseRef.current;
+      }
+
+      const prefetched=!reconnecting?livePrefetchedTokenRef.current:null;
+      if(prefetched&&prefetched.newSessionExpiresAt>Date.now()+5000){
+        data={
+          token:prefetched.token,
+          model:prefetched.model,
+          expiresAt:new Date(prefetched.expiresAt).toISOString(),
+          newSessionExpiresAt:new Date(prefetched.newSessionExpiresAt).toISOString()
+        };
+        livePrefetchedTokenRef.current=null;
+      }
+
+      if(!data){
+        data=await runSupervised('live-token',async()=>{
+          const result=await clientSupabase.functions.invoke('live-token',{body:{}});
+          if(result.error||!result.data?.token){
+            throw new DaiSupervisorError(
+              'LIVE_TOKEN',
+              String((result.error as any)?.message||'live token unavailable'),
+              {retryable:true,cause:result.error}
+            );
+          }
+          return result.data;
+        },{
+          onRetry:(_failure,context)=>{
+            console.debug('DAI request supervisor retry',{
+              channel:'live-token',
+              attempt:context.attempt+1
+            });
+            setVoiceNotice('اتصال الصوت بيتجهز، ضي بتحاول تاني تلقائيًا…');
+          }
+        });
+      }
 
       const token=String(data.token);
       const model=String(data.model||'gemini-3.8-live');
+      setVoiceNotice('ضي بتفتح قناة الصوت…');
       const currentName=String(data.userName||userName||'صاحب الحساب').trim();
       const currentFirstName=currentName.split(/\s+/).filter(Boolean)[0]||'صاحب الحساب';
       const currentGender=String(data.userGender||userGender||'unspecified');
