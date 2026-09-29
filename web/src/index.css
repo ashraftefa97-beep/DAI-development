@@ -6580,15 +6580,16 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
 /* Minimal Classic DAI face for auth hero */
 .auth-hero-dai{
   position:absolute;
-  left:clamp(34px,5vw,94px);
-  top:58%;
-  width:230px;
-  height:230px;
-  transform:translateY(-50%);
+  left:clamp(34px,4.5vw,72px);
+  bottom:82px;
+  top:auto;
+  width:196px;
+  height:196px;
+  transform:none;
   display:grid;
   place-items:center;
   pointer-events:none;
-  opacity:.98;
+  opacity:.94;
 }
 .auth-hero-dai-halo{
   position:absolute;
@@ -6693,8 +6694,8 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   46.2%{ transform:scaleY(.10); }
 }
 @keyframes authDaiBreathe{
-  0%,100%{ transform:translateY(-50%) scale(1); }
-  50%{ transform:translateY(calc(-50% - 4px)) scale(1.01); }
+  0%,100%{ transform:translateY(0) scale(1); }
+  50%{ transform:translateY(-4px) scale(1.01); }
 }
 
 @media(min-width:861px){
@@ -6713,10 +6714,11 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
 
 @media(max-width:1080px) and (min-width:861px){
   .auth-hero-dai{
-    left:12px;
-    width:190px;
-    height:190px;
-    opacity:.88;
+    left:18px;
+    bottom:68px;
+    width:168px;
+    height:168px;
+    opacity:.86;
   }
   .auth-hero-dai-face{
     width:128px;
