@@ -1,16 +1,20 @@
 {
   "name": "dai-ai-desktop",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "DAI AI desktop companion for Windows",
+  "description": "DAI AI desktop companion for Windows and macOS",
   "main": "main.cjs",
   "author": "DAI AI",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "electron .",
-    "dist": "electron-builder --win nsis --x64",
+    "dist:win": "electron-builder --win nsis --x64",
+    "dist:mac": "electron-builder --mac dmg --x64 --arm64",
+    "dist": "electron-builder",
     "prepare-installer-assets": "node scripts/prepare-installer-assets.mjs",
-    "predist": "npm run prepare-installer-assets"
+    "predist": "npm run prepare-installer-assets",
+    "predist:win": "npm run prepare-installer-assets",
+    "predist:mac": "npm run prepare-installer-assets"
   },
   "devDependencies": {
     "electron": "^38.1.2",
@@ -21,7 +25,6 @@
   "build": {
     "appId": "ai.dai.desktop",
     "productName": "DAI AI",
-    "artifactName": "DAI-AI-Setup-${version}.${ext}",
     "asar": true,
     "files": [
       "main.cjs",
@@ -41,7 +44,8 @@
           ]
         }
       ],
-      "icon": "build/icon.svg"
+      "icon": "build/icon.svg",
+      "artifactName": "DAI-AI-Windows-Setup-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -63,6 +67,41 @@
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/uninstallerSidebar.bmp",
       "include": "build/installer.nsh"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "artifactName": "DAI-AI-macOS-${version}-${arch}.${ext}",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "DAI AI uses the microphone only when you choose voice mode.",
+        "NSCameraUsageDescription": "DAI AI may use the camera only when you explicitly choose a camera feature.",
+        "NSScreenCaptureDescription": "DAI AI can capture the screen only when you explicitly request a screen action."
+      }
+    },
+    "dmg": {
+      "title": "DAI AI ${version}",
+      "iconSize": 96,
+      "contents": [
+        {
+          "x": 130,
+          "y": 210,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 210,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
     }
   }
 }
