@@ -79,6 +79,9 @@ export class DaiMotion {
     this.pointer = {x:0,y:0}; this.mouseInside = this.dragging = false;
     this.offset = {x:0,y:0}; this.offsetTarget = {x:0,y:0};
     this.particles = []; this.caught = false; this.audioEvents = [];
+    this.handExitPose=null;
+    this.handExitStartedAt=0;
+    this.handExitUntil=0;
     this.pose = this.targets();
     this.poseVelocity=Object.fromEntries(Object.keys(this.pose).map(key=>[key,0]));
   }
@@ -159,6 +162,16 @@ export class DaiMotion {
       voiceActive:this.voiceDriven||this.voice>.04
     });
     const externalChanged=this.requestedGesture!==requested;
+    if(externalChanged&&this.pose&&((Number(this.pose.la)||0)>.035||(Number(this.pose.ra)||0)>.035)){
+      this.handExitPose={
+        la:Number(this.pose.la)||0,ra:Number(this.pose.ra)||0,
+        lx:Number(this.pose.lx)||-118,ly:Number(this.pose.ly)||72,
+        rx:Number(this.pose.rx)||118,ry:Number(this.pose.ry)||72,
+        lr:Number(this.pose.lr)||-10,rr:Number(this.pose.rr)||10
+      };
+      this.handExitStartedAt=this.elapsed;
+      this.handExitUntil=this.elapsed+(this.reduced?.30:.72);
+    }
     this.requestedGesture=requested;
     if(requested!=='idle')this.lastMeaningfulAt=this.elapsed;
     this.animationLockUntil=this.elapsed+(transition.lockMs||0)/1000;
@@ -1013,13 +1026,46 @@ export class DaiMotion {
     }
     this.audioTarget*=Math.exp(-dt*1.7);
     const target=this.targets();
+
+    let handExitScale=0;
+    if(this.handExitPose&&this.elapsed<this.handExitUntil){
+      const duration=Math.max(.001,this.handExitUntil-this.handExitStartedAt);
+      const progress=clamp((this.elapsed-this.handExitStartedAt)/duration,0,1);
+      const smooth=progress*progress*(3-2*progress);
+      handExitScale=1-smooth;
+
+      // Keep the previous hand pose alive while easing it back to rest.
+      // This survives semantic state changes such as wave -> idle.
+      const out=this.handExitPose;
+      const restL={x:-118,y:72,r:-10};
+      const restR={x:118,y:72,r:10};
+
+      if((out.la||0)>.01&&(target.la||0)<(out.la||0)*handExitScale){
+        target.la=out.la;
+        target.lx=out.lx+(restL.x-out.lx)*smooth;
+        target.ly=out.ly+(restL.y-out.ly)*smooth;
+        target.lr=out.lr+(restL.r-out.lr)*smooth;
+      }
+      if((out.ra||0)>.01&&(target.ra||0)<(out.ra||0)*handExitScale){
+        target.ra=out.ra;
+        target.rx=out.rx+(restR.x-out.rx)*smooth;
+        target.ry=out.ry+(restR.y-out.ry)*smooth;
+        target.rr=out.rr+(restR.r-out.rr)*smooth;
+      }
+    }else if(this.handExitPose){
+      this.handExitPose=null;
+      this.handExitStartedAt=0;
+      this.handExitUntil=0;
+    }
+
     const speechFace=this.gesture==='talk'||this.state==='talking';
     const restingHands=handsShouldRest({
       mode:animationModeForGesture(this.requestedGesture),
       requestedGesture:this.requestedGesture,
       activeGesture:this.gesture,
       gestureTime:this.gestureTime,
-      allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture)
+      allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture),
+      handExitScale
     });
     const activeMode=animationModeForGesture(this.requestedGesture);
 
@@ -1143,6 +1189,7 @@ export class DaiMotion {
       activeGesture:this.gesture,
       gestureTime:this.gestureTime,
       allowHands:avatarAllowsHandGesture(this.avatarStyle,this.requestedGesture),
+      handExitScale,
       accessory:liveAccessory,
       reduced:this.reduced
     });
