@@ -667,6 +667,7 @@ export default function GithubApp(){
   const liveSocketRef=useRef<WebSocket|null>(null);
   const liveReconnectAttemptsRef=useRef(0);
   const liveReconnectTimerRef=useRef<number|undefined>(undefined);
+  const liveSessionResumeHandleRef=useRef('');
   const liveIntentionalCloseRef=useRef(false);
   const liveInputContextRef=useRef<AudioContext|null>(null);
   const liveOutputContextRef=useRef<AudioContext|null>(null);
@@ -3936,17 +3937,6 @@ export default function GithubApp(){
     livePreRollPacketsRef.current=[];
     liveInputPcmBufferRef.current=new Float32Array(0);
 
-    const sendActivity=(kind:'start'|'end')=>{
-      if(socket.readyState!==WebSocket.OPEN)return;
-      try{
-        socket.send(JSON.stringify({
-          realtimeInput:kind==='start'?{activityStart:{}}:{activityEnd:{}}
-        }));
-      }catch(error){
-        console.debug('DAI live activity signal failed',kind,error);
-      }
-    };
-
     const sendAudioPacket=(audioData:string)=>{
       if(socket.readyState!==WebSocket.OPEN)return;
       socket.send(JSON.stringify({
@@ -3957,6 +3947,15 @@ export default function GithubApp(){
           }
         }
       }));
+    };
+
+    const sendAudioStreamEnd=()=>{
+      if(socket.readyState!==WebSocket.OPEN)return;
+      try{
+        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
+      }catch(error){
+        console.debug('DAI live stream-end signal failed',error);
+      }
     };
 
     const incompleteSpeechTail=()=>{
@@ -3986,7 +3985,7 @@ export default function GithubApp(){
       combined.set(resampled,previous.length);
 
       const packets:string[]=[];
-      const chunkSamples=320; // 20 ms at 16 kHz.
+      const chunkSamples=320; // 20 ms at 16 kHz keeps conversational latency low.
       let offset=0;
       while(offset+chunkSamples<=combined.length){
         const packet=combined.slice(offset,offset+chunkSamples);
@@ -3995,23 +3994,18 @@ export default function GithubApp(){
       }
       liveInputPcmBufferRef.current=combined.slice(offset);
 
+      // Hybrid VAD: continuously feed the provider so it can preserve the
+      // beginning of speech, while local VAD only accelerates end-of-turn and
+      // mutes DAI immediately when the user genuinely barges in.
+      for(const packet of packets)sendAudioPacket(packet);
+
       const baseStartThreshold=Math.max(.016,Math.min(.060,liveNoiseFloorRef.current*2.35));
       const startThreshold=outputSpeaking
-        ? Math.max(.026,baseStartThreshold*1.28)
+        ? Math.max(.045,baseStartThreshold*1.80)
         : baseStartThreshold;
-      const continueThreshold=Math.max(.010,startThreshold*.58);
+      const continueThreshold=Math.max(.010,startThreshold*.56);
 
       if(!liveClientActivityRef.current){
-        // Preserve about 200 ms before the detected onset so the first syllable
-        // is never clipped when we switch from silence to active speech.
-        if(packets.length){
-          livePreRollPacketsRef.current.push(...packets);
-          if(livePreRollPacketsRef.current.length>10){
-            livePreRollPacketsRef.current.splice(0,livePreRollPacketsRef.current.length-10);
-          }
-        }
-
-        // Learn the actual room floor only while the user is not speaking.
         if(!outputSpeaking&&level<Math.max(.032,liveNoiseFloorRef.current*2.3)){
           liveNoiseFloorRef.current=
             liveNoiseFloorRef.current*.975+
@@ -4023,20 +4017,14 @@ export default function GithubApp(){
             liveClientStartCandidateAtRef.current=now;
           }
           const heldMs=now-liveClientStartCandidateAtRef.current;
-          if(heldMs>=55){
+          if(heldMs>=70){
             liveClientActivityRef.current=true;
             liveClientSpeechStartedAtRef.current=now;
             liveClientLastVoiceAtRef.current=now;
             liveLastSpeechAtRef.current=now;
             liveTurnCompleteRef.current=false;
 
-            // Manual activityStart is the authoritative barge-in signal.
-            // Stop local playback immediately so the user never talks over DAI.
             if(outputSpeaking)stopLivePlayback();
-            sendActivity('start');
-
-            for(const preRoll of livePreRollPacketsRef.current)sendAudioPacket(preRoll);
-            livePreRollPacketsRef.current=[];
             liveClientStartCandidateAtRef.current=0;
             setVoiceSessionStatus('listening');
             transitionCorePhase('listening',{force:true});
@@ -4047,8 +4035,6 @@ export default function GithubApp(){
         return;
       }
 
-      for(const packet of packets)sendAudioPacket(packet);
-
       if(level>=continueThreshold){
         liveClientLastVoiceAtRef.current=now;
         liveLastSpeechAtRef.current=now;
@@ -4057,16 +4043,15 @@ export default function GithubApp(){
 
       const spokenMs=now-liveClientSpeechStartedAtRef.current;
       const silentMs=now-liveClientLastVoiceAtRef.current;
-      let endHoldMs=spokenMs<650?1450:1120;
-      if(incompleteSpeechTail())endHoldMs=1750;
+      let endHoldMs=spokenMs<650?1050:850;
+      if(incompleteSpeechTail())endHoldMs=1500;
 
       if(silentMs>=endHoldMs){
-        sendActivity('end');
+        sendAudioStreamEnd();
         liveClientActivityRef.current=false;
         liveClientSpeechStartedAtRef.current=0;
         liveClientLastVoiceAtRef.current=0;
         liveClientStartCandidateAtRef.current=0;
-        livePreRollPacketsRef.current=[];
         setVoiceNotice('سمعتك… ضي بترد.');
         transitionCorePhase('understanding',{force:true});
       }
@@ -4074,7 +4059,7 @@ export default function GithubApp(){
 
     setListening(true);
     setVoiceSessionStatus('listening');
-    setVoiceNotice('اتكلم براحتك… ضي مستنياك.');
+    setVoiceNotice('اتكلم براحتك… ضي سامعاك.');
     transitionCorePhase('listening',{force:true});
   }
 
@@ -4163,6 +4148,7 @@ export default function GithubApp(){
     if(intentional){
       liveIntentionalCloseRef.current=true;
       liveReconnectAttemptsRef.current=0;
+      liveSessionResumeHandleRef.current='';
       if(liveReconnectTimerRef.current){
         window.clearTimeout(liveReconnectTimerRef.current);
         liveReconnectTimerRef.current=undefined;
@@ -4180,9 +4166,7 @@ export default function GithubApp(){
     const socket=liveSocketRef.current;
     liveSocketRef.current=null;
     if(socket&&socket.readyState===WebSocket.OPEN){
-      if(liveClientActivityRef.current){
-        try{socket.send(JSON.stringify({realtimeInput:{activityEnd:{}}}));}catch{}
-      }
+      try{socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));}catch{}
       try{socket.close(1000,'user-ended');}catch{}
     }
 
@@ -4395,6 +4379,7 @@ export default function GithubApp(){
     if(!reconnecting){
       resetSupervisorHealth('live-token');
       liveReconnectAttemptsRef.current=0;
+      liveSessionResumeHandleRef.current='';
       liveIntentionalCloseRef.current=false;
       if(liveReconnectTimerRef.current){
         window.clearTimeout(liveReconnectTimerRef.current);
@@ -4486,6 +4471,7 @@ export default function GithubApp(){
           parts:[{text:String(message.content||'').replace(/\s+/g,' ').trim().slice(0,1200)}]
         }))
         .filter(turn=>Boolean(turn.parts[0].text));
+      const resumeHandle=reconnecting?liveSessionResumeHandleRef.current:'';
 
       const socket=new WebSocket(
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
@@ -4656,11 +4642,18 @@ export default function GithubApp(){
               }
             },
             realtimeInputConfig:{
-              automaticActivityDetection:{disabled:true},
+              automaticActivityDetection:{
+                disabled:false,
+                startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
+                endOfSpeechSensitivity:'END_SENSITIVITY_LOW',
+                prefixPaddingMs:80,
+                silenceDurationMs:1200
+              },
               activityHandling:'START_OF_ACTIVITY_INTERRUPTS',
               turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'
             },
-            historyConfig:{initialHistoryInClientContent:true},
+            historyConfig:{initialHistoryInClientContent:!resumeHandle},
+            sessionResumption:resumeHandle?{handle:resumeHandle}:{},
             contextWindowCompression:{slidingWindow:{}},
             systemInstruction:{parts:[{text:systemText}]},
             tools:[
@@ -4677,6 +4670,11 @@ export default function GithubApp(){
       socket.onmessage=async (event)=>{
         let payload:any;
         try{payload=JSON.parse(String(event.data||'{}'));}catch{return;}
+
+        const resumption=payload?.sessionResumptionUpdate;
+        if(resumption?.resumable&&resumption?.newHandle){
+          liveSessionResumeHandleRef.current=String(resumption.newHandle);
+        }
 
         if(payload?.toolCall?.functionCalls?.length){
           const functionResponses=[];
@@ -4701,14 +4699,16 @@ export default function GithubApp(){
         if(payload?.setupComplete){
           liveReconnectAttemptsRef.current=0;
           setErrorText('');
-          try{
-            socket.send(JSON.stringify({
-              clientContent:recentLiveHistory.length
-                ? {turns:recentLiveHistory,turnComplete:true}
-                : {turnComplete:true}
-            }));
-          }catch(error){
-            console.debug('DAI live initial history failed',error);
+          if(!resumeHandle){
+            try{
+              socket.send(JSON.stringify({
+                clientContent:recentLiveHistory.length
+                  ? {turns:recentLiveHistory,turnComplete:true}
+                  : {turnComplete:true}
+              }));
+            }catch(error){
+              console.debug('DAI live initial history failed',error);
+            }
           }
           void (warmMicPromise||Promise.reject(new Error('microphone-unavailable')))
             .then(stream=>startLiveCapture(socket,stream))
