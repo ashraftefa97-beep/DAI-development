@@ -15,7 +15,9 @@ test('DAI renders generated HTML inline and in a server-backed preview page',()=
   assert.match(app,/functions\/v1\/code-preview/);
   assert.match(app,/previewWindow\.location\.replace/);
   assert.match(preview,/functions\/v1\/code-preview\?token=/);
-  assert.match(preview,/frame\.src=endpoint/);
+  assert.match(preview,/fetch\(endpoint,\{cache:'no-store'\}\)/);
+  assert.match(app,/function repairPreviewDocument/);
+  assert.match(app,/dai-preview-runtime-error/);
 });
 
 test('online coding uses the stronger server DAI Code Studio instead of the small local model',()=>{
@@ -28,14 +30,20 @@ test('online coding uses the stronger server DAI Code Studio instead of the smal
 test('DAI Code Studio gives full websites a senior design review pass',()=>{
   assert.match(edge,/Senior Frontend Engineer/);
   assert.match(edge,/Product Designer/);
-  assert.match(edge,/websiteRequest\?7800:6500/);
-  assert.match(edge,/8200/);
+  assert.match(edge,/websiteRequest\?9200:7200/);
+  assert.match(edge,/9800/);
   assert.match(edge,/websiteCodeLooksComplete/);
-  assert.match(edge,/responsive mobile/);
+  assert.match(edge,/responsive/);
 });
 
 test('the local coder remains a capable offline fallback asset',()=>{
-  assert.match(coder,/max_tokens:6000/);
+  assert.match(coder,/max_tokens:7600/);
   assert.match(coder,/production-ready/);
   assert.match(coder,/responsive/);
+});
+
+
+test('preview shell has no literal escaped-newline syntax bug',()=>{
+  assert.doesNotMatch(preview,/\}\s*\\n\\n\s*fetch\(/);
+  assert.match(preview,/frame\.addEventListener\('error'/);
 });
