@@ -499,6 +499,13 @@ test('Live Chat avoids assistant-style monologues',()=>{
 });
 
 
+test('Live Chat keeps silence local after audioStreamEnd until real speech returns',()=>{
+  assert.match(voiceLive,/livePreRollPacketsRef\.current\.push\(\.\.\.packets\)/);
+  assert.match(voiceLive,/const preRoll=livePreRollPacketsRef\.current\.splice\(0\)/);
+  assert.match(voiceLive,/for\(const packet of preRoll\)sendAudioPacket\(packet\)/);
+  assert.match(voiceLive,/Once speech is confirmed, stream only that active turn/);
+});
+
 test('Live Chat injects history once and resumes the same live session after reconnects',()=>{
   assert.match(voiceLive,/historyConfig:\{initialHistoryInClientContent:!resumeHandle\}/);
   assert.match(voiceLive,/sessionResumption:resumeHandle\?\{handle:resumeHandle\}:\{\}/);
