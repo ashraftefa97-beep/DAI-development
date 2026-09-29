@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v28-20260929-auth-face-position';
+const CACHE_NAME = 'dai-web-v29-20260929-auth-face-anchor';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
