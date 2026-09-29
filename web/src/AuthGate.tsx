@@ -422,6 +422,14 @@ export default function AuthGate({ children }: { children: ReactNode }) {
               <h2>أفكارك، شغلك، يومك.<br/><em>كلهم مع ضي.</em></h2>
               <p>اسأل، ابحث، اتكلم، وابعت ملفاتك. ضي مصممة تبقى مساعدتك اليومية بهدوء وسرعة من غير زحمة.</p>
 
+              <div className='auth-feature-pills' aria-label='مميزات ضي'>
+                <span>بحث وفهم أسرع</span>
+                <span>صوت طبيعي</span>
+                <span>صور وملفات</span>
+                <span>ذاكرة اختيارية</span>
+              </div>
+            </div>
+
               <div className='auth-hero-dai' aria-hidden='true'>
                 <div className='auth-hero-dai-halo'/>
                 <div className='auth-hero-dai-face'>
@@ -436,14 +444,6 @@ export default function AuthGate({ children }: { children: ReactNode }) {
                 <i className='auth-hero-dai-ring ring-one'/>
                 <i className='auth-hero-dai-ring ring-two'/>
               </div>
-
-              <div className='auth-feature-pills' aria-label='مميزات ضي'>
-                <span>بحث وفهم أسرع</span>
-                <span>صوت طبيعي</span>
-                <span>صور وملفات</span>
-                <span>ذاكرة اختيارية</span>
-              </div>
-            </div>
 
             <div className='auth-showcase-foot'>
               <span className='auth-ready'><i/> ضي جاهزة</span>
