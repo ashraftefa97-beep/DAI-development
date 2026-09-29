@@ -64,7 +64,8 @@ const HAND_INTENT_WINDOWS=Object.freeze({
 });
 
 export function handIntentScale(context={}){
-  if(context.allowHands===false)return 0;
+  const exitScale=clamp(Number(context.handExitScale)||0,0,1);
+  if(context.allowHands===false&&exitScale<=.001)return 0;
   const requested=String(context.requestedGesture||'idle');
   // Only Classic grants search-hand permission. Keep its original magic-search
   // pose alive for the full search instead of fading it after two seconds.
@@ -72,11 +73,11 @@ export function handIntentScale(context={}){
   const active=String(context.activeGesture||requested);
   const gesture=HAND_INTENT_WINDOWS[requested]!=null?requested:
     HAND_INTENT_WINDOWS[active]!=null?active:null;
-  if(!gesture)return 0;
+  if(!gesture)return exitScale;
 
   const maxHold=Number(HAND_INTENT_WINDOWS[gesture])||0;
   const age=Math.max(0,Number(context.gestureTime)||0);
-  if(age<=maxHold)return 1;
+  if(age<=maxHold)return Math.max(1,exitScale);
 
   // Give the hand enough time to visually settle instead of disappearing
   // in a couple of frames. Smoothstep keeps both ends velocity-free.
@@ -84,7 +85,7 @@ export function handIntentScale(context={}){
   if(age>=maxHold+fade)return 0;
   const progress=clamp((age-maxHold)/fade,0,1);
   const smooth=progress*progress*(3-2*progress);
-  return 1-smooth;
+  return Math.max(1-smooth,exitScale);
 }
 
 export function handsShouldRest(context={}){
