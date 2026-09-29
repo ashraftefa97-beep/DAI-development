@@ -24,10 +24,12 @@ test('live voice uses provider VAD and continuously streams microphone PCM',()=>
   assert.match(app,/liveNoiseFloorRef/);
   assert.match(app,/disabled:false/);
   assert.match(app,/startOfSpeechSensitivity:'START_SENSITIVITY_HIGH'/);
-  assert.match(app,/endOfSpeechSensitivity:'END_SENSITIVITY_LOW'/);
-  assert.match(app,/silenceDurationMs:1200/);
+  assert.match(app,/endOfSpeechSensitivity:'END_SENSITIVITY_HIGH'/);
+  assert.match(app,/silenceDurationMs:600/);
   assert.match(app,/activityHandling:'START_OF_ACTIVITY_INTERRUPTS'/);
   assert.match(app,/const chunkSamples=320/);
+  assert.match(app,/liveTokenPrefetchPromiseRef/);
+  assert.match(app,/prefetchLiveToken/);
   assert.match(app,/Server-VAD owns speech start\/end/);
   assert.match(app,/for\(const packet of packets\)sendAudioPacket\(packet\)/);
   assert.doesNotMatch(app,/Gate realtime audio with local VAD/);
@@ -36,7 +38,7 @@ test('live voice uses provider VAD and continuously streams microphone PCM',()=>
 
 test('live voice carries context while provider VAD preserves natural pauses',()=>{
   assert.match(app,/recentLiveHistory/);
-  assert.match(app,/silenceDurationMs:1200/);
+  assert.match(app,/silenceDurationMs:600/);
   assert.match(app,/TURN_INCLUDES_ONLY_ACTIVITY/);
   assert.match(app,/لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل/);
 });
