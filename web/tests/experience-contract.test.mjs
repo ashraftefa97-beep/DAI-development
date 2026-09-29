@@ -305,8 +305,8 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v35-20260929-natural-live-chat/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.11'/);
+  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.12'/);
 });
 
 
@@ -388,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v35-20260929-natural-live-chat/);
+  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -426,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v35-20260929-natural-live-chat/);
+  assert.match(sw,/dai-web-v36-20260929-live-conversation/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
@@ -482,8 +482,16 @@ test('composer exposes direct Live Chat control',()=>{
 
 
 test('Live Chat behaves like a continuous conversation',()=>{
-  assert.match(voiceLive,/silenceDurationMs:680/);
+  assert.match(voiceLive,/silenceDurationMs:900/);
   assert.match(voiceLive,/recentLiveContext/);
   assert.match(voiceLive,/مكالمة طبيعية مستمرة/);
   assert.match(voiceLive,/توقفي فورًا واسمعيه/);
+});
+
+
+test('Live Chat avoids assistant-style monologues',()=>{
+  assert.match(voiceLive,/ممنوع في اللايف القوائم/);
+  assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
+  assert.match(voiceLive,/END_SENSITIVITY_LOW/);
+  assert.match(voiceLive,/Number\.POSITIVE_INFINITY/);
 });
