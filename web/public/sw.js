@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v33-20260929-code-studio-preview';
+const CACHE_NAME = 'dai-web-v34-20260929-live-chat-button';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
