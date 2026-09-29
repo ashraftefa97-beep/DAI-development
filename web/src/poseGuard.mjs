@@ -78,9 +78,13 @@ export function handIntentScale(context={}){
   const age=Math.max(0,Number(context.gestureTime)||0);
   if(age<=maxHold)return 1;
 
-  const fade=.34;
+  // Give the hand enough time to visually settle instead of disappearing
+  // in a couple of frames. Smoothstep keeps both ends velocity-free.
+  const fade=.72;
   if(age>=maxHold+fade)return 0;
-  return Math.max(0,1-(age-maxHold)/fade);
+  const progress=clamp((age-maxHold)/fade,0,1);
+  const smooth=progress*progress*(3-2*progress);
+  return 1-smooth;
 }
 
 export function handsShouldRest(context={}){
@@ -99,8 +103,27 @@ export function applyNaturalHandPolicy(p,context={}){
     return p;
   }
 
-  p.la=(Number(p.la)||0)*scale;
-  p.ra=(Number(p.ra)||0)*scale;
+  const originalLa=Number(p.la)||0;
+  const originalRa=Number(p.ra)||0;
+  p.la=originalLa*scale;
+  p.ra=originalRa*scale;
+
+  // As the hand fades, ease its geometry back toward the natural resting
+  // position too. This prevents a floating hand from vanishing in-place.
+  if(scale<1){
+    const settle=1-scale;
+    const eased=settle*settle*(3-2*settle);
+    if(originalLa>.01){
+      p.lx=(Number(p.lx)||-118)+(-118-(Number(p.lx)||-118))*eased;
+      p.ly=(Number(p.ly)||72)+(72-(Number(p.ly)||72))*eased;
+      p.lr=(Number(p.lr)||-10)+(-10-(Number(p.lr)||-10))*eased;
+    }
+    if(originalRa>.01){
+      p.rx=(Number(p.rx)||118)+(118-(Number(p.rx)||118))*eased;
+      p.ry=(Number(p.ry)||72)+(72-(Number(p.ry)||72))*eased;
+      p.rr=(Number(p.rr)||10)+(10-(Number(p.rr)||10))*eased;
+    }
+  }
 
   // Even intentional gestures should not keep two hands equally dominant
   // unless the gesture itself clearly calls for both hands.
