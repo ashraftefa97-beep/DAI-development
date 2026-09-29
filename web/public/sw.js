@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v35-20260929-natural-live-chat';
+const CACHE_NAME = 'dai-web-v36-20260929-live-conversation';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
