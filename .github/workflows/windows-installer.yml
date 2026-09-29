@@ -41,7 +41,7 @@ jobs:
           $ErrorActionPreference = "Continue"
           for ($attempt = 1; $attempt -le 3; $attempt++) {
             Write-Host "Build attempt $attempt of 3"
-            npm run dist -- --publish never
+            npm run dist:win -- --publish never
             if ($LASTEXITCODE -eq 0) { exit 0 }
             if ($attempt -lt 3) {
               Write-Host "Build download failed; retrying in 15 seconds..."
