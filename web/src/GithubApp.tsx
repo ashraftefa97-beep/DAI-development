@@ -3949,25 +3949,6 @@ export default function GithubApp(){
       }));
     };
 
-    const sendAudioStreamEnd=()=>{
-      if(socket.readyState!==WebSocket.OPEN)return;
-      try{
-        socket.send(JSON.stringify({realtimeInput:{audioStreamEnd:true}}));
-      }catch(error){
-        console.debug('DAI live stream-end signal failed',error);
-      }
-    };
-
-    const incompleteSpeechTail=()=>{
-      const tail=liveInputTranscriptRef.current
-        .trim()
-        .toLowerCase()
-        .split(/\s+/)
-        .slice(-3)
-        .join(' ');
-      return /(?:^|\s)(?:و|بس|يعني|عشان|علشان|لأن|لان|لو|طب|طيب|and|but|so|because|if|then|like|well)$/.test(tail);
-    };
-
     processor.onaudioprocess=(event)=>{
       if(!voiceSessionActiveRef.current||socket.readyState!==WebSocket.OPEN)return;
 
@@ -3994,84 +3975,44 @@ export default function GithubApp(){
       }
       liveInputPcmBufferRef.current=combined.slice(offset);
 
-      // Gate realtime audio with local VAD. While the user is silent (or DAI is
-      // replying), keep only a short local pre-roll and do NOT send PCM to the
-      // provider. This prevents audioStreamEnd from being immediately followed
-      // by silence packets that reopen the stream and interrupt DAI's reply.
-      const baseStartThreshold=Math.max(.016,Math.min(.060,liveNoiseFloorRef.current*2.35));
-      const startThreshold=outputSpeaking
-        ? Math.max(.045,baseStartThreshold*1.80)
-        : baseStartThreshold;
-      const continueThreshold=Math.max(.010,startThreshold*.56);
-
-      if(!liveClientActivityRef.current){
-        if(packets.length){
-          livePreRollPacketsRef.current.push(...packets);
-          if(livePreRollPacketsRef.current.length>12){
-            livePreRollPacketsRef.current=livePreRollPacketsRef.current.slice(-12);
-          }
-        }
-
-        if(!outputSpeaking&&level<Math.max(.032,liveNoiseFloorRef.current*2.3)){
-          liveNoiseFloorRef.current=
-            liveNoiseFloorRef.current*.975+
-            Math.max(.0025,level)*.025;
-        }
-
-        if(level>=startThreshold){
-          if(!liveClientStartCandidateAtRef.current){
-            liveClientStartCandidateAtRef.current=now;
-          }
-          const heldMs=now-liveClientStartCandidateAtRef.current;
-          if(heldMs>=70){
-            liveClientActivityRef.current=true;
-            liveClientSpeechStartedAtRef.current=now;
-            liveClientLastVoiceAtRef.current=now;
-            liveLastSpeechAtRef.current=now;
-            liveTurnCompleteRef.current=false;
-
-            if(outputSpeaking)stopLivePlayback();
-
-            // audioStreamEnd closes the current realtime audio stream. The first
-            // speech after it reopens the stream, including a short pre-roll so
-            // the first syllable is not clipped.
-            const preRoll=livePreRollPacketsRef.current.splice(0);
-            for(const packet of preRoll)sendAudioPacket(packet);
-
-            liveClientStartCandidateAtRef.current=0;
-            setVoiceSessionStatus('listening');
-            transitionCorePhase('listening',{force:true});
-          }
-        }else if(level<startThreshold*.72){
-          liveClientStartCandidateAtRef.current=0;
-        }
-        return;
-      }
-
-      // Once speech is confirmed, stream only that active turn (including its
-      // natural short pauses) until local endpointing closes the audio stream.
+      // Server-VAD owns speech start/end. Keep the realtime PCM stream open and
+      // continuous so quiet voices and short phrases are never dropped by a
+      // second client-side gate. audioStreamEnd is reserved for actually
+      // stopping the microphone/session.
       for(const packet of packets)sendAudioPacket(packet);
 
-      if(level>=continueThreshold){
-        liveClientLastVoiceAtRef.current=now;
-        liveLastSpeechAtRef.current=now;
+      if(!outputSpeaking){
+        if(level<Math.max(.025,liveNoiseFloorRef.current*2.1)){
+          liveNoiseFloorRef.current=
+            liveNoiseFloorRef.current*.98+
+            Math.max(.0025,level)*.02;
+        }
+        liveClientStartCandidateAtRef.current=0;
+        liveBargeFramesRef.current=0;
         return;
       }
 
-      const spokenMs=now-liveClientSpeechStartedAtRef.current;
-      const silentMs=now-liveClientLastVoiceAtRef.current;
-      let endHoldMs=spokenMs<650?1050:850;
-      if(incompleteSpeechTail())endHoldMs=1500;
-
-      if(silentMs>=endHoldMs){
-        sendAudioStreamEnd();
-        liveClientActivityRef.current=false;
-        liveClientSpeechStartedAtRef.current=0;
-        liveClientLastVoiceAtRef.current=0;
+      // Local level detection is only a fast playback mute for barge-in.
+      // The provider remains the authority for interruption and turn boundaries.
+      const bargeThreshold=Math.max(.022,Math.min(.075,liveNoiseFloorRef.current*2.4));
+      if(level>=bargeThreshold){
+        if(!liveClientStartCandidateAtRef.current){
+          liveClientStartCandidateAtRef.current=now;
+        }
+        liveBargeFramesRef.current++;
+        if(now-liveClientStartCandidateAtRef.current>=90&&liveBargeFramesRef.current>=2){
+          liveClientStartCandidateAtRef.current=0;
+          liveBargeFramesRef.current=0;
+          liveLastSpeechAtRef.current=now;
+          liveTurnCompleteRef.current=false;
+          stopLivePlayback();
+          setVoiceSessionStatus('listening');
+          setVoiceNotice('سامعاك… كمّل.');
+          transitionCorePhase('listening',{force:true});
+        }
+      }else if(level<bargeThreshold*.68){
         liveClientStartCandidateAtRef.current=0;
-        livePreRollPacketsRef.current=[];
-        setVoiceNotice('سمعتك… ضي بترد.');
-        transitionCorePhase('understanding',{force:true});
+        liveBargeFramesRef.current=0;
       }
     };
 
