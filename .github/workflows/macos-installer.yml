@@ -1,0 +1,47 @@
+name: Build macOS Installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/electron/**'
+      - '.github/workflows/macos-installer.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dai-macos-installer
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install desktop dependencies
+        working-directory: desktop/electron
+        run: npm install
+
+      - name: Build macOS Intel and Apple Silicon DMGs
+        working-directory: desktop/electron
+        run: npm run dist:mac -- --publish never
+
+      - name: Upload macOS installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: DAI-AI-macOS-Installers
+          path: desktop/electron/dist/*.dmg
+          if-no-files-found: error
+          retention-days: 30
