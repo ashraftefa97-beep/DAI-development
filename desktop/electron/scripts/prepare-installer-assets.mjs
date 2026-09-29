@@ -88,3 +88,13 @@ await svgToBmp(sidebar,164,314,path.join(buildDir,'uninstallerSidebar.bmp'));
 await svgToBmp(header,150,57,path.join(buildDir,'installerHeader.bmp'));
 
 console.log('DAI installer artwork ready.');
+
+
+const desktopIconSvg=path.join(buildDir,'icon.svg');
+if(fs.existsSync(desktopIconSvg)){
+  await sharp(desktopIconSvg)
+    .resize(1024,1024,{fit:'contain',background:{r:16,g:19,b:33,alpha:1}})
+    .png()
+    .toFile(path.join(buildDir,'icon.png'));
+  console.log('DAI desktop icon png ready.');
+}
