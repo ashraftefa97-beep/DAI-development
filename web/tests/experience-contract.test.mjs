@@ -511,6 +511,11 @@ test('Live Chat prewarms a short-lived token to avoid click-time provisioning de
   assert.match(voiceLive,/newSessionExpiresAt/);
 });
 
+test('ephemeral Live transport stays on v1alpha',()=>{
+  assert.match(voiceLive,/v1alpha\.GenerativeService\.BidiGenerateContentConstrained/);
+  assert.doesNotMatch(voiceLive,/v1beta\.GenerativeService\.BidiGenerateContentConstrained/);
+});
+
 test('Live Chat bounds setup latency and does not block WebSocket on audio resume',()=>{
   assert.match(voiceLive,/liveSetupTimeoutRef/);
   assert.match(voiceLive,/4200/);
