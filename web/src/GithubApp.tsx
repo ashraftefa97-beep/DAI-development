@@ -4479,6 +4479,14 @@ export default function GithubApp(){
       const currentName=String(data.userName||userName||'صاحب الحساب').trim();
       const currentFirstName=currentName.split(/\s+/).filter(Boolean)[0]||'صاحب الحساب';
       const currentGender=String(data.userGender||'unspecified');
+      const recentLiveHistory=(active?.messages||[])
+        .slice(-10)
+        .map(message=>({
+          role:message.role==='assistant'?'model':'user',
+          parts:[{text:String(message.content||'').replace(/\s+/g,' ').trim().slice(0,1200)}]
+        }))
+        .filter(turn=>Boolean(turn.parts[0].text));
+
       const socket=new WebSocket(
         'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(token)
       );
@@ -4605,14 +4613,6 @@ export default function GithubApp(){
             ? 'المستخدمة أنثى؛ خاطبيها بصيغة المؤنث عند الحاجة. '
             : 'جنس المستخدم غير محدد؛ تجنبي افتراض الجنس قدر الإمكان. ';
 
-        const recentLiveHistory=(active?.messages||[])
-          .slice(-10)
-          .map(message=>({
-            role:message.role==='assistant'?'model':'user',
-            parts:[{text:String(message.content||'').replace(/\s+/g,' ').trim().slice(0,1200)}]
-          }))
-          .filter(turn=>Boolean(turn.parts[0].text));
-
         const systemText=
           'أنتِ ضي، مساعدة صوتية أنثى دائمًا، ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
           'هويتك أنتِ أنثى في كل الحالات، وجنس المستخدم يحدد فقط طريقة مخاطبته هو ولا يغير هويتك. لما تتكلمي عن نفسك استخدمي المؤنث فقط مثل: جاهزة، موجودة، مستعدة، مبسوطة، آسفة. ممنوع تقولي عن نفسك: جاهز، موجود، مستعد، مبسوط، آسف. '+
@@ -4703,10 +4703,9 @@ export default function GithubApp(){
           setErrorText('');
           try{
             socket.send(JSON.stringify({
-              clientContent:{
-                turns:recentLiveHistory,
-                turnComplete:true
-              }
+              clientContent:recentLiveHistory.length
+                ? {turns:recentLiveHistory,turnComplete:true}
+                : {turnComplete:true}
             }));
           }catch(error){
             console.debug('DAI live initial history failed',error);
