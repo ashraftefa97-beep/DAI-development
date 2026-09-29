@@ -305,8 +305,8 @@ test('streamed and live speech drive lips from exact PCM windows',()=>{
 
 test('cache version stays fresh after articulated speech and landing updates',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v37-20260929-client-vad/);
-  assert.match(app,/DAI_WEB_VERSION='1\.10\.13'/);
+  assert.match(sw,/dai-web-v38-20260929-live-history-brand/);
+  assert.match(app,/DAI_WEB_VERSION='1\.10\.14'/);
 });
 
 
@@ -388,7 +388,7 @@ test('landing page uses the V7 immersive product-story structure',()=>{
 
 test('landing cache refresh ships with visual redesign',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v37-20260929-client-vad/);
+  assert.match(sw,/dai-web-v38-20260929-live-history-brand/);
 });
 
 test('landing uses official Rabie typography for English and Arabic',()=>{
@@ -426,7 +426,7 @@ test('landing has responsive dashboard plans roadmap and FAQ',()=>{
 
 test('full landing release refreshes service worker cache',()=>{
   const sw=readFileSync(new URL('../public/sw.js',import.meta.url),'utf8');
-  assert.match(sw,/dai-web-v37-20260929-client-vad/);
+  assert.match(sw,/dai-web-v38-20260929-live-history-brand/);
 });
 
 test('landing header is dark glass and mobile-safe',()=>{
@@ -495,4 +495,20 @@ test('Live Chat avoids assistant-style monologues',()=>{
   assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
   assert.match(voiceLive,/livePreRollPacketsRef/);
   assert.match(voiceLive,/endHoldMs=spokenMs<650\?1450:1120/);
+});
+
+
+test('Live Chat injects real conversation history before microphone capture',()=>{
+  assert.match(voiceLive,/historyConfig:\{initialHistoryInClientContent:true\}/);
+  assert.match(voiceLive,/clientContent:\{/);
+  assert.match(voiceLive,/turns:recentLiveHistory/);
+  assert.match(voiceLive,/contextWindowCompression:\{slidingWindow:\{\}\}/);
+  assert.doesNotMatch(voiceLive,/recentLiveContext/);
+});
+
+test('Live Voice button uses DAI brand colors instead of blue',()=>{
+  const css=readFileSync(new URL('../src/index.css',import.meta.url),'utf8');
+  const block=css.match(/\.classic-live-chat-button\{[\s\S]*?@keyframes daiLiveButtonPulse/)?.[0]||'';
+  assert.match(block,/#f3a8c2|#d98fb5|#b28bdc/);
+  assert.doesNotMatch(block,/#2f6fd6|#3b7be3|#2b63bf|#3f79d9/);
 });
