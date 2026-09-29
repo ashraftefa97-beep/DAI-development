@@ -1,20 +1,48 @@
 # DAI AI Desktop
 
-Windows desktop shell for DAI AI.
+Desktop shell for DAI AI on Windows and macOS.
 
-## What it adds
+## Builds
 
-- Installable Windows app (NSIS installer).
-- Uses the same DAI AI account and cloud conversations as the web version.
-- Safe local desktop bridge for allow-listed actions:
-  - Open installed applications.
-  - Focus an open application.
-  - Close an application using its normal close request.
-  - Play/pause, next/previous, stop, mute, volume up/down.
-  - Common navigation shortcuts for the currently focused app.
-  - Pick and open a local video, audio, or other file with the Windows default app.
-  - Optional start with Windows.
+- Windows 10/11 x64: NSIS installer (.exe).
+- macOS Apple Silicon: DMG installer (arm64).
+- macOS Intel: DMG installer (x64).
 
-The page never gets Node.js or arbitrary shell access. The preload exposes only the allow-listed bridge, and the Electron main process checks the DAI GitHub Pages origin before executing local actions.
+All editions use the same DAI account, cloud conversations, voice experience, search and Classic DAI interface.
 
-Some elevated/admin programs may not accept control from a normally launched DAI process. DAI should run with the same Windows privilege level as the target app when needed.
+## Desktop capabilities
+
+### Windows
+- Open, focus and close installed applications.
+- Media controls and common shortcuts.
+- Window layout controls.
+- Pick and open local files.
+- Optional start with Windows.
+- Floating DAI companion.
+- Screen snapshot on explicit request.
+- Native in-app browser.
+
+### macOS
+- Open, focus and close applications.
+- Pick and open local files.
+- Optional start at login.
+- Floating DAI companion.
+- Screen snapshot on explicit request (macOS may request Screen Recording permission).
+- Native in-app browser.
+
+Some advanced Windows-only automation actions are intentionally not exposed on macOS until a native macOS implementation is added. The renderer never receives arbitrary Node.js or shell access; only allow-listed IPC actions are exposed.
+
+## Build locally
+
+```bash
+cd desktop/electron
+npm install
+
+# Windows
+npm run dist:win
+
+# macOS (must run on macOS)
+npm run dist:mac
+```
+
+GitHub Actions builds Windows and macOS installers independently and uploads them as workflow artifacts.
