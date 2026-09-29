@@ -6732,3 +6732,74 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   .auth-hero-dai,
   .auth-hero-dai-eye{ animation:none!important; }
 }
+
+
+/* Direct Live Chat button */
+.classic-live-chat-button{
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  color:#fff;
+  background:#2f6fd6;
+  box-shadow:0 6px 16px rgba(47,111,214,.28);
+  transition:
+    transform .18s ease,
+    background .18s ease,
+    box-shadow .18s ease,
+    opacity .18s ease;
+}
+.classic-live-chat-button:hover:not(:disabled){
+  background:#3b7be3;
+  transform:translateY(-1px);
+  box-shadow:0 9px 20px rgba(47,111,214,.34);
+}
+.classic-live-chat-button:active:not(:disabled){transform:scale(.94)}
+.classic-live-chat-button:disabled{
+  opacity:.38;
+  cursor:default;
+  box-shadow:none;
+}
+.classic-live-chat-button.active{
+  background:#2b63bf;
+  box-shadow:
+    0 0 0 1px rgba(125,174,255,.18),
+    0 0 0 6px rgba(47,111,214,.10),
+    0 8px 22px rgba(47,111,214,.30);
+}
+.classic-live-chat-button.connecting{
+  animation:daiLiveButtonPulse 1.15s ease-in-out infinite;
+}
+.classic-live-chat-button.listening{
+  animation:daiLiveButtonPulse 1.7s ease-in-out infinite;
+}
+.classic-live-chat-button.speaking{
+  background:#3f79d9;
+  animation:daiLiveButtonSpeak .7s ease-in-out infinite;
+}
+.classic-live-chat-button svg{
+  width:18px;
+  height:18px;
+  stroke-width:2.2;
+}
+@keyframes daiLiveButtonPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(47,111,214,.16),0 6px 16px rgba(47,111,214,.26)}
+  50%{box-shadow:0 0 0 7px rgba(47,111,214,.06),0 9px 22px rgba(47,111,214,.34)}
+}
+@keyframes daiLiveButtonSpeak{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.055)}
+}
+@media(max-width:640px){
+  .classic-live-chat-button{
+    width:34px;
+    height:34px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .classic-live-chat-button{animation:none!important}
+}
