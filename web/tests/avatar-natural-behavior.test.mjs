@@ -110,6 +110,27 @@ test('real motion engine keeps head-only gestures hand-free across all avatars',
   }
 });
 
+test('wave to idle keeps a smooth hand exit',()=>{
+  const motion=new DaiMotion(()=>.37);
+  motion.setAvatar('classic');
+  motion.setGesture('wave');
+  motion.advance(.42);
+  const before=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  assert.ok(before>.05,'wave hand was not visible before transition');
+
+  motion.setGesture('idle');
+  motion.advance(.08);
+  const early=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  motion.advance(.24);
+  const mid=Math.max(motion.pose.la||0,motion.pose.ra||0);
+  motion.advance(.46);
+  const end=Math.max(motion.pose.la||0,motion.pose.ra||0);
+
+  assert.ok(early>.02,'hand snapped off immediately when idle started');
+  assert.ok(early>mid&&mid>end,`hand exit should decay smoothly: ${early}, ${mid}, ${end}`);
+  assert.ok(end<=.02,`hand should settle away after exit: ${end}`);
+});
+
 test('hand fade-out eases instead of snapping',()=>{
   const motion=new DaiMotion(()=>.37);
   motion.setAvatar('classic');
