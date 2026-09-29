@@ -105,7 +105,7 @@ const PRO_ANIMATION_CATEGORY_LABELS:Record<string,string>={
   other:'أخرى'
 };
 
-const DAI_WEB_VERSION='1.10.10';
+const DAI_WEB_VERSION='1.10.11';
 
 type DesktopAction =
   | {type:'openApp';target:string}
@@ -3934,14 +3934,14 @@ export default function GithubApp(){
 
       if(outputSpeaking){
         const speakingFor=Date.now()-liveSpeakingStartedAtRef.current;
-        if(speakingFor<450){
+        if(speakingFor<280){
           liveBargeFramesRef.current=0;
           return;
         }
 
         // Adaptive interruption threshold: learn the room noise while DAI is not
         // speaking, then require a clear sustained rise over that floor.
-        const threshold=Math.max(.038,Math.min(.105,liveNoiseFloorRef.current*3.15));
+        const threshold=Math.max(.034,Math.min(.095,liveNoiseFloorRef.current*2.85));
         if(level<threshold){
           liveBargeFramesRef.current=Math.max(0,liveBargeFramesRef.current-1);
           return;
@@ -3949,7 +3949,7 @@ export default function GithubApp(){
 
         liveLastSpeechAtRef.current=Date.now();
         liveBargeFramesRef.current++;
-        const requiredFrames=level>threshold*1.7?2:3;
+        const requiredFrames=level>threshold*1.65?2:3;
         if(liveBargeFramesRef.current<requiredFrames)return;
 
         liveBargeFramesRef.current=0;
@@ -4521,6 +4521,12 @@ export default function GithubApp(){
             ? 'المستخدمة أنثى؛ خاطبيها بصيغة المؤنث عند الحاجة. '
             : 'جنس المستخدم غير محدد؛ تجنبي افتراض الجنس قدر الإمكان. ';
 
+        const recentLiveContext=(active?.messages||[])
+          .slice(-8)
+          .map(message=>(message.role==='user'?'المستخدم: ':'ضي: ')+String(message.content||'').replace(/\s+/g,' ').trim().slice(0,700))
+          .filter(Boolean)
+          .join('\n');
+
         const systemText=
           'أنتِ ضي، مساعدة صوتية أنثى دائمًا، ودودة وسريعة. اسم المستخدم الأول هو «'+currentFirstName+'». '+
           'هويتك أنتِ أنثى في كل الحالات، وجنس المستخدم يحدد فقط طريقة مخاطبته هو ولا يغير هويتك. لما تتكلمي عن نفسك استخدمي المؤنث فقط مثل: جاهزة، موجودة، مستعدة، مبسوطة، آسفة. ممنوع تقولي عن نفسك: جاهز، موجود، مستعد، مبسوط، آسف. '+
@@ -4543,6 +4549,11 @@ export default function GithubApp(){
             ? 'عندك أداة perform_animation مرتبطة بمكتبة ضي الفعلية المكونة من 84 حركة. لو المستخدم طلب حركة استخدمي الأداة بدل ما تقولي إنك مش قادرة تتحرك. وممكن تختاري حركة من نفسك أحيانًا لما تكون مناسبة جدًا للسياق، لكن بشكل خفيف ومش مع كل رد، ومن غير حركات احتفالية في المواقف الجادة أو الحساسة. '
             : '')+
           'لما السؤال يحتاج معلومة حديثة أو رابط أو فيديو أو سعر أو مصدر أو مقارنة أو حل مشكلة يستفيد من معلومات حالية، استخدمي أداة web_research الموحدة بدل التخمين. اعتمدي على نتيجة الأداة ومصادرها، وقارني النتائج قبل الحكم. بعد البحث لخصي النتيجة وقدمي حل عملي واضح. '+
+          'في Live Chat اتصرفي كمكالمة طبيعية مستمرة، مش سلسلة أسئلة وأجوبة منفصلة. حافظي على نفس الموضوع والسياق من دور لدور، وما تعيديش مقدمة أو تلخيص الكلام اللي اتقال إلا لو المستخدم طلب. '+
+          'خلي الردود الصوتية قصيرة وطبيعية غالبًا من جملة لثلاث جمل، وبعدها سيبي مساحة للمستخدم يكمل؛ لو طلب شرح مفصل ساعتها وسعي الرد. ما تختميش كل دور بسؤال خدمة أو جملة ختامية. '+
+          'لو المستخدم عمل وقفة قصيرة وهو بيتكلم، ما تستعجليش الرد. لو قاطعك أو بدأ يتكلم فوق صوتك، توقفي فورًا واسمعيه وكَمّلي على كلامه الجديد من غير ما تعيدي الرد القديم. '+
+          'تعاملِي مع كلمات المتابعة القصيرة زي «آه»، «مم»، «تمام»، «أيوه» كإشارات استماع حسب السياق، وماتحوّليش كل واحدة منهم لموضوع أو رد طويل. '+
+          (recentLiveContext?'ده آخر سياق قبل بدء اللايف؛ كمّلي منه طبيعيًا من غير ما تقولي إنك قرأتي سجل: '+recentLiveContext+' ':'')+
           'خلي الحوار صوتي طبيعي، من غير شرح تقني، ومن غير ما تقولي أسماء مزودي الخدمة أو الأدوات.';
 
         socket.send(JSON.stringify({
@@ -4561,8 +4572,8 @@ export default function GithubApp(){
                 disabled:false,
                 startOfSpeechSensitivity:'START_SENSITIVITY_HIGH',
                 endOfSpeechSensitivity:'END_SENSITIVITY_HIGH',
-                prefixPaddingMs:60,
-                silenceDurationMs:260
+                prefixPaddingMs:90,
+                silenceDurationMs:680
               }
             },
             systemInstruction:{parts:[{text:systemText}]},
@@ -5356,7 +5367,7 @@ export default function GithubApp(){
           <div className='classic-live-voice'>
             <div className={'classic-live-orb '+voiceSessionStatus}><i/><i/><i/><i/></div>
             <strong>{voiceSessionStatus==='connecting'?'ضي بتوصل الصوت…':voiceSessionStatus==='speaking'?'ضي بتتكلم':'ضي سامعاك'}</strong>
-            <span>اضغط زر الإيقاف لما تخلص الحوار، وساعتها النص كله هيظهر هنا.</span>
+            <span>اتكلم براحتك… ضي هتسمع، ترد، وتستنى دورك تكمل. تقدر تقاطعها في أي وقت.</span>
           </div>
         }
         {!voiceSessionActive&&((active?.messages||[]).length===0
