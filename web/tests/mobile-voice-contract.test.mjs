@@ -34,8 +34,8 @@ test('live voice carries recent conversation context and natural turn timing',()
   assert.match(app,/recentLiveContext/);
   assert.match(app,/silenceDurationMs:900/);
   assert.match(app,/prefixPaddingMs:90/);
-  assert.match(app,/لو المستخدم عمل وقفة قصيرة وهو بيتكلم/);
-  assert.match(app,/لو قاطعك أو بدأ يتكلم فوق صوتك/);
+  assert.match(app,/لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل/);
+  assert.match(app,/لو المستخدم قاطعك أو بدأ يتكلم فوق صوتك/);
 });
 
 
