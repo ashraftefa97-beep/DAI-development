@@ -64,8 +64,12 @@
       frame.addEventListener('load',function(){
         state.hidden=true;
       });
+      frame.addEventListener('error',function(){
+        state.hidden=false;
+        state.innerHTML='<div><b>تعذر تشغيل المعاينة</b><span>ضي هتحتاج تعيد توليد أو إصلاح الكود.</span></div>';
+      });
 
-      if(false){frame.src=endpoint;}\n\n      fetch(endpoint,{cache:'no-store'})
+      fetch(endpoint,{cache:'no-store'})
         .then(function(response){
           if(!response.ok)throw new Error('PREVIEW_HTTP_'+response.status);
           return response.text();
@@ -82,6 +86,9 @@
       setTimeout(function(){
         if(!state.hidden)state.innerHTML='<div><b>جاري تجهيز التصميم…</b><span>ضي بتجهز المعاينة الكاملة.</span></div>';
       },3500);
+      setTimeout(function(){
+        if(!state.hidden)state.innerHTML='<div><b>المعاينة أخدت وقت أطول من المتوقع</b><span>ارجع لضي واعمل إعادة توليد للكود أو افتح المعاينة مرة تانية.</span></div>';
+      },12000);
     })();
   </script>
 </body>
