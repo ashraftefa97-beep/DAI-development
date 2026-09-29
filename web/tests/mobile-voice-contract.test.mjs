@@ -29,6 +29,10 @@ test('live voice uses hybrid VAD with server speech detection and fast local fin
   assert.match(app,/activityHandling:'START_OF_ACTIVITY_INTERRUPTS'/);
   assert.match(app,/audioStreamEnd:true/);
   assert.match(app,/const chunkSamples=320/);
+  assert.match(app,/livePreRollPacketsRef\.current\.push\(\.\.\.packets\)/);
+  assert.match(app,/for\(const packet of preRoll\)sendAudioPacket\(packet\)/);
+  assert.match(app,/Once speech is confirmed, stream only that active turn/);
+  assert.doesNotMatch(app,/Hybrid VAD: continuously feed the provider/);
 });
 
 
