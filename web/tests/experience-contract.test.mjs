@@ -484,8 +484,8 @@ test('composer exposes direct Live Chat control',()=>{
 test('Live Chat behaves like a continuous conversation',()=>{
   assert.match(voiceLive,/silenceDurationMs:900/);
   assert.match(voiceLive,/recentLiveContext/);
-  assert.match(voiceLive,/مكالمة طبيعية مستمرة/);
-  assert.match(voiceLive,/توقفي فورًا واسمعيه/);
+  assert.match(voiceLive,/كمكالمة بشرية مستمرة/);
+  assert.match(voiceLive,/اقطعي ردك فورًا/);
 });
 
 
