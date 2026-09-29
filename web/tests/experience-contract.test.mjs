@@ -494,7 +494,7 @@ test('Live Chat avoids assistant-style monologues',()=>{
   assert.match(voiceLive,/ممنوع في اللايف القوائم/);
   assert.match(voiceLive,/جملة واحدة أو جملتين قصيرين/);
   assert.match(voiceLive,/automaticActivityDetection/);
-  assert.match(voiceLive,/silenceDurationMs:1200/);
+  assert.match(voiceLive,/silenceDurationMs:600/);
   assert.match(voiceLive,/Server-VAD owns speech start\/end/);
 });
 
@@ -503,6 +503,12 @@ test('Live Chat never blocks quiet speech behind a client-side send gate',()=>{
   assert.match(voiceLive,/for\(const packet of packets\)sendAudioPacket\(packet\)/);
   assert.match(voiceLive,/Local level detection is only a fast playback mute for barge-in/);
   assert.doesNotMatch(voiceLive,/Gate realtime audio with local VAD/);
+});
+
+test('Live Chat prewarms a short-lived token to avoid click-time provisioning delay',()=>{
+  assert.match(voiceLive,/prefetchLiveToken/);
+  assert.match(voiceLive,/livePrefetchedTokenRef/);
+  assert.match(voiceLive,/newSessionExpiresAt/);
 });
 
 test('Live Chat injects history once and resumes the same live session after reconnects',()=>{
