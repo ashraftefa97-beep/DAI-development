@@ -20,37 +20,39 @@ test('mobile shell honors safe areas',()=>{
   assert.match(css,/safe-area-inset-right/);
 });
 
-test('live voice uses deterministic client VAD and explicit activity signals',()=>{
+test('live voice uses hybrid VAD with server speech detection and fast local finalization',()=>{
   assert.match(app,/liveNoiseFloorRef/);
-  assert.match(app,/automaticActivityDetection:\{disabled:true\}/);
+  assert.match(app,/disabled:false/);
+  assert.match(app,/startOfSpeechSensitivity:'START_SENSITIVITY_HIGH'/);
+  assert.match(app,/endOfSpeechSensitivity:'END_SENSITIVITY_LOW'/);
+  assert.match(app,/silenceDurationMs:1200/);
   assert.match(app,/activityHandling:'START_OF_ACTIVITY_INTERRUPTS'/);
-  assert.match(app,/turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'/);
-  assert.match(app,/activityStart/);
-  assert.match(app,/activityEnd/);
+  assert.match(app,/audioStreamEnd:true/);
   assert.match(app,/const chunkSamples=320/);
 });
 
 
 test('live voice carries context and preserves natural pauses locally',()=>{
   assert.match(app,/recentLiveHistory/);
-  assert.match(app,/livePreRollPacketsRef/);
-  assert.match(app,/endHoldMs=spokenMs<650\?1450:1120/);
+  assert.match(app,/sendAudioStreamEnd/);
+  assert.match(app,/endHoldMs=spokenMs<650\?1050:850/);
   assert.match(app,/incompleteSpeechTail/);
   assert.match(app,/لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل/);
 });
 
 
-test('live voice waits through pauses and barge-in stops local playback immediately',()=>{
-  assert.match(app,/heldMs>=55/);
+test('live voice preserves natural pauses and barge-in stops local playback immediately',()=>{
+  assert.match(app,/heldMs>=70/);
   assert.match(app,/if\(outputSpeaking\)stopLivePlayback\(\)/);
-  assert.match(app,/sendActivity\('start'\)/);
-  assert.match(app,/sendActivity\('end'\)/);
+  assert.match(app,/audioStreamEnd:true/);
 });
 
 
 test('live voice starts from structured chat history',()=>{
   assert.match(app,/const recentLiveHistory=/);
   assert.match(app,/role:message\.role==='assistant'\?'model':'user'/);
-  assert.match(app,/historyConfig:\{initialHistoryInClientContent:true\}/);
+  assert.match(app,/historyConfig:\{initialHistoryInClientContent:!resumeHandle\}/);
+  assert.match(app,/sessionResumption:resumeHandle\?\{handle:resumeHandle\}:\{\}/);
+  assert.match(app,/sessionResumptionUpdate/);
   assert.match(app,/turns:recentLiveHistory/);
 });
