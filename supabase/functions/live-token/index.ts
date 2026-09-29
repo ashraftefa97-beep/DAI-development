@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   }
 
   const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-  const newSessionExpireTime = new Date(Date.now() + 60 * 1000).toISOString();
+  const newSessionExpireTime = new Date(Date.now() + 2 * 60 * 1000).toISOString();
 
   try {
     const response = await fetch(
