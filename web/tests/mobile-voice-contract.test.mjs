@@ -33,6 +33,8 @@ test('live voice uses provider VAD and continuously streams microphone PCM',()=>
   assert.match(app,/liveSetupTimeoutRef/);
   assert.match(app,/4200/);
   assert.match(app,/Server-VAD owns speech start\/end/);
+  assert.match(app,/v1alpha\.GenerativeService\.BidiGenerateContentConstrained/);
+  assert.doesNotMatch(app,/v1beta\.GenerativeService\.BidiGenerateContentConstrained/);
   assert.match(app,/for\(const packet of packets\)sendAudioPacket\(packet\)/);
   assert.doesNotMatch(app,/Gate realtime audio with local VAD/);
 });
