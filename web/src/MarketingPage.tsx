@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, Apple, ArrowUpRight, Check, ChevronDown, Clock3, Download, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, TimerReset, WandSparkles, Zap } from 'lucide-react';
+import { Activity, ArrowUpRight, Check, ChevronDown, Clock3, Download, Globe2, Laptop2, Layers3, MessageCircle, Mic, MonitorSmartphone, Search, ShieldCheck, TimerReset, WandSparkles, Zap } from 'lucide-react';
 import DaiFace, { type DaiState } from './DaiFace';
 import './marketing.css';
 
@@ -831,7 +831,11 @@ export default function MarketingPage(){
         </article>
 
         <article className='mac' data-reveal>
-          <div className='platform-mark'><Apple size={31}/></div>
+          <div className='platform-mark apple-mark' aria-hidden='true'>
+            <svg viewBox='0 0 24 24' role='img'>
+              <path d='M16.66 13.05c.02 2.18 1.91 2.9 1.93 2.91-.02.05-.3 1.03-.99 2.04-.59.88-1.21 1.75-2.18 1.77-.95.02-1.26-.57-2.35-.57-1.09 0-1.43.55-2.33.59-.93.04-1.64-.93-2.24-1.8-1.22-1.77-2.15-5-0.9-7.18.62-1.08 1.73-1.76 2.93-1.78.91-.02 1.78.62 2.34.62.56 0 1.61-.76 2.71-.65.46.02 1.75.19 2.58 1.4-.07.04-1.54.9-1.5 2.65ZM14.87 7.85c.5-.61.84-1.46.75-2.3-.72.03-1.6.48-2.12 1.09-.47.54-.88 1.4-.77 2.22.81.06 1.64-.41 2.14-1.01Z'/>
+            </svg>
+          </div>
           <span className='platform-label'>macOS</span>
           <h3>{desktop.mac}</h3>
           <p>{desktop.macBody}</p>
