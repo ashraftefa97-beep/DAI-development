@@ -6739,24 +6739,29 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   flex:0 0 auto;
   width:34px;
   height:34px;
-  border:0;
+  border:1px solid rgba(255,220,232,.18);
   border-radius:999px;
   display:grid;
   place-items:center;
   cursor:pointer;
   color:#fff;
-  background:#2f6fd6;
-  box-shadow:0 6px 16px rgba(47,111,214,.28);
+  background:linear-gradient(135deg,#f3a8c2 0%,#d98fb5 48%,#b28bdc 100%);
+  box-shadow:
+    0 6px 18px rgba(224,139,177,.24),
+    inset 0 1px 0 rgba(255,255,255,.28);
   transition:
     transform .18s ease,
-    background .18s ease,
+    filter .18s ease,
     box-shadow .18s ease,
     opacity .18s ease;
 }
 .classic-live-chat-button:hover:not(:disabled){
-  background:#3b7be3;
+  filter:brightness(1.06) saturate(1.04);
   transform:translateY(-1px);
-  box-shadow:0 9px 20px rgba(47,111,214,.34);
+  box-shadow:
+    0 9px 22px rgba(224,139,177,.30),
+    0 0 18px rgba(182,139,220,.12),
+    inset 0 1px 0 rgba(255,255,255,.34);
 }
 .classic-live-chat-button:active:not(:disabled){transform:scale(.94)}
 .classic-live-chat-button:disabled{
@@ -6765,20 +6770,21 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   box-shadow:none;
 }
 .classic-live-chat-button.active{
-  background:#2b63bf;
+  background:linear-gradient(135deg,#f0a1bc 0%,#cf82ad 44%,#9f79d1 100%);
   box-shadow:
-    0 0 0 1px rgba(125,174,255,.18),
-    0 0 0 6px rgba(47,111,214,.10),
-    0 8px 22px rgba(47,111,214,.30);
+    0 0 0 1px rgba(255,214,230,.16),
+    0 0 0 6px rgba(236,157,191,.08),
+    0 8px 22px rgba(192,126,183,.28);
 }
 .classic-live-chat-button.connecting{
   animation:daiLiveButtonPulse 1.15s ease-in-out infinite;
 }
 .classic-live-chat-button.listening{
+  background:linear-gradient(135deg,#f5afc7 0%,#dc94b8 50%,#b78fdf 100%);
   animation:daiLiveButtonPulse 1.7s ease-in-out infinite;
 }
 .classic-live-chat-button.speaking{
-  background:#3f79d9;
+  background:linear-gradient(135deg,#e69abb 0%,#c77fab 48%,#9773ca 100%);
   animation:daiLiveButtonSpeak .7s ease-in-out infinite;
 }
 .classic-live-chat-button svg{
@@ -6787,8 +6793,8 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
   stroke-width:2.2;
 }
 @keyframes daiLiveButtonPulse{
-  0%,100%{box-shadow:0 0 0 0 rgba(47,111,214,.16),0 6px 16px rgba(47,111,214,.26)}
-  50%{box-shadow:0 0 0 7px rgba(47,111,214,.06),0 9px 22px rgba(47,111,214,.34)}
+  0%,100%{box-shadow:0 0 0 0 rgba(239,164,194,.15),0 6px 18px rgba(214,136,179,.24)}
+  50%{box-shadow:0 0 0 7px rgba(239,164,194,.06),0 9px 24px rgba(178,134,210,.28)}
 }
 @keyframes daiLiveButtonSpeak{
   0%,100%{transform:scale(1)}
