@@ -20,28 +20,29 @@ test('mobile shell honors safe areas',()=>{
   assert.match(css,/safe-area-inset-right/);
 });
 
-test('live voice has adaptive barge-in and provider VAD',()=>{
+test('live voice uses deterministic client VAD and explicit activity signals',()=>{
   assert.match(app,/liveNoiseFloorRef/);
-  assert.match(app,/automaticActivityDetection/);
-  assert.match(app,/silenceDurationMs:900/);
-  assert.match(app,/transitionCorePhase\('speaking'/);
-  assert.match(app,/functions\/v1\/tts-stream/);
+  assert.match(app,/automaticActivityDetection:\{disabled:true\}/);
+  assert.match(app,/activityHandling:'START_OF_ACTIVITY_INTERRUPTS'/);
+  assert.match(app,/turnCoverage:'TURN_INCLUDES_ONLY_ACTIVITY'/);
+  assert.match(app,/activityStart/);
+  assert.match(app,/activityEnd/);
   assert.match(app,/const chunkSamples=320/);
 });
 
 
-test('live voice carries recent conversation context and natural turn timing',()=>{
+test('live voice carries context and preserves natural pauses locally',()=>{
   assert.match(app,/recentLiveContext/);
-  assert.match(app,/silenceDurationMs:900/);
-  assert.match(app,/prefixPaddingMs:90/);
+  assert.match(app,/livePreRollPacketsRef/);
+  assert.match(app,/endHoldMs=spokenMs<650\?1450:1120/);
+  assert.match(app,/incompleteSpeechTail/);
   assert.match(app,/لو المستخدم باين إنه بيفكر أو كلامه لسه مكمل/);
-  assert.match(app,/لو المستخدم قاطعك أو بدأ يتكلم فوق صوتك/);
 });
 
 
-test('live voice waits through natural pauses and handles interruption handoff',()=>{
-  assert.match(app,/endOfSpeechSensitivity:'END_SENSITIVITY_LOW'/);
-  assert.match(app,/silenceDurationMs:900/);
-  assert.match(app,/Number\.POSITIVE_INFINITY/);
-  assert.match(app,/Number\.isFinite\(liveNextPlayTimeRef\.current\)/);
+test('live voice waits through pauses and barge-in stops local playback immediately',()=>{
+  assert.match(app,/heldMs>=55/);
+  assert.match(app,/if\(outputSpeaking\)stopLivePlayback\(\)/);
+  assert.match(app,/sendActivity\('start'\)/);
+  assert.match(app,/sendActivity\('end'\)/);
 });
