@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <title>AI Express Studio — Checkout Sandbox</title>
+  <style>
+    :root{--bg:#08111f;--card:#101b2e;--text:#f8fafc;--muted:#9fb0c7;--line:#20304b;--accent:#635bff;--accent2:#8b5cf6;--paypal:#0070ba;--ok:#31c48d;--warn:#f5b942}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;background:radial-gradient(circle at top,#14233d 0,#08111f 42%,#050b14 100%);color:var(--text);min-height:100vh}
+    .wrap{width:min(1050px,92%);margin:auto;padding:34px 0 56px}
+    .top{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:28px;flex-wrap:wrap}
+    .brand h1{margin:0;font-size:clamp(28px,5vw,48px);letter-spacing:-.7px}
+    .brand p{margin:8px 0 0;color:var(--muted);line-height:1.8}
+    .badges{display:flex;gap:8px;flex-wrap:wrap}
+    .badge{padding:9px 13px;border:1px solid rgba(245,185,66,.35);background:rgba(245,185,66,.09);color:#ffd978;border-radius:999px;font-size:13px;font-weight:800}
+    .badge.stripe{border-color:rgba(99,91,255,.45);background:rgba(99,91,255,.10);color:#c9c5ff}
+    .badge.paypal{border-color:rgba(0,112,186,.45);background:rgba(0,112,186,.10);color:#9ad6ff}
+    .notice{display:none;margin:0 0 20px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.04);line-height:1.7}
+    .notice.ok{display:block;border-color:rgba(49,196,141,.4);color:#bff5df}
+    .notice.err{display:block;border-color:rgba(245,185,66,.4);color:#ffe6a6}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .card{background:linear-gradient(180deg,rgba(16,27,46,.96),rgba(10,19,34,.96));border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:0 22px 60px rgba(0,0,0,.22);position:relative;overflow:hidden}
+    .card:after{content:"";position:absolute;width:130px;height:130px;left:-45px;bottom:-55px;border-radius:50%;background:linear-gradient(135deg,rgba(99,91,255,.18),rgba(124,92,255,.04));pointer-events:none}
+    .card h2{margin:0 0 6px;font-size:23px}
+    .card p{margin:0 0 18px;color:var(--muted);line-height:1.75;min-height:54px}
+    .price{font-size:34px;font-weight:900;margin-bottom:14px}.price small{font-size:14px;color:var(--muted);font-weight:700}
+    .actions{display:grid;gap:9px;position:relative;z-index:2}
+    .btn{width:100%;border:0;border-radius:14px;padding:13px 16px;font-size:15px;font-weight:900;cursor:pointer;color:white;text-decoration:none;text-align:center;display:block}
+    .btn.stripe{background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 10px 24px rgba(99,91,255,.20)}
+    .btn.paypal{background:linear-gradient(135deg,#0070ba,#003087);box-shadow:0 10px 24px rgba(0,112,186,.16)}
+    .btn:disabled{opacity:.55;cursor:wait}
+    .hint{font-size:12px;color:var(--muted);margin-top:2px;text-align:center}
+    footer{margin-top:24px;color:var(--muted);font-size:13px;line-height:1.8;text-align:center}
+    @media(max-width:720px){.grid{grid-template-columns:1fr}.wrap{width:min(94%,680px);padding-top:22px}.card p{min-height:0}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top">
+      <div class="brand">
+        <h1>AI Express Studio</h1>
+        <p>اختار الخدمة ووسيلة الدفع المناسبة. الصفحة حاليًا للتجربة فقط.</p>
+      </div>
+      <div class="badges">
+        <div class="badge stripe">Stripe Sandbox</div>
+        <div class="badge paypal">PayPal Sandbox</div>
+        <div class="badge">No real charges</div>
+      </div>
+    </div>
+
+    <div id="notice" class="notice"></div>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Excel Cleanup</h2>
+        <p>تنظيف وترتيب البيانات وإزالة التكرار وتوحيد التنسيق.</p>
+        <div class="price">29 <small>ريال</small></div>
+        <div class="actions">
+          <a class="btn stripe" href="https://buy.stripe.com/test_fZu3cua7Ueqochg8eg2kw00">الدفع عبر Stripe</a>
+          <button class="btn paypal" data-paypal-service="excel_cleanup">الدفع عبر PayPal</button>
+          <div class="hint">روابط تجريبية — لا يتم تحصيل أموال حقيقية.</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>CV ATS</h2>
+        <p>تنسيق وصياغة سيرة ذاتية مناسبة لأنظمة الفرز.</p>
+        <div class="price">39 <small>ريال</small></div>
+        <div class="actions">
+          <a class="btn stripe" href="https://buy.stripe.com/test_6oUdR81Bo8203KKbqs2kw01">الدفع عبر Stripe</a>
+          <button class="btn paypal" data-paypal-service="cv_ats">الدفع عبر PayPal</button>
+          <div class="hint">روابط تجريبية — لا يتم تحصيل أموال حقيقية.</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>PowerPoint</h2>
+        <p>تصميم عرض تقديمي احترافي وتسليم ملف قابل للتعديل.</p>
+        <div class="price">49 <small>ريال</small></div>
+        <div class="actions">
+          <a class="btn stripe" href="https://buy.stripe.com/test_cNi14m0xk0zy1CC2TW2kw02">الدفع عبر Stripe</a>
+          <button class="btn paypal" data-paypal-service="powerpoint">الدفع عبر PayPal</button>
+          <div class="hint">روابط تجريبية — لا يتم تحصيل أموال حقيقية.</div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>PDF / Company Profile</h2>
+        <p>إعادة تصميم PDF أو بروفايل شركة بشكل احترافي.</p>
+        <div class="price">99 <small>ريال من</small></div>
+        <div class="actions">
+          <a class="btn stripe" href="https://buy.stripe.com/test_dRmeVcbbY5TSftscuw2kw03">الدفع عبر Stripe</a>
+          <button class="btn paypal" data-paypal-service="pdf_profile">الدفع عبر PayPal</button>
+          <div class="hint">روابط تجريبية — لا يتم تحصيل أموال حقيقية.</div>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      AI Express Studio — Sandbox checkout. التحويل إلى Live يتم فقط بعد تفعيل حساب تاجر مؤهل والتحقق من بياناته.
+    </footer>
+  </main>
+
+  <script>
+    const BASE = 'https://buenonmbyudjhpedmoqk.supabase.co/functions/v1';
+    const notice = document.getElementById('notice');
+
+    function show(msg, type='ok'){
+      notice.textContent = msg;
+      notice.className = 'notice ' + type;
+    }
+
+    async function createPayPalOrder(serviceCode, button){
+      const old = button.textContent;
+      button.disabled = true;
+      button.textContent = 'جاري فتح PayPal...';
+      try{
+        const r = await fetch(BASE + '/express-paypal-create-order',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({serviceCode})
+        });
+        const data = await r.json();
+        if(!r.ok || !data.approvalUrl) throw new Error(data.error || 'تعذر بدء الدفع');
+        location.href = data.approvalUrl;
+      }catch(e){
+        show(e.message || 'حدث خطأ أثناء بدء الدفع','err');
+        button.disabled = false;
+        button.textContent = old;
+      }
+    }
+
+    document.querySelectorAll('button[data-paypal-service]').forEach(btn=>{
+      btn.addEventListener('click',()=>createPayPalOrder(btn.dataset.paypalService,btn));
+    });
+
+    (async()=>{
+      const p = new URLSearchParams(location.search);
+
+      if(p.get('stripe') === 'success'){
+        show('نجح اختبار Stripe. العملية تمت في Sandbox ولم يتم تحصيل أموال حقيقية.');
+        history.replaceState({},'',location.pathname);
+        return;
+      }
+
+      if(p.get('paypal') === 'cancelled'){
+        show('تم إلغاء عملية PayPal التجريبية. لم يتم تحصيل أي مبلغ.','err');
+        return;
+      }
+
+      if(p.get('paypal') !== 'success') return;
+
+      const orderId = p.get('token');
+      if(!orderId){
+        show('رجع PayPal بدون رقم طلب صالح.','err');
+        return;
+      }
+
+      show('جاري تأكيد عملية PayPal التجريبية...');
+      try{
+        const r = await fetch(BASE + '/express-paypal-capture-order',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({orderId})
+        });
+        const data = await r.json();
+        if(!r.ok || !data.completed) throw new Error(data.error || 'لم يكتمل الطلب');
+        show('نجحت عملية PayPal Sandbox للخدمة: ' + data.serviceName + ' — ' + data.amount + ' ' + data.currency);
+        history.replaceState({},'',location.pathname);
+      }catch(e){
+        show(e.message || 'تعذر تأكيد الدفع التجريبي','err');
+      }
+    })();
+  </script>
+</body>
+</html>
