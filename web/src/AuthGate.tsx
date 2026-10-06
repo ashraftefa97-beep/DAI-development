@@ -1,11 +1,16 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Download, Eye, EyeOff, KeyRound, LogIn, ShieldCheck, Sparkles, Trash2, UserCog, UserPlus, X } from 'lucide-react';
 import { authConfigured, supabase } from './supabaseClient';
+import { type DesktopGoogleResult, restoreDesktopSessionFromUrl, signInWithDesktopGoogle } from './authSessionHandoff';
 
 type Mode = 'login' | 'register';
 type UserGender = 'male' | 'female' | '';
 
 export default function AuthGate({ children }: { children: ReactNode }) {
+  const desktop = window.daiDesktop as (NonNullable<typeof window.daiDesktop> & {
+    version?: string;
+    signInWithGoogle?: () => Promise<DesktopGoogleResult>;
+  }) | undefined;
   const [ready, setReady] = useState(false);
   const [sessionEmail, setSessionEmail] = useState('');
   const [sessionName, setSessionName] = useState('');
@@ -125,6 +130,30 @@ export default function AuthGate({ children }: { children: ReactNode }) {
       window.clearTimeout(bootstrapTimeout);
       data.subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || !window.daiDesktop?.isDesktop) return;
+    const auth = supabase.auth;
+    let mounted = true;
+    const restore = async () => {
+      try {
+        const result = await restoreDesktopSessionFromUrl(auth);
+        if (!mounted || !result) return;
+        applySessionUser(result.session.user);
+        setReady(true);
+        setBusy(false);
+        setNotice('');
+        if (result.recovery) setPasswordRecovery(true);
+      } catch {
+        if (!mounted) return;
+        setBusy(false);
+        setNotice('تعذر إكمال تسجيل الدخول. حاول مرة أخرى.');
+      }
+    };
+    void restore();
+    window.addEventListener('hashchange', restore);
+    return () => { mounted = false; window.removeEventListener('hashchange', restore); };
   }, []);
 
   async function submit() {
@@ -277,14 +306,21 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     if (!supabase || busy) return;
     setBusy(true);
     setNotice('');
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + window.location.pathname,
-      },
-    });
-    if (error) {
-      setNotice('تعذر بدء تسجيل الدخول بجوجل.');
+    try {
+      if (desktop?.signInWithGoogle) {
+        const session = await signInWithDesktopGoogle(supabase.auth, desktop.signInWithGoogle);
+        applySessionUser(session.user);
+        setReady(true);
+      } else {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + window.location.pathname },
+        });
+        if (error) throw error;
+      }
+    } catch {
+      setNotice('لم يكتمل تسجيل الدخول بجوجل. تقدر تحاول مرة أخرى.');
+    } finally {
       setBusy(false);
     }
   }
@@ -432,7 +468,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
 
             <div className='auth-showcase-foot'>
               <span className='auth-ready'><i/> ضي جاهزة</span>
-              <span>Web · Desktop</span>
+              <span>{desktop?.version ? `ضي للكمبيوتر ${desktop.version}` : 'Web · Desktop'}</span>
             </div>
           </section>
 

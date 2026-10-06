@@ -10,6 +10,8 @@ Desktop shell for DAI AI on Windows and macOS.
 
 All editions use the same DAI account, cloud conversations, voice experience, search and Classic DAI interface.
 
+Google login opens the system browser and returns through a one-time local PKCE callback. Desktop 0.4.4 passes only the access and refresh tokens through a main-frame-only IPC bridge; the login screen imports them with Supabase `setSession` and finishes after validation. No app navigation is needed. Older cached frontends retain the URL return path, and the updated web login screen also handles late credential fragments from existing desktop versions. Failed or canceled attempts release the login button.
+
 ## Desktop capabilities
 
 ### Windows

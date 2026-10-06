@@ -2,7 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('daiDesktop', {
   isDesktop: true,
+  version: '0.4.4',
   platform: process.platform,
+  signInWithGoogle: () => ipcRenderer.invoke('dai:google-login'),
   capabilities: () => ipcRenderer.invoke('dai:capabilities'),
   execute: (action) => ipcRenderer.invoke('dai:execute', action),
   pickAndOpenFile: () => ipcRenderer.invoke('dai:pick-file'),

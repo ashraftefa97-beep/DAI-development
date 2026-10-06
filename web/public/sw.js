@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v38-20260929-live-history-brand';
+const CACHE_NAME = 'dai-web-v39-20261006-desktop-auth-session';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {

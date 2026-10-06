@@ -1,12 +1,13 @@
 {
   "name": "dai-ai-desktop",
-  "version": "0.4.0",
+  "version": "0.4.4",
   "private": true,
   "description": "DAI AI desktop companion for Windows and macOS",
   "main": "main.cjs",
   "author": "DAI AI",
   "license": "UNLICENSED",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
     "dev": "electron .",
     "dist:win": "electron-builder --win nsis --x64",
     "dist:mac": "electron-builder --mac dmg --x64 --arm64",
@@ -17,6 +18,8 @@
     "predist:mac": "npm run prepare-installer-assets"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "2.57.4",
+    "jsdom": "27.4.0",
     "electron": "^38.1.2",
     "electron-builder": "^26.0.12",
     "bmp-js": "^0.1.0",
@@ -29,6 +32,9 @@
     "files": [
       "main.cjs",
       "preload.cjs",
+      "desktop-oauth.cjs",
+      "build/icon.png",
+      "build/rabie.woff2",
       "README.md"
     ],
     "directories": {
@@ -44,7 +50,7 @@
           ]
         }
       ],
-      "icon": "build/icon.svg",
+      "icon": "build/icon.ico",
       "artifactName": "DAI-AI-Windows-Setup-${version}-${arch}.${ext}"
     },
     "nsis": {
