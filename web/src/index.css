@@ -6820,3 +6820,13 @@ html[data-dai-theme="light"] .dai-avatar-choice:focus-visible {
 @media(prefers-reduced-motion:reduce){
   .classic-live-chat-button{animation:none!important}
 }
+
+/* The native companion window is transparent; its document must be too.
+   Apply after theme styles so both themes and the auth bootstrap stay clear. */
+:root[data-dai-window="companion"],
+:root[data-dai-window="companion"] body,
+:root[data-dai-window="companion"] #root,
+:root[data-dai-window="companion"] .auth-shell {
+  background:transparent;
+}
+:root[data-dai-window="companion"] body { min-width:0; }

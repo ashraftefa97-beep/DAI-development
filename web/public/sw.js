@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dai-web-v39-20261006-desktop-auth-session';
+const CACHE_NAME = 'dai-web-v40-20261006-transparent-companion';
 const CORE = ['./', './preview.html', './dai-logo.svg', './auth-config.js', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
