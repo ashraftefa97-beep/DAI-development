@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
 import sharp from 'sharp';
 
 const require=createRequire(import.meta.url);
@@ -97,4 +98,30 @@ if(fs.existsSync(desktopIconSvg)){
     .png()
     .toFile(path.join(buildDir,'icon.png'));
   console.log('DAI desktop icon png ready.');
+
+  const sizes = [16, 24, 32, 48, 64, 128, 256];
+  const images = await Promise.all(sizes.map(size => sharp(desktopIconSvg).resize(size, size).png().toBuffer()));
+  const header = Buffer.alloc(6 + images.length * 16);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(images.length, 4);
+  let offset = header.length;
+  images.forEach((data, index) => {
+    const entry = 6 + index * 16;
+    header[entry] = sizes[index] === 256 ? 0 : sizes[index];
+    header[entry + 1] = header[entry];
+    header.writeUInt16LE(1, entry + 4);
+    header.writeUInt16LE(32, entry + 6);
+    header.writeUInt32LE(data.length, entry + 8);
+    header.writeUInt32LE(offset, entry + 12);
+    offset += data.length;
+  });
+  fs.writeFileSync(path.join(buildDir, 'icon.ico'), Buffer.concat([header, ...images]));
 }
+
+const fontDir = path.resolve(root, '../../web/font-src');
+const encodedFont = [0, 1, 2, 3, 4].map(index => fs.readFileSync(path.join(fontDir, `rabie-ar-0${index}.b64`), 'utf8').replace(/\s/g, '')).join('');
+const font = Buffer.from(encodedFont, 'base64');
+if (font.length !== 36912 || createHash('sha256').update(font).digest('hex') !== '9cd8ee5486dd8187b36f1442fa2aae1e172196d98696bd8ca6caee1e0db19e59') {
+  throw new Error('Rabie font checksum mismatch');
+}
+fs.writeFileSync(path.join(buildDir, 'rabie.woff2'), font);

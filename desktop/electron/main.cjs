@@ -1,6 +1,14 @@
 const { app, BrowserWindow, WebContentsView, ipcMain, shell, dialog, screen, desktopCapturer } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('node:fs');
+const { isGoogleAuthorizationUrl, sessionReturnUrl, startGoogleOAuth, waitForRendererSession } = require('./desktop-oauth.cjs');
+
+const hasInstanceLock = app.requestSingleInstanceLock();
+if (!hasInstanceLock) {
+  app.quit();
+  return;
+}
 
 const APP_URL = process.env.DAI_WEB_URL || 'https://ashraftefa97-beep.github.io/DAI-development/';
 const ALLOWED_ORIGIN = new URL(APP_URL).origin;
@@ -9,6 +17,60 @@ const SUPABASE_PUBLISHABLE_KEY =
   process.env.DAI_SUPABASE_PUBLISHABLE_KEY ||
   'sb_publishable_uo9ZnHKtD-aDpE_zSJTaJg_inIzQ_Gt';
 let mainWindow = null;
+let googleLoginBusy = false;
+let googleLoginAttempt = null;
+
+async function loginWithGoogleInBrowser() {
+  if (googleLoginBusy || !mainWindow || mainWindow.isDestroyed()) return;
+  googleLoginBusy = true;
+  const window = mainWindow;
+  try {
+    const attempt = await startGoogleOAuth({
+      authOrigin: SUPABASE_ORIGIN,
+      publishableKey: SUPABASE_PUBLISHABLE_KEY,
+      openExternal: url => shell.openExternal(url),
+      font: fs.readFileSync(path.join(__dirname, 'build', 'rabie.woff2')),
+    });
+    if (window.isDestroyed()) {
+      attempt.cancel();
+      return;
+    }
+    googleLoginAttempt = attempt;
+    const session = await googleLoginAttempt.result;
+    if (window.isDestroyed()) return;
+    await window.loadURL(sessionReturnUrl(APP_URL, session));
+    await waitForRendererSession(window.webContents, APP_URL, SUPABASE_ORIGIN, session);
+    if (window.isDestroyed()) return;
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+  } catch (error) {
+    if (window.isDestroyed()) return;
+    // Reload the login form so the original web button doesn't stay disabled.
+    await window.loadURL(APP_URL).catch(() => {});
+    if (window.isDestroyed()) return;
+    const detail = error?.message === 'oauth_timeout'
+      ? 'انتهى وقت محاولة الدخول. اضغط تسجيل الدخول بجوجل وحاول مرة أخرى.'
+      : error?.message === 'oauth_browser_failed'
+        ? 'تعذر فتح متصفحك المعتاد. تأكد إن عندك متصفح افتراضي ثم حاول مرة أخرى.'
+        : error?.message === 'oauth_session_not_saved'
+          ? 'حساب جوجل اتأكد، لكن ضي لم يستطع حفظ الجلسة. تأكد من اتصال الإنترنت وحاول مرة أخرى.'
+        : 'لم يكتمل تسجيل الدخول بجوجل. ارجع لضي وحاول مرة أخرى.';
+    await dialog.showMessageBox(window, {
+      type: 'info', title: 'DAI AI — ضي',
+      message: 'تسجيل الدخول بجوجل', detail, buttons: ['تمام'],
+    }).catch(() => {});
+  } finally {
+    googleLoginAttempt = null;
+    googleLoginBusy = false;
+  }
+}
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 let companionWindow = null;
 let embeddedBrowserView = null;
 let embeddedBrowserUrl = '';
@@ -605,6 +667,7 @@ function createCompanionWindow() {
   const height = 270;
 
   companionWindow = new BrowserWindow({
+    icon: path.join(__dirname, 'build', 'icon.png'),
     width,
     height,
     x: area.x + area.width - width - 24,
@@ -683,6 +746,7 @@ async function applyInstallerPreferences() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    icon: path.join(__dirname, 'build', 'icon.png'),
     width: 1280,
     height: 820,
     minWidth: 880,
@@ -700,14 +764,41 @@ function createWindow() {
     },
   });
 
-  mainWindow.once('ready-to-show', () => mainWindow.show());
-  mainWindow.loadURL(APP_URL);
+  const window = mainWindow;
+  window.once('ready-to-show', () => {
+    if (!window.isDestroyed()) window.show();
+  });
+  async function loadDai() {
+    try {
+      await window.loadURL(APP_URL);
+    } catch (error) {
+      if (window.isDestroyed() || error?.code === 'ERR_ABORTED') return;
+      window.show();
+      const { response } = await dialog.showMessageBox(window, {
+        type: 'error',
+        title: 'DAI AI — ضي',
+        message: 'تعذر الاتصال بضي',
+        detail: 'تأكد من اتصال الكمبيوتر بالإنترنت، ثم حاول مرة أخرى.',
+        buttons: ['إعادة المحاولة', 'إغلاق'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (window.isDestroyed()) return;
+      if (response === 0) void loadDai();
+      else window.close();
+    }
+  }
+  void loadDai();
 
   mainWindow.on('resize', layoutEmbeddedBrowser);
   mainWindow.on('maximize', layoutEmbeddedBrowser);
   mainWindow.on('unmaximize', layoutEmbeddedBrowser);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isGoogleAuthorizationUrl(url, SUPABASE_ORIGIN)) {
+      void loginWithGoogleInBrowser();
+      return { action: 'deny' };
+    }
     try {
       if (new URL(url).origin === ALLOWED_ORIGIN) return { action: 'allow' };
     } catch {}
@@ -717,6 +808,11 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (isGoogleAuthorizationUrl(url, SUPABASE_ORIGIN)) {
+      event.preventDefault();
+      void loginWithGoogleInBrowser();
+      return;
+    }
     try {
       const origin = new URL(url).origin;
       if (origin !== ALLOWED_ORIGIN && origin !== SUPABASE_ORIGIN) {
@@ -726,6 +822,13 @@ function createWindow() {
       }
     } catch {
       event.preventDefault();
+    }
+  });
+
+  mainWindow.webContents.on('will-redirect', (event, url) => {
+    if (isGoogleAuthorizationUrl(url, SUPABASE_ORIGIN)) {
+      event.preventDefault();
+      void loginWithGoogleInBrowser();
     }
   });
 
@@ -740,6 +843,7 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => {
+    googleLoginAttempt?.cancel();
     closeEmbeddedBrowser();
     mainWindow = null;
   });
@@ -990,6 +1094,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  googleLoginAttempt?.cancel();
   stopCompanionMotion();
   if (companionWanderTimer) clearInterval(companionWanderTimer);
   companionWanderTimer = null;

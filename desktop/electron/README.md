@@ -10,6 +10,8 @@ Desktop shell for DAI AI on Windows and macOS.
 
 All editions use the same DAI account, cloud conversations, voice experience, search and Classic DAI interface.
 
+Google login opens the system browser and returns through a one-time local PKCE callback. Each desktop return creates a fresh app document so Supabase can read and persist the session. The desktop shell confirms the new session was saved before finishing the return. Credentials stay in the URL fragment, outside server request URLs, and Supabase clears the fragment after import.
+
 ## Desktop capabilities
 
 ### Windows
